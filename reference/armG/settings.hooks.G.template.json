@@ -1,0 +1,13 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "command": "python3 __READBACK__/hook_register_userprompt.py", "timeout": 10}]}
+    ],
+    "SessionStart": [
+      {"matcher": "compact", "hooks": [{"type": "command", "command": "python3 __READBACK__/hook_register_sessionstart.py", "timeout": 10}]}
+    ],
+    "Stop": [
+      {"hooks": [{"type": "command", "command": "python3 __READBACK__/hook_register_stop.py", "timeout": 10}]}
+    ]
+  }
+}
