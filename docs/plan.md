@@ -1,3 +1,4 @@
+> Superseded in part 2026-11-15: steps 3-4 (Python port) are on hold pending docs/requirements.md; see docs/requirements-inputs.md.
 > Copied from random_llm_projects/claude_code_research/.scratch/rlp203-structured-register-approach.md on 2026-11-15; the research repo copy and this one may diverge: this repo's docs/plan.md is the build plan of record from this date.
 # Approach: build a structured decision register and wire grill-me into it (kaybenleroll/random_llm_projects#203)
 

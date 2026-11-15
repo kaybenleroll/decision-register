@@ -1,6 +1,6 @@
 # ADR 0001: Structured decision register for grill-me (kaybenleroll/random_llm_projects#203)
 
-Date: 2026-11-15. Status: **proposed** (Pass 2 findings F1-F12 patched; nothing built, created or run).
+Date: 2026-11-15. Status: proposed; PARTLY SUPERSEDED 2026-11-15 pending requirements — the base (Python port of arm G), language and state-location decisions are reopened by the user; see docs/requirements-inputs.md. Other decisions (Q2-Q8) stand unless the interview reopens them.
 
 Tags: [user] decided by the user; [verified] checked, source named; [assistant] my inference or default, reversible.
 Where the source material is silent: "not established".

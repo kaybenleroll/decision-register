@@ -1,16 +1,12 @@
 # decision-register
 
-- Purpose: build the structured decision register (MCP server + hooks plugin) for grill-me. Plan of record: docs/plan.md; decision: docs/adr/0001-structured-decision-register.md; reference code: reference/armG/ (read-only snapshot).
-- Work order: step 0 first (live checks of hook firing and hook scoping under `claude -p`, ~USD 0.07 estimate), then plan steps 3 and 4 (port arm G code, plugin packaging) per docs/plan.md requirements R1-R5.
+**Phase: requirements.** No source code until docs/requirements.md exists and the user has approved it. First task: a /grill-me interview of the user on the open design tensions in docs/requirements-inputs.md; then write docs/requirements.md, run /stress-test on it, then write ADR 0002 (superseding the base decision in ADR 0001) and a new plan.
+
+- Purpose: build the structured decision register for grill-me. Inputs: docs/requirements-inputs.md; history: docs/adr/0001-structured-decision-register.md, docs/plan.md (Python-port plan, partly superseded); reference code: reference/armG/ (read-only, reference only).
+- Work order (step 0 first, then steps 3-4 of docs/plan.md): SUPERSEDED by the requirements phase above.
 - Do NOT run the paid evaluation (plan steps 6-8) here; that happens in the research repo.
-- Do NOT change [user] decisions in the ADR/plan; flag conflicts in docs/status.md instead.
-- Thresholds, N=2 and the control arm (OQ1) are open and belong to the user.
-- Workflow: feature branches only; no commits to main after the initial seed; one PR per logical unit; tests green per commit; run tests before claiming done; verify claims by running.
-- No push or PR without the user's say.
-- Skill/hook/settings.json work in the user's dotfiles goes in kaybenleroll/dotfiles under their HARD RULE; do not edit ~/.claude here.
-- Register code issues live in this repo; #203 stays the umbrella in kaybenleroll/random_llm_projects (refer to it as `kaybenleroll/random_llm_projects#203`).
-- Temp files in .scratch/, not /tmp/.
-- Coordination with the research session is file-based through docs/status.md: append a dated entry after each completed step (what was done, what was verified/not, blockers, questions for the user).
-- Count/list claims about structured data (JSON, JSONL, YAML) come from scripts, not reading.
-- Write tests for each R1-R5 requirement per plan step 3.
-- UK English in prose.
+- Do NOT change [user] decisions in the ADR/plan; flag conflicts in docs/status.md.
+- Workflow: feature branches only; no commits to main; one PR per logical unit; no push or PR without the user's say; verify claims by running.
+- Skill/hook/settings.json work goes in kaybenleroll/dotfiles under their HARD RULE; do not edit ~/.claude here. Umbrella: `kaybenleroll/random_llm_projects#203`.
+- Coordination with the research session is file-based: append a dated entry to docs/status.md after each completed step.
+- Temp files in .scratch/, not /tmp/. Count/list claims about structured data come from scripts. UK English in prose.

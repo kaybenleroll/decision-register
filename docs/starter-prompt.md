@@ -4,8 +4,8 @@ Paste as the first message of the new session.
 
 ---
 
-You are starting the build session for the decision register. Read, in order: CLAUDE.md, docs/plan.md (sections a, b, requirements R1-R5, and d), docs/adr/0001-structured-decision-register.md, docs/status.md, reference/armG/README.md.
+You are starting the requirements phase of the decision register. Read, in order: CLAUDE.md, docs/requirements-inputs.md, docs/status.md, docs/adr/0001-structured-decision-register.md, docs/plan.md (context only; its Python-port plan is superseded), reference/armG/README.md (reference only).
 
-Then confirm your understanding in 10 lines or fewer, then continue straight on.
+Confirm your understanding in 10 lines or fewer. Then invoke /grill-me (via the Skill tool, inline) on the open design tensions in section E of docs/requirements-inputs.md, in the order given, one question at a time, recommending an answer each time.
 
-Do step 0 first (live checks of hook firing and hook scoping under `claude -p`). Report the results in docs/status.md as a dated entry, then stop and wait for the user before starting steps 3-4. Do not run the paid evaluation (steps 6-8). Ask before spending more than about USD 1 in total. Follow CLAUDE.md for workflow: feature branch, no push or PR without the user's say.
+Write no code. Ask before spending more than about USD 1 in total. Follow CLAUDE.md for workflow: feature branch, no push or PR without the user's say.
