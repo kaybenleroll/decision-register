@@ -1,0 +1,8 @@
+PASS A1: open=1 stale=2 after reopen; q2 resolved, q3 stale
+PASS A2: reopen on Open errors; unknown depends_on errors
+PASS A3: blocked, reason='2 open: q2,q3'
+PASS A4: model resolve rejected naming d1; user resolve ok
+PASS A5: model park of decision rejected; question park ok
+PASS A6: v=2+ts written; v1/mixed replay ok; v=3 fails naming line 5; state unchanged
+PASS A7: journal_schema=2
+7/7 passed

@@ -1,0 +1,11 @@
+{"image":"docker.io/library/node:lts-slim@sha256:a5a5adfee3013de54504e0e6aff49993acf7daed072e86be75b8818c0f6ac258 (node v26.13.1, npm 11.20.0)",
+"sdk":"@modelcontextprotocol/sdk 1.32.2 (official, released 2026-10-23) + zod 3",
+"protocol":"2025-06-18",
+"gates":{"hook_block":true,"container_build_clean":true,"protocol_ok":true},
+"start_ms_median":82.3,"start_ms_p95":85.2,"rss_mb":67.0,
+"artefact_bytes":752447,"needs_runtime":true,"build_s":0.125,
+"loc":{"src_nonblank":118,"core":99,"server":19,"tests":32},
+"deps_direct":2,"deps_transitive":95,
+"type_safety":"Resolved without answer is a compile error: State is a discriminated union, answer/source/rationale exist only on the Resolved variant (src/core.ts line 14). Caveat: tsc only; bundle is type-erased, MCP inputs checked at runtime by zod.",
+"test_friction":"node:test runs .ts directly (Node 26 type stripping); needed .ts import extensions and no parameter properties (erasable syntax only). No other friction; 6/6 pass in container.",
+"notes":"Used podman explicitly for every container command (never docker shim), per coordinator. Bundled with esbuild to one ESM file (all deps inlined, 735 KB); build_s = esbuild step only (median of 3: 132/125/124 ms), npm install and typecheck/tests excluded. Deps counts: runtime prod tree 95 transitive total (2 direct) per npm ls --omit=dev --all; dev adds typescript, esbuild, @types/node. Host runs node v26.10.0 vs container v26.13.1. Live check: first run failed to test (cwd=plugin dir made .mcp.json load as project server mcp__reg__*, hook did not fire); second run from a different cwd PASS: Stop blocked via check_stop (journal shows 2 block events, cap 2), status tool reported pid 1053978 chain=1 after first block, same process. Live spend USD 0.0056 + 0.0067 = 0.0123. Pathology: none. SDK awkwardness: ~19 lines glue, registerTool needs zod raw shapes; tool errors via isError result. Journaling note_prompt and block events was needed so resume reproduces user_prompts/chain."}
