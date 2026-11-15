@@ -9,4 +9,4 @@ Status: design complete, build not started.
 - Progress log: docs/status.md
 - Arm G reference code (read-only snapshot): reference/armG/
 
-Licence: none yet (private); decide at any public flip.
+MIT (see LICENSE).
