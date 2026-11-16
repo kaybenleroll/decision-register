@@ -64,3 +64,9 @@ Open items for the user:
 - For the user, at approval: REQ-13 ([user]) now has an [assistant] bookkeeping exception; `begin_interview` is refused while an unfinished journal exists; REQ-35 counts children of any status (no 'withdrawn' status exists); the 34 requirements still tagged [assistant] are listed in section 12.
 - Issues: #2 to #34 and dotfiles #552 to #556 predate this revision and still need updating; not done yet.
 - Nothing merged. PR #3 open.
+
+## 2026-11-16 (requirements approved)
+
+- Done: the user approved docs/requirements.md in their own words after a /query-walkthrough of four items. Decisions: Q1 = hooks keep `last_seen_session_id` and `prompt_seen` while no interview is active (REQ-13 bookkeeping exception accepted); Q2 = mutating calls and `begin_interview` are refused while an unfinished journal exists, until resume or discard (REQ-21, REQ-52); Q3 = a pending interview with no register call is stood down at its second Stop check, threshold of 2 to be revisited after the live smoke runs (REQ-27 rule 3); Q4 = REQ-35 counts all children of any status, no 'withdrawn' status.
+- Gates: #4 (approval) closed; #10 (names) still parked.
+- Not done: issues #2 to #34 and dotfiles #552 to #556 still predate the revisions.
