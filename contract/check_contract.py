@@ -66,8 +66,8 @@ def main():
     d = json.load(open(os.path.join(HERE, "tools.json")))
     defs = d["$defs"]
     fails, n_good, n_bad = [], 0, 0
-    if d["tool_schema"] != 2:
-        fails.append("tool_schema is %r, expected 2" % d["tool_schema"])
+    if d["tool_schema"] != 3:
+        fails.append("tool_schema is %r, expected 3" % d["tool_schema"])
     expected = {"begin_interview", "log_item", "resolve", "park", "reopen", "status", "resume",
                 "discard", "end_interview", "note_prompt", "skill_started", "check_stop"}
     if set(d["tools"]) != expected:
@@ -101,10 +101,12 @@ def main():
     missing = used - set(d["tools"])
     if missing:
         fails.append("spike-3 tool names missing from contract: %s" % sorted(missing))
-    # (b) tool_schema 2 is documented
-    for f in ("contract/CHANGES", "contract/runtime.md"):
-        if "tool_schema" not in open(os.path.join(ROOT, f)).read():
-            fails.append("%s does not mention tool_schema" % f)
+    # (b) the current tool_schema value is documented
+    ts = d["tool_schema"]
+    if not re.search(r"^tool_schema %d\b" % ts, open(os.path.join(ROOT, "contract/CHANGES")).read(), re.M):
+        fails.append("contract/CHANGES has no 'tool_schema %d' entry" % ts)
+    if "`tool_schema` is **%d**" % ts not in open(os.path.join(ROOT, "contract/runtime.md")).read():
+        fails.append("contract/runtime.md does not state tool_schema **%d**" % ts)
     print("tools: %d, good examples: %d, bad examples: %d, spike-3 names checked: %d"
           % (len(d["tools"]), n_good, n_bad, len(used)))
     for f in fails:

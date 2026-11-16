@@ -1,5 +1,5 @@
 {
- "tool_schema": 2,
+ "tool_schema": 3,
  "journal_schema": 2,
  "conventions": {
   "transport": "MCP over stdio, newline-delimited JSON-RPC 2.0; tools/call result.content[0].text carries the result; failures set result.isError true (a JSON-RPC error is also accepted by the suite).",
@@ -159,7 +159,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": true,
-   "description": "Register-mode start by the skill after its status probe (REQ-21). No session id: binds to last_seen_session_id (REQ-27 rule 1). A start while an interview is pending, active or complete in the same session is a no-op returning the existing interview id (REQ-22). Refused while an unfinished journal exists (REQ-52). Error on tool_schema mismatch names both values (REQ-77).",
+   "description": "Register-mode start by the skill after its status probe (REQ-21). No session id: binds to last_seen_session_id (REQ-27 rule 1). In state none it starts an interview into active (existing false). In state pending it engages it: pending becomes active, the id of the pending interview is returned, existing true (REQ-27 rule 3). In active or complete it is a no-op returning the existing id with the unchanged state and existing true; it does not return a complete interview to active (REQ-22, REQ-27). Refused while an unfinished journal exists (REQ-52). Error on tool_schema mismatch names both values (REQ-77).",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -185,14 +185,18 @@
     "additionalProperties": false,
     "required": [
      "interview_id",
-     "state"
+     "state",
+     "existing"
     ],
     "properties": {
      "interview_id": {
       "$ref": "#/$defs/id"
      },
      "state": {
-      "$ref": "#/$defs/state"
+      "enum": [
+       "active",
+       "complete"
+      ]
      },
      "existing": {
       "type": "boolean"
@@ -202,19 +206,19 @@
    "examples": {
     "input_good": [
      {
-      "tool_schema": 2,
+      "tool_schema": 3,
       "skill": "grill-me",
       "mode": "register"
      }
     ],
     "input_bad": [
      {
-      "tool_schema": 2,
+      "tool_schema": 3,
       "skill": "grill-me",
       "mode": "plain"
      },
      {
-      "tool_schema": 2,
+      "tool_schema": 3,
       "skill": "grill-me",
       "mode": "register",
       "session_id": "s1"
@@ -234,6 +238,16 @@
       "interview_id": "iv-1",
       "state": "active",
       "existing": false
+     },
+     {
+      "interview_id": "iv-1",
+      "state": "active",
+      "existing": true
+     },
+     {
+      "interview_id": "iv-1",
+      "state": "complete",
+      "existing": true
      }
     ],
     "result_bad": [
@@ -243,6 +257,20 @@
      },
      {
       "state": "active"
+     },
+     {
+      "interview_id": "iv-1",
+      "state": "pending",
+      "existing": true
+     },
+     {
+      "interview_id": "iv-1",
+      "state": "active"
+     },
+     {
+      "interview_id": "iv-1",
+      "state": "ended",
+      "existing": true
      }
     ]
    }
@@ -848,7 +876,7 @@
     "result_good": [
      {
       "server_version": "0.1.0",
-      "tool_schema": 2,
+      "tool_schema": 3,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -871,7 +899,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 2,
+      "tool_schema": 3,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -949,12 +977,12 @@
     "result_bad": [
      {
       "server_version": "0.1.0",
-      "tool_schema": 2,
+      "tool_schema": 3,
       "state": "none"
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 2,
+      "tool_schema": 3,
       "journal_schema": 2,
       "state": "running",
       "interview_id": null,
@@ -1317,7 +1345,7 @@
    "examples": {
     "input_good": [
      {
-      "tool_schema": 2,
+      "tool_schema": 3,
       "session_id": "s1",
       "skill": "grill-me"
      }
@@ -1328,7 +1356,7 @@
       "skill": "grill-me"
      },
      {
-      "tool_schema": 2,
+      "tool_schema": 3,
       "session_id": "s1"
      },
      {

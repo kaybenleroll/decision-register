@@ -18,6 +18,13 @@ fails if tool_schema, the tool list or any example drifts.
 Log (newest first)
 ------------------
 
+tool_schema 3  (review fixes after the three independent reviews, 2026-11-16)
+Entries are appended as the fixes land; all belong to this one bump.
+- begin_interview: in state pending it engages the interview (returns state
+  active, existing true); `existing` is now required and `state` is narrowed to
+  active|complete. Why: the old text made the hook-start plus begin_interview
+  route leave the interview pending and stood down (review S1-1).
+
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes
 0700/0600 and the temp-directory fallback. Run-time layout only; no tool name,
