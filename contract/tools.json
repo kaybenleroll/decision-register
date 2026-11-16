@@ -1206,22 +1206,43 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "End the interview (REQ-23). Refused while items are open unless abandon is true with a non-blank reason. end_kind: normal = active, nothing open; ended_incomplete_by_model = abandon true with a reason while items are open; ended_after_completion = complete interview; stood_down = mode plain on a pending interview. The journal-only kinds abandoned (session change) and the log-only kind interrupted are never returned by this tool. mode plain stands a pending interview down without flagging it incomplete (REQ-27 rule 3). The result state is the const ended (the transition just made); a later status reports none. Not a start-engaging call.",
+   "description": "End the interview (REQ-23). Refused while items are open unless abandon is true with a non-blank reason. end_kind: normal = active, nothing open; ended_incomplete_by_model = abandon true with a reason while items are open; ended_after_completion = complete interview; stood_down = mode plain on a pending interview. The journal-only kinds abandoned (session change) and the log-only kind interrupted are never returned by this tool. mode plain stands a pending interview down without flagging it incomplete (REQ-27 rule 3). The result state is the const ended (the transition just made); a later status reports none. Not a start-engaging call. Input is either {mode: plain} alone, or an optional abandon (true only) that must come with a reason, and a reason that must come with abandon. Per-state outcomes: see state_matrix.",
    "input": {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [],
-    "properties": {
-     "abandon": {
-      "type": "boolean"
+    "oneOf": [
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "mode"
+      ],
+      "properties": {
+       "mode": {
+        "const": "plain"
+       }
+      }
      },
-     "reason": {
-      "$ref": "#/$defs/nonblank"
-     },
-     "mode": {
-      "const": "plain"
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+       "abandon": {
+        "const": true
+       },
+       "reason": {
+        "$ref": "#/$defs/nonblank"
+       }
+      },
+      "dependentRequired": {
+       "abandon": [
+        "reason"
+       ],
+       "reason": [
+        "abandon"
+       ]
+      }
      }
-    }
+    ]
    },
    "result": {
     "type": "object",
@@ -1268,6 +1289,25 @@
      },
      {
       "reason": ""
+     },
+     {
+      "abandon": true
+     },
+     {
+      "reason": "User left"
+     },
+     {
+      "abandon": false,
+      "reason": "x"
+     },
+     {
+      "mode": "plain",
+      "abandon": true,
+      "reason": "x"
+     },
+     {
+      "mode": "plain",
+      "reason": "x"
      }
     ],
     "result_good": [
@@ -1544,7 +1584,8 @@
   {
    "tools": "end_interview",
    "when": "items open without abandon true and a reason",
-   "message_names": "the open item ids"
+   "message_names": "the open item ids",
+   "check": 11
   },
   {
    "tools": "resume",
@@ -1555,6 +1596,30 @@
    "tools": "note_prompt|skill_started|check_stop",
    "when": "call carries _meta claudecode/toolUseId",
    "message_names": "the tool name and 'hook-facing'"
+  },
+  {
+   "tools": "end_interview",
+   "when": "no interview exists (state none)",
+   "message_names": "no interview to end",
+   "check": 6
+  },
+  {
+   "tools": "end_interview",
+   "when": "state pending and mode plain is absent",
+   "message_names": "pending interview: use mode plain",
+   "check": 6
+  },
+  {
+   "tools": "end_interview",
+   "when": "mode plain in state active or complete",
+   "message_names": "mode plain applies only to a pending interview",
+   "check": 6
+  },
+  {
+   "tools": "end_interview",
+   "when": "abandon true while nothing is open (state active or complete)",
+   "message_names": "nothing is open: abandon is not needed",
+   "check": 6
   }
  ],
  "error_precedence": [
