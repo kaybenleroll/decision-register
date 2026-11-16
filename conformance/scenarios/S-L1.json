@@ -1,0 +1,99 @@
+{
+ "id": "S-L1",
+ "title": "journal layout, user-only permissions and archive move",
+ "req": [
+  "REQ-61",
+  "REQ-23",
+  "REQ-27"
+ ],
+ "pass_detail": "journal 600 in 700 project folder, pid 600, moved to archive/ 600 at end, pid gone",
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "grill me on this plan"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 2,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "tq1"
+   }
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key",
+     "mode": "700"
+    },
+    {
+     "path": "$key/$iid.jsonl",
+     "mode": "600"
+    },
+    {
+     "path": "$key/$iid.pid",
+     "mode": "600"
+    },
+    {
+     "path": "$key/archive/$iid.jsonl",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "normal"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/$iid.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/$iid.pid",
+     "exists": false
+    },
+    {
+     "path": "$key/archive",
+     "mode": "700"
+    },
+    {
+     "path": "$key/archive/$iid.jsonl",
+     "mode": "600"
+    }
+   ]
+  }
+ ]
+}

@@ -18,6 +18,11 @@ fails if tool_schema, the tool list or any example drifts.
 Log (newest first)
 ------------------
 
+(no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
+project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes
+0700/0600 and the temp-directory fallback. Run-time layout only; no tool name,
+parameter, result shape or journal event shape changes, so tool_schema stays 2.
+
 tool_schema 2  (slice C1 walkthrough, 2026-11-16)  Journal format change, and a
 result-shape narrowing: `interrupted` removed from the journal `end` event's
 end_kind enum and from the `end_interview` result enum (a crash or server exit

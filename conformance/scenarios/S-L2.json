@@ -1,0 +1,59 @@
+{
+ "id": "S-L2",
+ "title": "without CLAUDE_PLUGIN_DATA the journal uses the temp directory with the same layout",
+ "req": [
+  "REQ-61"
+ ],
+ "pass_detail": "journal at <TMPDIR>/decision-register-data/<key>/<id>.jsonl, folder 700, file 600",
+ "env": {
+  "TMPDIR": "$dir"
+ },
+ "unset_env": [
+  "CLAUDE_PLUGIN_DATA"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "grill me on this plan"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 2,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "tq1"
+   }
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "",
+     "mode": "700"
+    },
+    {
+     "path": "$key",
+     "mode": "700"
+    },
+    {
+     "path": "$key/$iid.jsonl",
+     "mode": "600"
+    }
+   ]
+  }
+ ]
+}

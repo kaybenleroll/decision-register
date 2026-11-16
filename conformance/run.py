@@ -15,7 +15,7 @@ Contract: contract/runtime.md. The suite starts the command directly, sets CLAUD
 CLAUDE_PROJECT_DIR to fresh per-scenario directories under .scratch/conformance/ and reads journals
 only below CLAUDE_PLUGIN_DATA. Scenario files: conformance/scenarios/*.json (format: conformance/README.md).
 """
-import fnmatch, glob, importlib.util, json, os, queue, re, shutil, subprocess, sys, threading, time
+import fnmatch, glob, hashlib, importlib.util, json, os, queue, re, shutil, subprocess, sys, threading, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -25,6 +25,14 @@ SCRATCH = os.path.join(ROOT, ".scratch", "conformance")
 TIMEOUT = 20
 MODEL_META = {"claudecode/toolUseId": "toolu_conformance"}
 TS_RE = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|\+00:00)$")
+
+
+FALLBACK_DIR = "decision-register-data"
+
+
+def project_key(proj):
+    """contract/runtime.md: first 16 lowercase hex digits of SHA-256 of the UTF-8 bytes of CLAUDE_PROJECT_DIR."""
+    return hashlib.sha256(proj.encode("utf-8")).hexdigest()[:16]
 
 
 def load_contract():
@@ -50,6 +58,7 @@ def load_scenarios():
 
 class Server:
     def __init__(self, cmd, env, errpath):
+        self.env = env
         self.errf = open(errpath, "ab")
         self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errf,
                                   env=env, text=True, bufsize=1)
@@ -150,7 +159,7 @@ class Run:
         self.proj = os.path.join(self.dir, "project")
         os.makedirs(self.data)
         os.makedirs(self.proj)
-        self.vars = {}
+        self.vars = {"key": project_key(self.proj), "dir": self.dir}
         self.lines = None
         self.srv = None
         self.start()
@@ -158,17 +167,36 @@ class Run:
     def start(self):
         env = dict(os.environ, CLAUDE_PLUGIN_DATA=self.data, CLAUDE_PROJECT_DIR=self.proj)
         for k, v in self.scen.get("env", {}).items():
-            env[k] = v
+            env[k] = v.replace("$dir", self.dir) if isinstance(v, str) else v
         for k in self.scen.get("unset_env", []):
             env.pop(k, None)
         self.srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"))
 
     def journal_path(self):
-        iid = self.vars["iid"]
-        hits = [p for p in glob.glob(os.path.join(self.data, "**", iid + ".jsonl"), recursive=True)
-                if os.sep + "archive" + os.sep not in p]
-        assert len(hits) == 1, "journal for %s: found %s below the data directory" % (iid, hits)
-        return hits[0]
+        """Journal path per contract/runtime.md: <data>/<project key>/<id>.jsonl (active) or
+        <data>/<project key>/archive/<id>.jsonl (archived); data is the temp fallback when
+        CLAUDE_PLUGIN_DATA is unset."""
+        p = os.path.join(self.root(), self.vars["key"], self.vars["iid"] + ".jsonl")
+        assert os.path.isfile(p), "journal not found at %s" % p
+        return p
+
+    def root(self):
+        if "CLAUDE_PLUGIN_DATA" in self.srv.env:
+            return self.srv.env["CLAUDE_PLUGIN_DATA"]
+        return os.path.join(self.srv.env.get("TMPDIR", "/tmp"), FALLBACK_DIR)
+
+    def do_fs(self, st):
+        root = self.root()
+        for a in st["assert"]:
+            rel = a["path"].replace("$key", self.vars["key"]).replace("$iid", self.vars["iid"])
+            p = os.path.join(root, rel) if rel else root
+            want = a.get("exists", True)
+            if os.path.exists(p) != want:
+                raise AssertionError("%s %s" % (p, "missing" if want else "should not exist"))
+            if want and "mode" in a:
+                got = "%o" % (os.stat(p).st_mode & 0o777)
+                if got != a["mode"]:
+                    raise AssertionError("%s mode %s, expected %s" % (p, got, a["mode"]))
 
     def step(self, st):
         op = st.get("op", "call")
@@ -183,6 +211,8 @@ class Run:
             self.start()
         elif op == "journal":
             self.do_journal(st)
+        elif op == "fs":
+            self.do_fs(st)
         elif op == "status_consistent":
             self.do_call({"call": "status", "args": {}})
         else:
@@ -334,6 +364,9 @@ def validate(scenarios, tools, validator):
             elif op == "journal":
                 if st.get("action") not in ("load", "check_events", "write"):
                     errs.append("%s: bad journal action" % where)
+            elif op == "fs":
+                if not st.get("assert"):
+                    errs.append("%s: fs step needs assert" % where)
             elif op not in ("restart", "stop", "start", "status_consistent"):
                 errs.append("%s: unknown op %r" % (where, op))
     return errs
