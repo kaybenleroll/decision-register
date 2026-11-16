@@ -5,7 +5,6 @@
   "REQ-60",
   "REQ-61"
  ],
- "pass_detail": "v=2+ts written; v1 and mixed replay ok; v=3 fails naming the line; live server recovers",
  "steps": [
   {
    "call": "note_prompt",

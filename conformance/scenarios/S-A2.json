@@ -6,7 +6,6 @@
   "REQ-38",
   "REQ-30"
  ],
- "pass_detail": "reopen on Open errors; unknown depends_on errors",
  "steps": [
   {
    "call": "note_prompt",

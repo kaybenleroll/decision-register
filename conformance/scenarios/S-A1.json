@@ -5,7 +5,6 @@
   "REQ-36",
   "REQ-38"
  ],
- "pass_detail": "open=1 stale=2 after reopen; q2 resolved, q3 stale",
  "steps": [
   {
    "call": "note_prompt",

@@ -6,7 +6,6 @@
   "REQ-43",
   "REQ-45"
  ],
- "pass_detail": "blocked, reason names q2 and q3",
  "steps": [
   {
    "call": "note_prompt",

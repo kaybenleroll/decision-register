@@ -4,7 +4,6 @@
  "req": [
   "REQ-60"
  ],
- "pass_detail": "journal_schema=2",
  "steps": [
   {
    "call": "note_prompt",

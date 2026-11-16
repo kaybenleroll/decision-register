@@ -6,7 +6,6 @@
   "REQ-23",
   "REQ-27"
  ],
- "pass_detail": "journal 600 in 700 project folder, pid 600, moved to archive/ 600 at end, pid gone",
  "steps": [
   {
    "call": "note_prompt",

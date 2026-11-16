@@ -5,7 +5,6 @@
   "REQ-33",
   "REQ-34"
  ],
- "pass_detail": "model park of decision rejected; question park ok",
  "steps": [
   {
    "call": "note_prompt",

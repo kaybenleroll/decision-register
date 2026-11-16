@@ -4,7 +4,6 @@
  "req": [
   "REQ-61"
  ],
- "pass_detail": "journal at <TMPDIR>/decision-register-data/<key>/<id>.jsonl, folder 700, file 600",
  "env": {
   "TMPDIR": "$dir"
  },

@@ -5,7 +5,6 @@
   "REQ-32",
   "REQ-34"
  ],
- "pass_detail": "model resolve rejected naming d1; user resolve ok",
  "steps": [
   {
    "call": "note_prompt",

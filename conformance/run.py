@@ -209,12 +209,12 @@ def check_assert(name, a, body, vars_):
             raise AssertionError("%s: not blocked: %s" % (name, json.dumps(body)[:150]))
         if not want and "decision" in body:
             raise AssertionError("%s: a decision was returned: %s" % (name, json.dumps(body)[:150]))
-        return
+        return "%s decision=%s" % (name, body.get("decision", "none"))
     if op == "absent":
         try:
             val = dig(body, path)
         except (KeyError, IndexError, ValueError):
-            return
+            return "%s absent" % where
         raise AssertionError("%s should be absent, is %r" % (where, val))
     val = body if path is None else dig(body, path)
     if op == "eq" and val != want:
@@ -231,6 +231,7 @@ def check_assert(name, a, body, vars_):
         raise AssertionError("%s has length %d, expected %r" % (where, len(val), want))
     if op == "ge" and not val >= want:
         raise AssertionError("%s is %r, expected at least %r" % (where, val, want))
+    return "%s=%s" % (where, json.dumps(val)[:60])
 
 
 class Run:
@@ -247,6 +248,7 @@ class Run:
         self.lines = None
         self.srv = None
         self.env = None
+        self.obs = []  # observed values behind each passed assertion, for the TAP detail
 
     def start(self):
         env = dict(os.environ, CLAUDE_PLUGIN_DATA=self.data, CLAUDE_PROJECT_DIR=self.proj)
@@ -293,6 +295,9 @@ class Run:
                 got = "%o" % (os.stat(p).st_mode & 0o777)
                 if got != a["mode"]:
                     raise AssertionError("%s mode %s, expected %s" % (p, got, a["mode"]))
+                self.obs.append("%s mode %s" % (a["path"] or "<data root>", got))
+            elif not want:
+                self.obs.append("%s absent" % a["path"])
 
     def step(self, st):
         op = st.get("op", "call")
@@ -353,7 +358,7 @@ class Run:
         for var, path in st.get("save", {}).items():
             self.vars[var] = dig(body, path)
         for a in st.get("assert", []):
-            check_assert(name, a, body, self.vars)
+            self.obs.append(check_assert(name, a, body, self.vars))
 
     def do_journal(self, st):
         action = st["action"]
@@ -363,6 +368,7 @@ class Run:
                 self.lines = [l.rstrip("\n") for l in f if l.strip()]
             self.vars["n"] = len(self.lines)
             self.vars["n1"] = str(len(self.lines) + 1)
+            self.obs.append("journal has %d events" % len(self.lines))
         elif action == "check_events":
             evs = [json.loads(l) for l in self.lines]
             assert evs and all(e.get("v") == 2 for e in evs), "events lack v=2: %s" % self.lines[:1]
@@ -414,7 +420,7 @@ def run_scenario(cmd, scen, tools, validator):
         for st in scen["steps"]:
             r.step(st)
         r.close()
-        return True, scen.get("pass_detail", "")
+        return True, "; ".join(r.obs)[:300]
     except Exception as e:
         return False, "%s: %s" % (type(e).__name__, str(e).replace("\n", " ")[:300])
     finally:
@@ -423,6 +429,50 @@ def run_scenario(cmd, scen, tools, validator):
 
 
 # ---------------------------------------------------------------- static validation
+
+def placeholder(schema, defs):
+    """A value satisfying `schema`, used for a "$variable" argument whose real value is only known at run time."""
+    while "$ref" in schema:
+        schema = defs[schema["$ref"].split("/")[-1]]
+    if "const" in schema:
+        return schema["const"]
+    if "enum" in schema:
+        return schema["enum"][0]
+    if "oneOf" in schema:
+        return placeholder(schema["oneOf"][-1], defs)
+    ty = schema.get("type")
+    if ty == "integer" or ty == "number":
+        return max(1, schema.get("minimum", 1))
+    if ty == "boolean":
+        return True
+    if ty == "array":
+        return []
+    if ty == "object":
+        return {}
+    if ty == "null":
+        return None
+    pat = schema.get("pattern", "")
+    return "q1" if pat.startswith("^[A-Za-z0-9_.-]") else "x"  # an id, else any non-blank single-line text
+
+
+def fill_variables(args, schema, defs):
+    """Replace "$name" argument values by type-appropriate placeholders, so every other argument is still validated."""
+    while isinstance(schema, dict) and "$ref" in schema:
+        schema = defs[schema["$ref"].split("/")[-1]]
+    if isinstance(args, str) and re.match(r"^\$[A-Za-z_]\w*$", args):
+        return placeholder(schema, defs)
+    if isinstance(args, list):
+        sub = schema.get("items", {}) if isinstance(schema, dict) else {}
+        return [fill_variables(x, sub, defs) for x in args]
+    if isinstance(args, dict):
+        props = schema.get("properties", {}) if isinstance(schema, dict) else {}
+        if isinstance(schema, dict) and "oneOf" in schema:  # end_interview: pick the branch that knows every key
+            for br in schema["oneOf"]:
+                if set(args) <= set(br.get("properties", {})):
+                    props = br["properties"]
+        return {k: fill_variables(v, props.get(k, {}), defs) for k, v in args.items()}
+    return args
+
 
 STEP_KEYS = {
     "call": {"op", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert"},
@@ -464,7 +514,7 @@ def validate_assert(where, a, errs):
 
 def validate(scenarios, tools, validator):
     errs, ids = [], set()
-    top = {"id", "title", "req", "steps", "env", "unset_env", "pass_detail"}
+    top = {"id", "title", "req", "steps", "env", "unset_env"}
     for s in scenarios:
         f = s["_file"]
         for k in s:
@@ -499,8 +549,8 @@ def validate(scenarios, tools, validator):
                     continue
                 tool = tools["tools"][name]
                 args = st.get("args", {})
-                if expect == "ok" and not any(
-                        isinstance(v, str) and v.startswith("$") for v in json.dumps(args).split('"')):
+                if expect == "ok":
+                    args = fill_variables(args, tool["input"], tools["$defs"])
                     for e in validator(args, tool["input"], tools["$defs"]):
                         errs.append("%s: %s args violate tools.json: %s" % (where, name, e))
                 if tool["audience"] == "hook" and st.get("meta") not in (None, False) and expect == "ok":
