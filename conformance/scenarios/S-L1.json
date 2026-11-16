@@ -18,7 +18,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 2,
+    "tool_schema": 3,
     "skill": "grill-me",
     "mode": "register"
    },
