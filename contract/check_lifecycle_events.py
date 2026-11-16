@@ -52,7 +52,8 @@ d = json.load(open(os.path.join(ROOT, "contract/tools.json")))
 tk = d["tools"]["end_interview"]["result"]["properties"]["end_kind"]["enum"]
 jk = re.search(r"\| `end` \| `end_kind` \(([^)]*)\)", jr).group(1)
 jk = re.findall(r"`(\w+)`", jk)
-if tk != jk: fails.append("end_kind enums differ: tools.json %s journal.md %s" % (tk, jk))
+# the tool result never returns `abandoned` (session change only); every other journal kind must be returnable
+if set(jk) - set(tk) != {"abandoned"} or set(tk) - set(jk): fails.append("end_kind enums differ: tools.json %s journal.md %s (only `abandoned` may be journal-only)" % (tk, jk))
 if "interrupted" in jk: fails.append("interrupted is in the journal end enum")
 for f in fails: print("GAP/FAIL", f)
 print("PASS" if not fails else "FAIL")

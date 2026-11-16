@@ -29,6 +29,11 @@ Entries are appended as the fixes land; all belong to this one bump.
   REQ-40/REQ-71 identical behaviour).
 - Journal flush: the queue is also flushed on stdin EOF (user decision), not
   only at check_stop and at end. Why: a graceful exit must lose no event.
+- State enums: status.state is none|pending|active|complete (an ended
+  interview reports none, REQ-27 "none: entered ... after ended"); resume.state
+  is the const active; the end_interview result end_kind no longer lists
+  `abandoned`, which is journal-only (session change). Why: unreachable and
+  ambiguous values let two implementations diverge (review S2-5).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes

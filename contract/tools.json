@@ -44,8 +44,7 @@
     "none",
     "pending",
     "active",
-    "complete",
-    "ended"
+    "complete"
    ]
   },
   "toolSchema": {
@@ -705,7 +704,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state, the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable, and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7). The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale); check_contract.py checks this on every good example and C2 scenarios assert it.",
+   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; after an interview ends the state is none, never ended), the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable, and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7). The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale); check_contract.py checks this on every good example and C2 scenarios assert it.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -1003,6 +1002,29 @@
       "last_event": 0,
       "resumable": null,
       "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "ended",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": null,
+      "version_mismatch": null
      }
     ]
    }
@@ -1012,7 +1034,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Resume an unfinished journal (REQ-52): accepted only in state none or pending; rebinds to last_seen_session_id; claims the pid file exclusively. id may be omitted when exactly one unfinished journal exists; when several exist the error lists them. Replay failure names the 1-based line number and leaves state unchanged (REQ-60). Not a start-engaging call.",
+   "description": "Resume an unfinished journal (REQ-52): accepted only in state none or pending; rebinds to last_seen_session_id; claims the pid file exclusively. id may be omitted when exactly one unfinished journal exists; when several exist the error lists them. Replay failure names the 1-based line number and leaves state unchanged (REQ-60). The result state is always active (a journal whose last events include complete replays to active; the complete state is not restored). Not a start-engaging call.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -1037,7 +1059,7 @@
       "$ref": "#/$defs/id"
      },
      "state": {
-      "$ref": "#/$defs/state"
+      "const": "active"
      },
      "last_event": {
       "type": "integer",
@@ -1105,6 +1127,17 @@
      {
       "interview_id": "iv-1",
       "state": "active"
+     },
+     {
+      "interview_id": "iv-1",
+      "state": "complete",
+      "last_event": 7,
+      "items": {
+       "open": 0,
+       "resolved": 1,
+       "parked": 0,
+       "stale": 0
+      }
      }
     ]
    }
@@ -1172,7 +1205,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "End the interview (REQ-23). Refused while items are open unless abandon is true with a non-blank reason. end_kind: normal = active, nothing open; ended_incomplete_by_model = abandon true with a reason while items are open; ended_after_completion = complete interview; stood_down = mode plain on a pending interview; abandoned = session change only (never returned by this tool); interrupted is a decision-log kind and never returned. mode plain stands a pending interview down without flagging it incomplete (REQ-27 rule 3). Not a start-engaging call.",
+   "description": "End the interview (REQ-23). Refused while items are open unless abandon is true with a non-blank reason. end_kind: normal = active, nothing open; ended_incomplete_by_model = abandon true with a reason while items are open; ended_after_completion = complete interview; stood_down = mode plain on a pending interview. The journal-only kinds abandoned (session change) and the log-only kind interrupted are never returned by this tool. mode plain stands a pending interview down without flagging it incomplete (REQ-27 rule 3). The result state is the const ended (the transition just made); a later status reports none. Not a start-engaging call.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -1209,7 +1242,6 @@
        "normal",
        "ended_after_completion",
        "ended_incomplete_by_model",
-       "abandoned",
        "stood_down"
       ]
      }
@@ -1249,6 +1281,11 @@
       "interview_id": "iv-1",
       "state": "ended",
       "end_kind": "finished"
+     },
+     {
+      "interview_id": "iv-1",
+      "state": "ended",
+      "end_kind": "abandoned"
      }
     ]
    }

@@ -48,7 +48,7 @@ Replay applies the REQ-31 checks (non-blank answer and rationale, single-line ra
 | `ended_after_completion` | a complete interview ends by `end_interview`, a session change or server exit (REQ-23, REQ-26); never downgraded | `register` |
 | `stood_down` | a pending interview ends by `end_interview` with `mode: plain` (mode `plain`), by its second Stop check with no model-facing register call (mode `not_engaged`), or by a session change (REQ-27 rule 3, REQ-26) | `plain` or `not_engaged` |
 
-`interrupted` (server exit or crash on an active, not-complete interview) is a decision-log kind only: no `end` event is written and the journal stays `unfinished` (REQ-27 rule 5, REQ-62). The `end_interview` tool result therefore never returns it.
+`interrupted` (server exit or crash on an active, not-complete interview) is a decision-log kind only: no `end` event is written and the journal stays `unfinished` (REQ-27 rule 5, REQ-62). The `end_interview` tool result never returns `interrupted` or `abandoned` (tools.json keeps its own four-value enum; the journal enum has five). After an interview ends, `status.state` is `none`.
 
 Every row and rule of the REQ-27 table maps to at least one of the 13 event names above; the frozen names are checked by `contract/check_lifecycle_events.py`.
 
