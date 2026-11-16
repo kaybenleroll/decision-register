@@ -1,0 +1,138 @@
+{
+ "id": "S-A3",
+ "title": "finish gate blocks with Stale items open and names them",
+ "req": [
+  "REQ-42",
+  "REQ-43",
+  "REQ-45"
+ ],
+ "pass_detail": "blocked, reason names q2 and q3",
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "grill me on this plan"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 2,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "tq1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "tq2",
+    "depends_on": [
+     "q1"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q3",
+    "kind": "question",
+    "text": "tq3",
+    "depends_on": [
+     "q2"
+    ]
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q3",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "q1",
+    "reason": "r"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 2
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "S1",
+    "last_assistant_message": "done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q2"
+    },
+    {
+     "path": "reason",
+     "contains": "q3"
+    }
+   ]
+  }
+ ]
+}

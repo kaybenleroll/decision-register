@@ -1,0 +1,78 @@
+{
+ "id": "S-A5",
+ "title": "model park of a decision is rejected; model park of a question succeeds",
+ "req": [
+  "REQ-33",
+  "REQ-34"
+ ],
+ "pass_detail": "model park of decision rejected; question park ok",
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "grill me on this plan"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 2,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d1",
+    "kind": "decision",
+    "text": "td1"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "d1",
+    "reason": "r",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": "d1"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "tq1"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q1",
+    "reason": "r",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}

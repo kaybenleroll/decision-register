@@ -1,0 +1,79 @@
+{
+ "id": "S-A4",
+ "title": "model resolve of a decision is rejected; user resolve after a user prompt succeeds",
+ "req": [
+  "REQ-32",
+  "REQ-34"
+ ],
+ "pass_detail": "model resolve rejected naming d1; user resolve ok",
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "grill me on this plan"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 2,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d1",
+    "kind": "decision",
+    "text": "td1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d1",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "mention": "d1"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "yes, use option b"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d1",
+    "answer": "a",
+    "source": "user",
+    "rationale": "r"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}

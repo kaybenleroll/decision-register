@@ -1,0 +1,42 @@
+{
+ "id": "S-A7",
+ "title": "status reports journal_schema 2",
+ "req": [
+  "REQ-60"
+ ],
+ "pass_detail": "journal_schema=2",
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "grill me on this plan"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 2,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "journal_schema",
+     "eq": 2
+    },
+    {
+     "path": "tool_schema",
+     "eq": 2
+    }
+   ]
+  }
+ ]
+}

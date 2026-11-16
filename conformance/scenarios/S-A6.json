@@ -1,0 +1,207 @@
+{
+ "id": "S-A6",
+ "title": "journal carries v=2 and ts; v1 and mixed journals replay; v=3 fails resume naming the line",
+ "req": [
+  "REQ-60",
+  "REQ-61"
+ ],
+ "pass_detail": "v=2+ts written; v1 and mixed replay ok; v=3 fails naming the line; live server recovers",
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "grill me on this plan"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 2,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "tq1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "tq2"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "want": "items"
+   }
+  },
+  {
+   "op": "stop"
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "check_events"
+  },
+  {
+   "op": "journal",
+   "action": "write",
+   "form": "v1_all"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "resume please"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": "$want"
+    }
+   ]
+  },
+  {
+   "op": "stop"
+  },
+  {
+   "op": "journal",
+   "action": "write",
+   "form": "v1_but_last"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "resume please"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": "$want"
+    }
+   ]
+  },
+  {
+   "op": "stop"
+  },
+  {
+   "op": "journal",
+   "action": "write",
+   "form": "orig_plus_v3"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "S1",
+    "prompt": "resume please"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid"
+   },
+   "expect": "error",
+   "mention": "$n1"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "write",
+   "form": "orig"
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": "$want"
+    }
+   ]
+  }
+ ]
+}
