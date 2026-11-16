@@ -52,6 +52,11 @@ Entries are appended as the fixes land; all belong to this one bump.
   decision-item answer by the model through log_item (REQ-34), per-prompt budget
   spent and volunteered-answer cap (REQ-32); every row now carries `check`, its
   number in error_precedence. Why: required rejections had no row (S2-8).
+- Single-line patterns: the rationale pattern (new $defs.oneline) and the id
+  pattern reject a trailing newline and the line separators VT, FF, NEL, U+2028,
+  U+2029; a trailing `$` means end of string and the Python checker translates
+  it to \Z. Why: Python's `$` matched "ok\n" while ECMAScript/Rust did not, so
+  suite and servers disagreed (review S3-1).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes

@@ -8,7 +8,8 @@
   "ids": "Item ids match ^[A-Za-z0-9_.-]{1,64}$. Statuses are capitalised (Open, Resolved, Parked, Stale); the items counts in status use lower-case keys.",
   "unknown_arguments": "Input schemas set additionalProperties false: an unknown argument is an error, so a model-facing tool cannot be handed a session id.",
   "errors": "Every domain failure (invalid arguments, refused transition, unknown id, rule violation, wrong state, unfinished journal, mismatch, _meta rejection) is a tools/call result with isError true and a single text content item holding a plain-text message that contains the substrings named in the errors table; it is never a JSON-RPC error. JSON-RPC errors are only for a malformed protocol request (unparseable JSON, unknown method, unknown tool name, malformed params envelope). A failing call changes no state and writes no journal event.",
-  "no_effect_on_error": "A call that returns an error changes nothing: it does not start an interview, engage a pending one, return a complete one to active, change a counter or cap, or write a journal event. Hook-facing calls that are rejected (row 2 or 3) do not record last_seen_session_id or count as hook calls."
+  "no_effect_on_error": "A call that returns an error changes nothing: it does not start an interview, engage a pending one, return a complete one to active, change a counter or cap, or write a journal event. Hook-facing calls that are rejected (row 2 or 3) do not record last_seen_session_id or count as hook calls.",
+  "patterns": "A trailing $ in a pattern means end of string and does not match before a final newline: ECMAScript and Rust regex already behave so; Python's re does not, so contract/check_contract.py (and any Python suite code) must translate a trailing $ to \\Z. Single-line fields (rationale, ids) therefore reject a trailing newline, and the oneline definition also rejects the line separators VT, FF, NEL, U+2028 and U+2029."
  },
  "$defs": {
   "id": {
@@ -152,6 +153,10 @@
      ]
     }
    }
+  },
+  "oneline": {
+   "type": "string",
+   "pattern": "^[^\\r\\n\\x0b\\x0c\\x85\\u2028\\u2029]*\\S[^\\r\\n\\x0b\\x0c\\x85\\u2028\\u2029]*$"
   }
  },
  "tools": {
@@ -315,8 +320,7 @@
       "$ref": "#/$defs/source"
      },
      "rationale": {
-      "type": "string",
-      "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$"
+      "$ref": "#/$defs/oneline"
      }
     },
     "dependentRequired": {
@@ -417,6 +421,25 @@
       "kind": "question",
       "text": "t",
       "source": "model"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "answer": "a",
+      "source": "model",
+      "rationale": "trailing newline\n"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "answer": "a",
+      "source": "model",
+      "rationale": "line sep"
+     },
+     {
+      "id": "q1\n",
+      "kind": "question",
+      "text": "t"
      }
     ],
     "result_good": [
@@ -466,8 +489,7 @@
       "$ref": "#/$defs/source"
      },
      "rationale": {
-      "type": "string",
-      "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$"
+      "$ref": "#/$defs/oneline"
      }
     }
    },
@@ -524,6 +546,12 @@
       "answer": "a",
       "source": "user",
       "rationale": "r"
+     },
+     {
+      "id": "q1",
+      "answer": "a",
+      "source": "user",
+      "rationale": "r\n"
      }
     ],
     "result_good": [

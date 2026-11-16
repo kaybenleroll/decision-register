@@ -19,6 +19,11 @@ def is_type(v, t):
     return isinstance(v, TYPES[t])
 
 
+def pattern_py(p):
+    """A trailing $ means end of string (ECMAScript and Rust semantics); Python's $ also matches before a final newline."""
+    return p[:-1] + r"\Z" if p.endswith("$") else p
+
+
 def check(v, s, defs, path="$"):
     """Return a list of error strings (empty when v satisfies s)."""
     if "$ref" in s:
@@ -37,7 +42,7 @@ def check(v, s, defs, path="$"):
     if isinstance(v, str):
         if "minLength" in s and len(v) < s["minLength"]:
             e.append("%s: too short" % path)
-        if "pattern" in s and not re.search(s["pattern"], v):
+        if "pattern" in s and not re.search(pattern_py(s["pattern"]), v):
             e.append("%s: pattern" % path)
     if isinstance(v, int) and not isinstance(v, bool) and "minimum" in s and v < s["minimum"]:
         e.append("%s: below minimum" % path)
