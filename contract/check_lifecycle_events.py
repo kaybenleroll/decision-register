@@ -110,7 +110,8 @@ for k in WRITTEN:
         fails.append("pinned event %s is no longer in journal.md" % k)
 
 # ---- derive: REQ-27 rows, clauses, rules
-rows = re.findall(r"^\| (none|pending|active|complete|ended|unfinished)(?: \(journal\))? \|(.*)\|$", req, re.M)
+tbl = req.split("| State | Entered by")[1].split("\n\n")[0]
+rows = re.findall(r"^\| ([a-z]+)(?: \(journal\))? \|(.*)\|$", tbl.split("\n", 1)[1], re.M)  # every row, whatever its name
 states = [s for s, _ in rows]
 seen = set()
 for st, rest in rows:
