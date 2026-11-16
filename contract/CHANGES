@@ -102,6 +102,13 @@ Entries are appended as the fixes land; all belong to this one bump.
   directory behaviour pinned (fail open, in-memory continues, retry). Why:
   REQ-50 fail-open was unspecified for storage failure (review S3-8).
 
+(no bump, 2026-11-16, conformance review S2-7)  contract/journal.schema.json is
+the machine-readable form of journal.md's envelope and 13 event kinds (JSON
+Schema subset, with good and bad examples); check_contract.py ties it to the
+journal.md event table, and the conformance runner validates every journal line
+against it. It restates the existing journal shape and changes none, so
+tool_schema stays 3 and journal_schema stays 2.
+
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes
 0700/0600 and the temp-directory fallback. Run-time layout only; no tool name,
