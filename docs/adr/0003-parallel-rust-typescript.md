@@ -1,6 +1,6 @@
 # ADR 0003: Build Rust and TypeScript in parallel, then retire one
 
-Date: 2026-11-16. Status: Proposed.
+Date: 2026-11-16. Status: Proposed. DRAFT, gate decisions folded 2026-11-16, awaiting the user's review of the diff and approval.
 
 Tags as in docs/requirements.md: [user], [verified], [assistant], [open]. Evidence and judgement are separated. Depends on ADR 0002 (register design).
 
@@ -12,8 +12,8 @@ The user would not reuse Python merely because it exists, leaned towards TypeScr
 
 1. Build Rust and TypeScript on Node (esbuild single-file bundle) in parallel as a time-boxed experiment (REQ-70). [user]
 2. Both sit behind one language-neutral black-box conformance suite (a standard-library Python script driving each server over stdio) with identical tool names, schemas and journal format (REQ-71, REQ-80). Each also has its own offline unit tests (REQ-81). [user]
-3. After the experiment, one is retired under the procedure in section 4. [user: the rule exists; values below are the assistant's starting values awaiting the user's edit]
-4. Distribution and platform: REQ-73, REQ-74. Names `regspike-rs` and `regspike-ts` are working names.
+3. After the experiment, one is retired under the procedure in section 4. [user: the rule exists] [user: gate walk 2026-11-16] The values below are confirmed by the user 2026-11-16 as starting values; the user decides either way.
+4. Distribution and platform: REQ-73, REQ-74. Names `regspike-rs` and `regspike-ts` are working names [user: gate walk 2026-11-16] parked; decided at the release milestone (slice R1).
 
 ## 3. Evidence
 
@@ -33,13 +33,13 @@ What the evidence does not say: nothing here measures long-run maintenance, defe
 
 ## 4. Retirement rule (REQ-72), as a checkable procedure
 
-Starting values are [assistant], for the user to edit before the real build starts (REQ-72 requires the rule to be fixed before then).
+Starting values, confirmed by the user 2026-11-16 as starting values [user: gate walk 2026-11-16] (REQ-72 requires the rule to be fixed before the real build starts). The user decides either way.
 
 1. Trigger. Both implementations pass the conformance suite, and the first five real changes have been applied to both. Check: `docs/evidence/language-experiment.md` has five completed change rows, each with both languages filled. [assistant]
 2. Order. The language that goes first alternates between changes, because the second agent works from a change already designed once. The file records which went first for each change. [assistant, from REQ-72]
-3. Recording. At the time of each change, not reconstructed afterwards from session notifications, the person or agent making the change appends a row to `docs/evidence/language-experiment.md` with: change id, language that went first, tokens used, number of failed acceptance runs, and date. After the trigger, add per language: defects found after merge, and release friction (short free-text note per release). [REQ-72]
-4. Measures. Tokens and failed acceptance runs per change; defects after merge; release friction. [REQ-72]
-5. Margin rule. If mean tokens per change differ by more than 20%, the cheaper language is recommended. Within 20%, Rust is recommended for its type guarantees. The 20% margin and the Rust tie-break are the assistant's starting values awaiting the user's edit; no evidence fixes them (spike 3's 30% gap is a single trial). [assistant]
+3. Recording. At the time of each change, not reconstructed afterwards from session notifications, the person or agent making the change appends a row to `docs/evidence/language-experiment.md` with: change id, language that went first, tokens used, number of conformance-suite failures on first submission, and date. After the trigger, add per language: defects found after merge, and release friction (short free-text note per release). [REQ-72]
+4. Measures. Four: tokens per change; conformance-suite failures on first submission; defects after merge; release friction. [REQ-72] [user: gate walk 2026-11-16]
+5. Margin rule. If mean tokens per change differ by more than 20%, the cheaper language is recommended. Within 20%, Rust is recommended for its type guarantees. The 20% margin and the Rust tie-break are confirmed by the user 2026-11-16 as starting values [user: gate walk 2026-11-16]; no evidence fixes them (spike 3's 30% gap is a single trial).
 6. Decision. The user decides; the recommendation is advisory (REQ-72). Record the decision and date in the same file.
 7. Retirement action. Tag the loser's last commit (for example `retired-rust` or `retired-ts`), archive its directory (or branch), remove it from CI and from the release assets and from the plugin's selection (REQ-73), and drop its unit tests from CI. The conformance suite stays. Consequence for the winner: `REGSPIKE_IMPL` selection and the launcher may be simplified. [assistant: tag naming]
 
@@ -53,7 +53,7 @@ Known defect in the starting rule: see section 6 (failed acceptance runs vs fix 
 
 ## 6. Contradiction found in the requirements (for the user)
 
-REQ-72 lists "failed acceptance runs per change" as a measure but also says "fix-cycle counts are not a measure: the change-request test showed they tie when agents batch changes". These are close to the same quantity. Either drop failed acceptance runs from the measures, or define it narrowly (failures of the conformance suite on first submission of a change, counted by the harness, not by the agent). This ADR keeps REQ-72's wording in section 4 and flags it; I recommend the narrow definition, since the spike-3 tie came from agents batching, which a rule requiring one change per submission would prevent.
+REQ-72 lists "failed acceptance runs per change" as a measure but also says "fix-cycle counts are not a measure: the change-request test showed they tie when agents batch changes". These are close to the same quantity. Either drop failed acceptance runs from the measures, or define it narrowly (failures of the conformance suite on first submission of a change, counted by the harness, not by the agent). Resolved at the gate walk [user: gate walk 2026-11-16]: the four confirmed measures use the narrow definition (conformance-suite failures on first submission), which the build plan's one-slice-per-submission rule makes countable. The spike-3 tie came from agents batching, which that rule prevents.
 
 ## 7. Consequences
 
