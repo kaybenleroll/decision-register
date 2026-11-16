@@ -15,13 +15,14 @@ Contract: contract/runtime.md. The suite starts the command directly, sets CLAUD
 CLAUDE_PROJECT_DIR to fresh per-scenario directories under .scratch/conformance/ and reads journals
 only below CLAUDE_PLUGIN_DATA. Scenario files: conformance/scenarios/*.json (format: conformance/README.md).
 """
-import fnmatch, glob, hashlib, importlib.util, json, os, queue, re, shutil, signal, subprocess, sys, threading, time
+import fnmatch, glob, hashlib, importlib.util, json, os, queue, re, shutil, signal, subprocess, sys, tempfile, threading, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SCEN_DIR = os.path.join(HERE, "scenarios")
 CONTRACT = os.path.join(ROOT, "contract")
 SCRATCH = os.path.join(ROOT, ".scratch", "conformance")
+RUN_DIR = None  # unique per invocation (set in main), so concurrent runs never share directories
 TIMEOUT = 20
 EXIT_WAIT = 5
 MODEL_META = {"claudecode/toolUseId": "toolu_conformance"}
@@ -37,7 +38,7 @@ def project_key(proj):
 
 
 def load_contract():
-    with open(os.path.join(CONTRACT, "tools.json")) as f:
+    with open(os.path.join(CONTRACT, "tools.json"), encoding="utf-8") as f:
         tools = json.load(f)
     spec = importlib.util.spec_from_file_location("check_contract", os.path.join(CONTRACT, "check_contract.py"))
     mod = importlib.util.module_from_spec(spec)
@@ -58,11 +59,11 @@ def load_scenarios():
 # ---------------------------------------------------------------- server driver
 
 class Server:
-    def __init__(self, cmd, env, errpath):
+    def __init__(self, cmd, env, errpath, cwd):
         self.env = env
         self.errf = open(errpath, "ab")
         self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errf,
-                                  env=env, text=True, bufsize=1, start_new_session=True)
+                                  env=env, cwd=cwd, encoding="utf-8", bufsize=1, start_new_session=True)
         self.q = queue.Queue()
         threading.Thread(target=self._rd, daemon=True).start()
         self.n = 0
@@ -219,13 +220,14 @@ def check_assert(name, a, body, vars_):
 class Run:
     def __init__(self, cmd, scen, tools, validator):
         self.cmd, self.scen, self.tools, self.check = cmd, scen, tools, validator
-        self.dir = os.path.join(SCRATCH, scen["id"])
+        self.dir = os.path.join(RUN_DIR, scen["id"])
         shutil.rmtree(self.dir, ignore_errors=True)
         self.data = os.path.join(self.dir, "data")
         self.proj = os.path.join(self.dir, "project")
-        os.makedirs(self.data)
-        os.makedirs(self.proj)
-        self.vars = {"key": project_key(self.proj), "dir": self.dir}
+        self.cwd = os.path.join(self.dir, "cwd")  # never the project dir, so a server using cwd for the key is caught
+        for d in (self.data, self.proj, self.cwd):
+            os.makedirs(d)
+        self.vars = {"dir": self.dir, "data": self.data, "proj": self.proj, "cwd": os.path.realpath(self.cwd)}
         self.lines = None
         self.srv = None
         self.env = None
@@ -237,7 +239,10 @@ class Run:
         for k in self.scen.get("unset_env", []):
             env.pop(k, None)
         self.env = env
-        self.srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"))
+        # contract/runtime.md: project path = CLAUDE_PROJECT_DIR if set and non-empty, else the working directory
+        # as the operating system reports it
+        self.vars["key"] = project_key(env.get("CLAUDE_PROJECT_DIR") or os.path.realpath(self.cwd))
+        self.srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"), self.cwd)
         self.srv.initialize()
 
     def stop_server(self):
@@ -256,7 +261,7 @@ class Run:
         return p
 
     def root(self):
-        if "CLAUDE_PLUGIN_DATA" in self.env:
+        if self.env.get("CLAUDE_PLUGIN_DATA"):  # unset and empty both mean the temp fallback (runtime.md)
             return self.env["CLAUDE_PLUGIN_DATA"]
         return os.path.join(self.env.get("TMPDIR", "/tmp"), FALLBACK_DIR)
 
@@ -338,7 +343,7 @@ class Run:
         action = st["action"]
         path = self.journal_path()
         if action == "load":
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 self.lines = [l.rstrip("\n") for l in f if l.strip()]
             self.vars["n"] = len(self.lines)
             self.vars["n1"] = str(len(self.lines) + 1)
@@ -369,7 +374,7 @@ class Run:
                 out = self.lines + [json.dumps(bad)]
             else:
                 raise AssertionError("unknown journal form %r" % form)
-            with open(path, "w") as f:
+            with open(path, "w", encoding="utf-8") as f:
                 f.write("\n".join(out) + "\n")
         else:
             raise AssertionError("unknown journal action %r" % action)
@@ -537,6 +542,9 @@ def main(argv):
         else:
             print(__doc__.strip())
             return 2
+    if cmd:
+        # the server runs in a scenario directory, so relative file arguments are made absolute first
+        cmd = [os.path.abspath(c) if (not os.path.isabs(c) and os.sep in c and os.path.exists(c)) else c for c in cmd]
     tools, validator = load_contract()
     scenarios = load_scenarios()
     if only:
@@ -561,18 +569,25 @@ def main(argv):
     if not cmd:
         print(__doc__.strip())
         return 2
+    global RUN_DIR
+    os.makedirs(SCRATCH, exist_ok=True)
+    RUN_DIR = tempfile.mkdtemp(prefix="run-", dir=SCRATCH)
     print("TAP version 13")
     print("1..%d" % len(scenarios))
     fails = 0
     for n, s in enumerate(scenarios, 1):
         ok, detail = run_scenario(cmd, s, tools, validator)
         if ok:
-            shutil.rmtree(os.path.join(SCRATCH, s["id"]), ignore_errors=True)
+            shutil.rmtree(os.path.join(RUN_DIR, s["id"]), ignore_errors=True)
         else:
             fails += 1
         print("%s %d - %s %s%s" % ("ok" if ok else "not ok", n, s["id"], s["title"],
                                    (" # " + detail) if detail else ""))
     print("# %d/%d passed" % (len(scenarios) - fails, len(scenarios)))
+    try:
+        os.rmdir(RUN_DIR)  # empty when every scenario passed
+    except OSError:
+        print("# failed scenario directories kept in %s" % RUN_DIR)
     return 1 if fails else 0
 
 
