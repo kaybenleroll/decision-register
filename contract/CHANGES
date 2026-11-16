@@ -75,6 +75,11 @@ Entries are appended as the fixes land; all belong to this one bump.
 - Id generation pinned: interview id iv-<UTC timestamp>-<8 hex>, item id Q<n>
   (next unused). Why: counters (iv-1) would collide across server restarts and
   archive rename-onto-existing would break (review S2-2). Examples updated.
+- Pid file pinned: one-line JSON {pid, start, interview_id}, start time from
+  /proc/<pid>/stat field 22, exact-equality liveness, the stale-replace
+  (rename aside, verify, O_EXCL create) sequence and orphan pruning. Why: REQ-52
+  gave pid and start time but no format, and O_EXCL cannot replace a crashed
+  owner's file (review S2-3, build-plan F1).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes
