@@ -1,6 +1,6 @@
 {
  "id": "S-A3",
- "title": "finish gate blocks with Stale items open and names them",
+ "title": "finish gate blocks with Stale items open and names them with their text, not resolved items",
  "req": [
   "REQ-42",
   "REQ-43",
@@ -10,7 +10,7 @@
   {
    "call": "note_prompt",
    "args": {
-    "session_id": "S1",
+    "session_id": "sess-a3",
     "prompt": "grill me on this plan"
    }
   },
@@ -30,7 +30,7 @@
    "args": {
     "id": "q1",
     "kind": "question",
-    "text": "tq1"
+    "text": "text-one"
    }
   },
   {
@@ -38,7 +38,7 @@
    "args": {
     "id": "q2",
     "kind": "question",
-    "text": "tq2",
+    "text": "text-two",
     "depends_on": [
      "q1"
     ]
@@ -49,7 +49,7 @@
    "args": {
     "id": "q3",
     "kind": "question",
-    "text": "tq3",
+    "text": "text-three",
     "depends_on": [
      "q2"
     ]
@@ -59,7 +59,7 @@
    "call": "resolve",
    "args": {
     "id": "q1",
-    "answer": "a",
+    "answer": "a1",
     "source": "model",
     "rationale": "r"
    }
@@ -68,7 +68,7 @@
    "call": "resolve",
    "args": {
     "id": "q2",
-    "answer": "a",
+    "answer": "a2",
     "source": "model",
     "rationale": "r"
    }
@@ -77,7 +77,7 @@
    "call": "resolve",
    "args": {
     "id": "q3",
-    "answer": "a",
+    "answer": "a3",
     "source": "model",
     "rationale": "r"
    }
@@ -93,7 +93,7 @@
    "call": "resolve",
    "args": {
     "id": "q1",
-    "answer": "a",
+    "answer": "a1b",
     "source": "model",
     "rationale": "r"
    }
@@ -116,7 +116,7 @@
   {
    "call": "check_stop",
    "args": {
-    "session_id": "S1",
+    "session_id": "sess-a3",
     "last_assistant_message": "done"
    },
    "assert": [
@@ -129,7 +129,46 @@
     },
     {
      "path": "reason",
+     "contains": "text-two"
+    },
+    {
+     "path": "reason",
      "contains": "q3"
+    },
+    {
+     "path": "reason",
+     "contains": "text-three"
+    },
+    {
+     "path": "reason",
+     "not_contains": "q1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "text-one"
+    },
+    {
+     "path": "reason",
+     "not_contains": "q99"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health.check_stop",
+     "eq": 1
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 2
+     }
     }
    ]
   }
