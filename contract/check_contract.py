@@ -114,6 +114,15 @@ def main():
         r = [rank[n["status"]] for n in x["tree"]]
         if r != sorted(r):
             fails.append("status tree not ordered Open, Stale, Parked, Resolved")
+    # errors table: every row names known tools and a precedence number that exists
+    for r in d["errors"]:
+        names = r["tools"].split("|")
+        if names != ["*"] and not set(names) <= set(d["tools"]):
+            fails.append("errors row names unknown tools: %s" % r["tools"])
+        if not 1 <= r.get("check", 0) <= len(d["error_precedence"]):
+            fails.append("errors row lacks a valid check number: %s" % r["tools"])
+        if not r.get("message_names"):
+            fails.append("errors row without message_names: %s" % r["tools"])
     # (c) tool names used by the spike-3 script are kept
     src = open(os.path.join(ROOT, "docs/evidence/spike3/acceptance.py")).read()
     used = set(re.findall(r'(?:\.ok|\.err|\.call)\("([a-z_]+)"', src))

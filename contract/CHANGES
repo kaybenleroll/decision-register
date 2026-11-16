@@ -13,7 +13,9 @@ that alter no schema and no matched error text do not bump it.
 
 The plugin declares the `tool_schema` it requires; both implementations and
 the conformance suite read the value from tools.json. contract/check_contract.py
-fails if tool_schema, the tool list or any example drifts.
+fails on a tool_schema value other than the one it expects, a tool-list change,
+an example that violates its schema, a missing state_matrix cell or an errors row
+without a valid precedence number.
 
 Log (newest first)
 ------------------
