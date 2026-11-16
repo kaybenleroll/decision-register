@@ -28,3 +28,11 @@ Open items for the user:
 - Blockers: none. Awaiting: /stress-test on docs/requirements.md, then the user's approval, then ADR 0002 (register design, superseding ADR 0001's base), an ADR for the parallel-language experiment (with the retirement rule), and a new build plan. No push or PR yet.
 - Questions for the user: retirement-rule values (20% token margin, Rust tie-break); final tool list and schemas; whether wayfinder and write-a-prd are on the skill-name list; product and binary names (regspike-* are working names).
 - Coordination note for the research session: the test plan, harness and cost-counter fix remain with it; the requirements add REQ-83 (harness runs the shipped plugin files; zero-call runs are scored).
+
+## 2026-11-16 (stress-test pass 1 done; requirements patched)
+
+- Done: `/stress-test` on docs/requirements.md, one round of three reviewers (51 raw findings, about 27 after hand-dedup, none self-assigned RESTRUCTURE); all P1 findings patched in place; log at the top of the file. New requirements REQ-15, 26, 38, 77 and several clauses changed (finish-attempt classification, session binding, transition table, forgery guard, resume and implicit start, durability).
+- Verified: spike 5 (live run) showed `${last_assistant_message}` reaches an `mcp_tool` Stop hook intact (6,869 characters, one trial). Hand-traces for the finish-attempt rule, volunteered decisions, the transition table and journal ownership are recorded in the log entry.
+- Not verified: whether compaction changes `session_id`; whether `last_assistant_message` is ever empty; hook error visibility; `/clear` and `/compact` in interactive sessions; start-command variable expansion. Spike results remain single trials.
+- Blockers: none. Awaiting: the user's approval of docs/requirements.md, including the [assistant] clauses listed in its section 12. Then ADR 0002, the language ADR with the retirement rule, and the build plan. Nothing committed since 4fa1c2d, nothing pushed, no PR.
+- Questions for the user: REQ-15 (where the canonical grill-me skill text lives); confirm REQ-34 (decision kind), REQ-35 (N = 2), REQ-43 (finish-attempt rule); REQ-72 values (20% margin, Rust tie-break); whether wayfinder and write-a-prd are on the skill-name list.

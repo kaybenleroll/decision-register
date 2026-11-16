@@ -70,3 +70,7 @@ Files: `spike4/RESULTS.md`.
 
 ## Omitted by design
 Stub-server and candidate source, binaries, container build logs, node_modules, journals and plugin dirs are not copied. The spike 3 `RESULTS.md/.json` copies are identical to the spike 2 files and are not duplicated.
+
+## Spike 5: Stop-hook message substitution (2026-11-16)
+
+One trial, haiku, Claude Code 2.1.325, USD 0.0074. A Stop-event `mcp_tool` hook with input `{"last_assistant_message":"${last_assistant_message}"}` delivered a 6,869-character final message (quotes, backslashes, newlines, `?`, unicode, JSON fragment) to the server with matching length and sha256; no `_meta` on the call. Short and empty messages were not tested. Notes: `spike5/RESULTS.md`.
