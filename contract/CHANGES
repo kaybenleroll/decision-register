@@ -42,6 +42,8 @@ Entries are appended as the fixes land; all belong to this one bump.
   require each other, and `mode: plain` excludes both (a oneOf); four new error
   rows (nothing to end, pending without mode plain, mode plain outside pending,
   abandon with nothing open). Why: these cells were unspecified (review S1-2).
+- resolve|park|reopen on an unknown id: error row `no such item: <id>`; such a
+  call never starts or engages an interview (review S1-2).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes

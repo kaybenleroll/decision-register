@@ -1559,7 +1559,8 @@
   {
    "tools": "log_item",
    "when": "depends_on or parent names a missing item",
-   "message_names": "the missing id"
+   "message_names": "missing item: <id>",
+   "check": 7
   },
   {
    "tools": "resolve",
@@ -1620,6 +1621,12 @@
    "when": "abandon true while nothing is open (state active or complete)",
    "message_names": "nothing is open: abandon is not needed",
    "check": 6
+  },
+  {
+   "tools": "resolve|park|reopen",
+   "when": "the id names no item (including every id in states none and pending, where the register is empty)",
+   "message_names": "no such item: <id>; the call starts and engages nothing",
+   "check": 7
   }
  ],
  "error_precedence": [
