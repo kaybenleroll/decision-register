@@ -58,6 +58,17 @@ def load_scenarios():
 
 # ---------------------------------------------------------------- server driver
 
+def parse_line(line):
+    """Every stdout line of an MCP stdio server must be one JSON-RPC 2.0 message (anything else breaks real clients)."""
+    try:
+        m = json.loads(line)
+    except ValueError:
+        raise RuntimeError("non-JSON line on stdout: %r" % line.strip()[:100])
+    if not isinstance(m, dict) or m.get("jsonrpc") != "2.0":
+        raise RuntimeError("stdout line is not a JSON-RPC 2.0 message: %r" % line.strip()[:100])
+    return m
+
+
 class Server:
     def __init__(self, cmd, env, errpath, cwd):
         self.env = env
@@ -105,10 +116,7 @@ class Server:
                 raise RuntimeError("timeout waiting for %s" % method)
             if line is None:
                 raise RuntimeError("server exited")
-            try:
-                m = json.loads(line)
-            except ValueError:
-                continue
+            m = parse_line(line)
             if m.get("id") == i and ("result" in m or "error" in m):
                 return m
 
@@ -139,6 +147,14 @@ class Server:
             graceful = False
         self.kill()
         self.errf.close()
+        time.sleep(0.05)  # let the reader thread drain the pipe
+        while True:
+            try:
+                line = self.q.get_nowait()
+            except queue.Empty:
+                break
+            if line is not None:
+                parse_line(line)  # stdout noise after the last reply still fails
         return graceful
 
 
