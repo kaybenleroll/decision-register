@@ -50,7 +50,7 @@ Replay applies the REQ-31 checks (non-blank answer and rationale, single-line ra
 
 `interrupted` (server exit or crash on an active, not-complete interview) is a decision-log kind only: no `end` event is written and the journal stays `unfinished` (REQ-27 rule 5, REQ-62). The `end_interview` tool result therefore never returns it.
 
-Every row and rule of the REQ-27 table maps to at least one of the 13 event names above; the frozen names are checked by `.scratch/check_lifecycle_events.py`.
+Every row and rule of the REQ-27 table maps to at least one of the 13 event names above; the frozen names are checked by `contract/check_lifecycle_events.py`.
 
 The kinds `engage`, `prompt`, `hook`, `stop`, `complete` and `mismatch` carry no register data a replay must reproduce except counters, caps and state; replay rebuilds those from them.
 
