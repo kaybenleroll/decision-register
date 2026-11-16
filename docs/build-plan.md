@@ -53,7 +53,7 @@ Stack: Python 3 stdlib only (REQ-80), starting from `docs/evidence/spike3/accept
 ### C2 Suite harness and port of A1 to A7
 - Goal: reusable runner with scenario ids, per-scenario temp dirs in `.scratch/`, `--only`, `--list`, TAP-like output and a non-zero exit on failure.
 - REQ: REQ-80, REQ-71.
-- Acceptance: `acceptance.py` A1 to A7 pass unchanged in meaning against both spike-3 servers (their recorded outputs in `docs/evidence/spike3/acceptance-*.txt` are the oracle); the runner can send a call with and without `_meta`; a scenario count above 30 triggers the data-file form (REQ-80): decision recorded in the PR, recommendation to adopt data files from the start because section 5 lists about 50 scenarios [user-decision].
+- Acceptance: `acceptance.py` A1 to A7 pass unchanged in meaning against both spike-3 servers (their recorded outputs in `docs/evidence/spike3/acceptance-*.txt` are the oracle); the runner can send a call with and without `_meta`; a scenario count above 30 triggers the data-file form (REQ-80): decision recorded in the PR, recommendation to adopt data files from the start because section 5 lists about 60 scenarios [user-decision].
 - Depends on: C1. Drop rule: if data-file format stalls, keep Python functions and defer the format to C5.
 
 ### C3, C4, C5 Scenario batches
@@ -208,7 +208,7 @@ V3 is needed before I3 merges; V5 before I2 merges. V7 is not needed by any slic
 
 ## 8. Dotfiles issue drafts (not filed; target repository `kaybenleroll/dotfiles`)
 
-Filed only on the user's instruction, one per issue, with the user's HARD RULE (dotfiles repository owns `~/.claude`).
+Filed 2026-11-16 as kaybenleroll/dotfiles #552 to #556, one per issue, under the user's HARD RULE (dotfiles repository owns `~/.claude`).
 
 | Draft | Title | REQ | Content | Order |
 |---|---|---|---|---|
@@ -227,7 +227,7 @@ Slices: C1 to C5 (5), X1, I1 to I5 (5, each in two languages = 10 PRs), P1 to P5
 ## 10. Findings in the requirements (for the user)
 
 - F1 Resolved in the requirements (2026-11-16): REQ-52 and REQ-61 now use a pid-and-start-time file in both languages, because Node has no portable `flock` and a native addon would break the single-file bundle (REQ-70). The user may overrule at approval; the conformance scenario is S-52b.
-- F2 REQ-80 says move to data-file scenarios beyond about 30; section 5 lists about 50, so the threshold is already exceeded.
+- F2 REQ-80 says move to data-file scenarios beyond about 30; section 5 lists about 60, so the threshold is already exceeded.
 - F3 REQ-43 delegates the classifier to this plan; section 5.1 specifies a starting version, which is [assistant] and unmeasured until the REQ-46 replay test has run.
 - F4 REQ-72 versus ADR 0003 section 6: "failed acceptance runs" and "fix-cycle counts are not a measure" overlapped; resolved at the gate walk: the four measures use the narrow definition (suite failures on first submission of one slice).
 - F5 REQ-61 says "the project" keys the journal, but the server learns the project only from its working directory or the hook payload; C1 must fix which. Not stated in the requirements.
