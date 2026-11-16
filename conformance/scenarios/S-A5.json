@@ -1,15 +1,16 @@
 {
  "id": "S-A5",
- "title": "model park of a decision is rejected; model park of a question succeeds",
+ "title": "model park of a decision is rejected; model park of a question succeeds and still blocks the finish gate",
  "req": [
   "REQ-33",
-  "REQ-34"
+  "REQ-34",
+  "REQ-43"
  ],
  "steps": [
   {
    "call": "note_prompt",
    "args": {
-    "session_id": "S1",
+    "session_id": "sess-a5",
     "prompt": "grill me on this plan"
    }
   },
@@ -54,9 +55,15 @@
    "call": "park",
    "args": {
     "id": "q1",
-    "reason": "r",
+    "reason": "why-parked",
     "parked_by": "model"
-   }
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
   },
   {
    "call": "status",
@@ -70,6 +77,59 @@
       "parked": 1,
       "stale": 0
      }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "d1"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "q1"
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.1.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.1.park_reason",
+     "eq": "why-parked"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d1",
+    "answer": "a",
+    "source": "user",
+    "rationale": "r"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-a5",
+    "last_assistant_message": "done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "d1"
     }
    ]
   }

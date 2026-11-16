@@ -176,7 +176,7 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-A2 reopen on an Open item errors naming the id and its status; unknown `depends_on` or `resolve` ids error naming the id; a duplicate id errors; a failing call leaves the tree and `last_event` unchanged (kept) | REQ-36, REQ-38, REQ-30, REQ-40 |
 | S-A3 finish gate blocks with Stale items open; the reason names each open item with its id and text (REQ-45) and neither the resolved item nor an unknown id (kept) | REQ-42, REQ-43, REQ-45 |
 | S-A4 model resolve of a decision rejected; user resolve rejected before any prompt was seen (hooks not firing) and once the per-prompt budget is spent; accepted after a user prompt; the interview starts by `begin_interview` with no prior hook call (kept) | REQ-32, REQ-34, REQ-44 |
-| S-A5 model park of a decision rejected; model park of a question succeeds (kept) | REQ-33, REQ-34 |
+| S-A5 model park of a decision rejected; model park of a question succeeds, records `parked_by` and reason, and still blocks the finish gate (kept) | REQ-33, REQ-34, REQ-43 |
 | S-A6 journal carries `v: 2` and `ts`; v1 and mixed journals replay; `v: 3` fails resume naming the line (kept) | REQ-60, REQ-61 |
 | S-A7 `status` reports `journal_schema` 2 (kept) | REQ-60 |
 | S-L1 journal layout, user-only permissions and archive move (existing) | REQ-61, REQ-23, REQ-27 |
