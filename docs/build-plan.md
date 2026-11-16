@@ -71,13 +71,15 @@ Split by area so each PR is reviewable; all are written red (no implementation e
 
 ## 5. Scenario list (every behavioural REQ)
 
-Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to A7, see `docs/evidence/spike3/CHANGES.md`) are kept as S-A1..S-A7; their REQ ids are in the S-A row.
+Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to A7, see `docs/evidence/spike3/CHANGES.md`) are kept as S-A1..S-A7, each with its own row; S-L1 and S-L2 were added in slice C2.
 
 | Scenario | REQ ids |
 |---|---|
 | S-13a while no interview is active, `note_prompt`, `check_stop` and `skill_started` (unlisted name) record `last_seen_session_id` and set `prompt_seen` only: no journal, no counters, empty text or `{}` returned | REQ-13, REQ-27, REQ-41 |
+| S-13b `check_stop` in state `none` allows and clears `prompt_seen`: a `note_prompt` followed by a `check_stop` and then `skill_started` starts with prompt count 0 (only a prompt since the previous Stop counts as the invoking prompt) | REQ-27 (none row, rule 2), REQ-13 |
 | S-20a typed-start route: `skill_started` with an exact listed name starts an interview | REQ-20, REQ-24 |
 | S-20b unlisted or near-miss name (`grill-me-copy`, case change, `wayfinder`, `write-a-prd`) does not start; exactly `grill-me` does | REQ-20, REQ-24 |
+| S-20d `skill_started` outcomes: a listed name leaves the server `pending`; an unlisted name leaves it `none`; a `tool_schema` mismatch still returns `{}` or empty text, records `status.version_mismatch` (set by the mismatch, cleared by a later match) and writes no `mismatch` event when no interview exists; a second listed `skill_started` while pending, active or complete is a no-op | REQ-20, REQ-24, REQ-41, REQ-77 |
 | S-20c model-invoked route yields same interview id | REQ-20 |
 | S-21a `begin_interview` with `mode: register` and no `session_id` starts and binds to `last_seen_session_id`; second call returns existing id | REQ-21, REQ-22, REQ-27 |
 | S-21b implicit start on `log_item` with no journal; flagged in log | REQ-21 |
@@ -85,12 +87,15 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-22a start resets counters, caps and stamps a new id; keeps one prompt when `prompt_seen` was set | REQ-22, REQ-27 |
 | S-22b start while pending, active or complete is a no-op returning the id, state intact | REQ-22 |
 | S-22c new start archives only the server's own earlier journal | REQ-22, REQ-61 |
+| S-22d interview ids match `iv-<UTC timestamp>-<8 hex>`; two servers run in turn on one project never reuse an id; server-assigned item ids are `Q<n>` (next unused) and caller-supplied ids are kept | REQ-22, REQ-23, REQ-30 |
 | S-23a allowed finish attempt writes the log; with nothing open the interview becomes `complete`, journal kept | REQ-23, REQ-27, REQ-63 |
 | S-23b `reopen`, `log_item`, `park` or `resolve` in `complete` returns it to `active`; no implicit start | REQ-21, REQ-23, REQ-27 |
 | S-23c `end_interview` with items open refused; with `abandon` and reason accepted; log says "ended incomplete by the model" | REQ-23, REQ-50 |
 | S-23d log file name carries the interview id; second interview does not overwrite | REQ-23 |
 | S-23e allowed finish because caps are spent still writes the log | REQ-23, REQ-42 |
 | S-23f `end_interview` after the replay step ends a complete interview as normal; journal archived | REQ-23, REQ-27 |
+| S-23g `status` and `end_interview` do not return a `complete` interview to `active`; `status` after `end_interview` reports state `none` | REQ-23, REQ-27 |
+| S-23h `end_interview` per state: `none` errors "no interview to end"; `pending` without `mode: plain` errors; `mode: plain` outside pending errors; `abandon: true` with nothing open errors; `abandon` without `reason` (and `reason` without `abandon`) rejected as invalid arguments; the result carries `decision_log` | REQ-23, REQ-27 |
 | S-26a different `session_id` on a hook call while items are open ends the old interview as abandoned, log flagged incomplete, journal archived, gate inactive; with nothing open it ends without the flag | REQ-26 |
 | S-26b start after session change ends old then starts new (check precedes REQ-22 no-op) | REQ-22, REQ-26 |
 | S-26c same-session repeated hook calls do not end it | REQ-26 |
@@ -103,6 +108,7 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-27d `end_interview` with `mode: plain` stands a pending interview down at once, not flagged incomplete, log mode `plain` | REQ-27, REQ-23, REQ-62 |
 | S-27e `complete` state: Stop gate allows every turn including an unlogged question and a further finish attempt; only a mutating call returns it to `active` | REQ-27, REQ-23, REQ-43 |
 | S-30a item fields round-trip through `status` | REQ-30 |
+| S-30b a `log_item` carrying a caller-supplied `id` already used errors `duplicate id: <id>`, logs nothing and writes no journal event | REQ-30 |
 | S-31a resolve without answer, source or rationale rejected; whitespace-only rejected; multi-line rationale rejected | REQ-31 |
 | S-31b replay applies the same check and fails resume naming the line | REQ-31, REQ-60 |
 | S-32a `source=user` rejected with no prompt since last model action | REQ-32 |
@@ -114,13 +120,15 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-33b `parked_by=user` without a prompt rejected | REQ-33 |
 | S-34a `decision` resolved only with `source=user`; parked only with `parked_by=user` | REQ-34 |
 | S-35a `log_item` never rejects on branch size; finish gate flags under-sized parent; `resolve` of a parent with fewer than 2 children is rejected for source `model` | REQ-35 |
-| S-35b `subquestion` without parent rejected; `question` with parent accepted | REQ-35 |
+| S-35b `subquestion` without parent rejected ("subquestion needs a parent"); `question` with parent accepted | REQ-35 |
 | S-35c a parent parked by the user is not flagged by the gate; `resolve` of an under-sized parent with source `user` accepted; children of any kind and any status count toward N | REQ-35, REQ-33 |
 | S-36a reopen makes dependants (direct and transitive) Stale; Stale blocks finish; resolvable again | REQ-36 |
 | S-38a transition table: every allowed and disallowed pair, error names id and current status | REQ-38 |
+| S-38c `resolve`, `park` or `reopen` on an unknown id errors `no such item: <id>`; from `none` or `pending` such a call starts and engages nothing and writes nothing | REQ-27, REQ-38, REQ-21 |
 | S-38b model-parked item resolvable; re-park with `parked_by=user` | REQ-33, REQ-38 |
 | S-40a `note_prompt`, `skill_started`, `check_stop` with `_meta.claudecode/toolUseId` rejected; same calls without it accepted | REQ-40 |
 | S-40b model-facing tools accept calls with `_meta` | REQ-40 |
+| S-40d the `_meta` test is the presence of `claudecode/toolUseId`: a `_meta` holding only `progressToken` is hook-style (accepted by hook tools), an empty-valued `claudecode/toolUseId` is model-style (rejected); every domain failure is a result with `isError: true`, never a JSON-RPC error | REQ-40 |
 | S-40c forged `note_prompt` does not enable `source=user` | REQ-32, REQ-40 |
 | S-41a prompt counter advances per `note_prompt` | REQ-41, REQ-44 |
 | S-41b hook output contract: `note_prompt` and `skill_started` return empty text or exactly `{}` (also for an unlisted name and for a version mismatch) and never block or deny; only `check_stop` returns a decision | REQ-41, REQ-77 |
@@ -132,10 +140,10 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-43e classifier returns either a list of presented item ids (possibly empty) or `unknown`; these are distinct and feed S-32c and S-32d | REQ-43, REQ-32 |
 | S-43f classifier parity: a question citing an open item's id label concerns it; otherwise at least 3 shared content words are required; a single labelled one-line request for an open item is not a finish attempt, while the same text on two lines is | REQ-43 |
 | S-44a user-sourced answer with zero hook calls seen (counting calls made while inactive): error says hooks are not firing | REQ-44, REQ-27 |
-| S-45a `status` returns the full tree: every item with id, text, parent, status, answer, `parked_by`; open items first | REQ-45 |
+| S-45a `status` returns the full tree: every item with id, text, parent, status, answer, `parked_by`; order Open, Stale, Parked, Resolved, creation order within a group; Resolved items carry non-null answer, source and rationale, Parked items a reason | REQ-45, REQ-31 |
 | S-45b Stop block reason names each open item with id and text | REQ-45, REQ-43 |
 | S-45c with 12 open items the reason lists the first 10 only and says 2 more; item text over 120 characters is truncated to 120 | REQ-45 |
-| S-50a registered tool failure is an error result that does not abort the server (fail open) | REQ-50 |
+| S-50a registered tool failure is an `isError: true` result, not a JSON-RPC error, and does not abort the server (fail open) | REQ-50, REQ-40 |
 | S-52a unfinished journal with dead owner: `status` shows `resumable`; mutating calls and `begin_interview` refused with "unfinished journal: call resume or discard" | REQ-52 |
 | S-52b live owner (pid file with a live process and the same start time): journal not offered; a reused pid with a different start time counts as dead | REQ-52, REQ-61 |
 | S-52c `resume` omitted id with one journal; several journals list and require id; `discard` archives | REQ-52 |
@@ -143,21 +151,35 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-52e graceful exit (stdin EOF) on an active, not-complete interview: log flagged "interrupted", journal kept unfinished (no `end` event), pid file removed; on a complete interview: journal archived | REQ-27, REQ-23, REQ-52, REQ-60 |
 | S-52f resume exclusivity: `resume` claims the journal with an exclusive pid-file create; a second resumer fails with "journal already claimed"; `resume` is refused in `active` or `complete` | REQ-52, REQ-27 |
 | S-52g a hook start while an unfinished journal exists proceeds; `status` reports `resumable` alongside; mutating calls refused until `resume` or `discard` | REQ-52, REQ-27 |
+| S-52h `discard`: archives the named journal, or the only one, without starting an interview; state stays `none` (a pending interview stays pending); with no unfinished journal, an unknown id, a live-owned journal, several journals and no id, or in `active`/`complete` it errors as the contract lists; the same no-journal, unknown-id and live-owned cases for `resume` | REQ-52 |
+| S-52i pending fates: a pending interview ended by session change, by server exit, or by a successful `resume` writes an `end` event (`stood_down`, mode `not_engaged`) and its journal is archived, leaving no unfinished ghost; the failed `resume` leaves the pending interview untouched | REQ-27, REQ-26, REQ-52, REQ-60 |
+| S-52j stale pid file: a crashed owner's pid file is replaced by `resume` (rename aside, exclusive create), a pid file holding a live pid with a different start time is stale, `status.resumable` is an array listing every unfinished journal with no live owner | REQ-52 |
 | S-60a every event has `v: 2`, `ts`, sequence number; flush at each `check_stop` and end | REQ-60 |
 | S-60b v1 events (no `v`) replay; `v: 3` fails resume with 1-based line number, state unchanged | REQ-60 |
-| S-61a journal under `CLAUDE_PLUGIN_DATA` (suite-set), fallback to temp dir; mode 0600 | REQ-61, REQ-91 |
+| S-60c flush on stdin EOF: events queued after the last `check_stop` are in the journal after a graceful exit; replay ignores a torn final line and fails on invalid JSON, a seq gap or an unknown kind on any other line naming the line | REQ-60, REQ-52 |
+| S-61a journal under `CLAUDE_PLUGIN_DATA` (suite-set), fallback to temp dir; mode 0600; the exact path layout and modes are pinned in `contract/runtime.md` and tested by S-L1 and S-L2 | REQ-61, REQ-91 |
 | S-61b archive on end; archives over 30 days pruned at start (clock offset) | REQ-61 |
 | S-61c two servers, one project: no shared or archived journals | REQ-61 |
 | S-61d unfinished journals older than 30 days are pruned at start (clock offset); younger ones are kept | REQ-61, REQ-27 |
+| S-61e unwritable data directory: start-up and every tool call still succeed, `status.write_error` is set and clears after a successful write | REQ-61, REQ-50 |
 | S-62a log location: `.scratch/` if present else `decision-logs/` with `.gitignore` `*`; mode 0600; contents (tree, sources, parked_by, reopen history, end kind, implicit flag, skill mode, hook counts, journal position) | REQ-62, REQ-91 |
 | S-62b log written at every allowed finish attempt and at end, interrupted exit and stand-down; mode recorded as `register`, `plain` or `not engaged` | REQ-62, REQ-23, REQ-63 |
+| S-62c `end_interview.decision_log` and `status.decision_log` return the log path; file name `decision-<interview_id>.md`; the header lines `journal_position`, `mode`, `end_kind`, `implicit_start` are present with the pinned strings | REQ-62, REQ-63 |
 | S-63a log journal position matches `status`; stale after later event | REQ-63 |
 | S-77a `status` returns `server_version`, integer `tool_schema` | REQ-77 |
 | S-77b `begin_interview` with wrong `tool_schema`: error naming both values | REQ-77 |
 | S-77c `skill_started` with wrong `tool_schema` returns `{}` and does not block; `status` reports the recorded mismatch | REQ-77, REQ-41 |
 | S-73a launcher with the binary missing serves a no-op stub MCP server: hook-facing tools return `{}`, `status` returns `{"unavailable":"binary not found"}`, one-line message on stderr | REQ-73, REQ-77 |
 | S-73b the launcher's binary-missing message differs from the version-mismatch error text | REQ-73, REQ-77 |
-| S-A1..S-A7 spike-3 scenarios (kept) | REQ-36, REQ-34, REQ-42, REQ-60, REQ-32 |
+| S-A1 dependent items go Stale on reopen and resolve back one at a time (kept) | REQ-36, REQ-38 |
+| S-A2 reopen on an Open item errors; unknown `depends_on` errors naming the id (kept) | REQ-36, REQ-38, REQ-30 |
+| S-A3 finish gate blocks with Stale items open and names them (kept) | REQ-42, REQ-43, REQ-45 |
+| S-A4 model resolve of a decision rejected; user resolve after a user prompt succeeds (kept) | REQ-32, REQ-34 |
+| S-A5 model park of a decision rejected; model park of a question succeeds (kept) | REQ-33, REQ-34 |
+| S-A6 journal carries `v: 2` and `ts`; v1 and mixed journals replay; `v: 3` fails resume naming the line (kept) | REQ-60, REQ-61 |
+| S-A7 `status` reports `journal_schema` 2 (kept) | REQ-60 |
+| S-L1 journal layout, user-only permissions and archive move (existing) | REQ-61, REQ-23, REQ-27 |
+| S-L2 without `CLAUDE_PLUGIN_DATA` the journal uses the temp directory with the same layout (existing) | REQ-61 |
 | S-90a start under 1 s and idle RSS under 200 MB (reported, not a hard CI gate) | REQ-90 |
 
 Non-scenario REQs (design, process, distribution, tooling) are covered by slices, not the suite: REQ-1 to REQ-6, REQ-10 to REQ-14 (S-21c, S-43d cover the observable part), REQ-15 (slice P5), REQ-24 start-route name (slices V9, P4), REQ-37, REQ-46 (classifier replay, slice I2), REQ-51, REQ-53, REQ-70 to REQ-76, REQ-81 to REQ-83, REQ-92, REQ-93.
