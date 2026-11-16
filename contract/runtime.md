@@ -7,7 +7,7 @@ Authority: REQ-61, REQ-77, REQ-80, REQ-27 rule 1, REQ-40. `tool_schema` is **3**
 - argv: no arguments. Rust: `regspike-rs`. TypeScript: `node regspike.mjs` (working names, REQ-73). The suite takes the full command after `--` (`python3 conformance/run.py -- <command...>`), as spike 3 did. The plugin starts the server through the launcher (REQ-77); the suite starts the binary directly.
 - Transport: MCP over stdio, newline-delimited JSON-RPC 2.0, protocol version `2024-11-05` in `initialize`, then `notifications/initialized`.
 - Error channel: a domain failure is a `tools/call` result with `isError: true` and one plain-text content item (never a JSON-RPC error object); JSON-RPC errors are for malformed protocol only (tools.json `conventions.errors`). The suite treats a JSON-RPC error on a domain failure as a failure.
-- The server serves one session at a time and exits on stdin EOF (REQ-10, REQ-27 rule 5).
+- The server serves one session at a time and exits on stdin EOF (REQ-10, REQ-27 rule 5). On EOF it first flushes the journal queue, writes the decision log where REQ-27 rule 5 and the table in "Interview ends and server exit" below require, removes its pid file, then exits.
 
 ## Environment the suite injects
 

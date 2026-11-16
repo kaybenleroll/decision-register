@@ -27,6 +27,8 @@ Entries are appended as the fixes land; all belong to this one bump.
 - Error channel: domain failures must be isError:true tool results, never
   JSON-RPC errors (the old text let the suite accept either, which weakened
   REQ-40/REQ-71 identical behaviour).
+- Journal flush: the queue is also flushed on stdin EOF (user decision), not
+  only at check_stop and at end. Why: a graceful exit must lose no event.
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes
