@@ -67,6 +67,87 @@ def check(v, s, defs, path="$"):
     return e
 
 
+def md_fields(cell):
+    """Field names of a journal.md 'Extra fields' cell: backticked tokens outside parentheses."""
+    names, depth, i = [], 0, 0
+    while i < len(cell):
+        c = cell[i]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        elif c == "`":
+            j = cell.index("`", i + 1)
+            if depth == 0:
+                names.append(cell[i + 1:j])
+            i = j
+        i += 1
+    return names
+
+
+def md_enums(cell):
+    """{field: set of values} for 'field (`a`, `b`)' patterns in a journal.md cell."""
+    out = {}
+    for m in re.finditer(r"`(\w+)` \(((?:`[\w]+`(?:, |\)))+)", cell):
+        out[m.group(1)] = set(re.findall(r"`(\w+)`", m.group(2)))
+    return out
+
+
+def check_journal(d, fails):
+    """contract/journal.schema.json against its own examples, journal.md's event table and tools.json."""
+    js = json.load(open(os.path.join(HERE, "journal.schema.json")))
+    md = open(os.path.join(HERE, "journal.md")).read()
+    defs = dict(d["$defs"], **js["$defs"])
+    for what, v in (("tools.json", d["journal_schema"]), ("journal.schema.json", js["journal_schema"]),
+                    ("status result const", d["tools"]["status"]["result"]["properties"]["journal_schema"].get("const"))):
+        if v != 2:
+            fails.append("journal_schema in %s is %r, expected 2" % (what, v))
+    m = re.match(r"# Journal contract \(journal_schema (\d+)\)", md)
+    if not m or int(m.group(1)) != d["journal_schema"]:
+        fails.append("journal.md heading does not state journal_schema %d" % d["journal_schema"])
+    rows = re.findall(r"^\| `(\w+)` \| (.*?) \| (.*) \|$", md.split("## Event kinds")[1].split("## End kinds")[0], re.M)
+    if [r[0] for r in rows] != list(js["kinds"]):
+        fails.append("journal.schema.json kinds %s differ from journal.md event table %s" % (list(js["kinds"]), [r[0] for r in rows]))
+    envelope = {"v", "ts", "seq", "kind"}
+    for kind, extra, _ in rows:
+        sch = js["kinds"].get(kind)
+        if not sch:
+            continue
+        want = [] if extra.strip() == "none" else md_fields(extra)
+        got = [k for k in sch["properties"] if k not in envelope]
+        if sorted(want) != sorted(got):
+            fails.append("journal kind %s: journal.md fields %s differ from journal.schema.json %s" % (kind, sorted(want), sorted(got)))
+        if set(sch["required"]) != set(sch["properties"]) or sch.get("additionalProperties") is not False:
+            fails.append("journal kind %s: every field must be required and additionalProperties false" % kind)
+        if sch["properties"]["kind"] != {"const": kind} or sch["properties"]["v"] != {"const": 2}:
+            fails.append("journal kind %s: envelope kind/v constants wrong" % kind)
+        for field, vals in md_enums(extra).items():
+            enum = sch["properties"].get(field, {}).get("enum")
+            if enum is not None and set(enum) != vals:
+                fails.append("journal kind %s field %s: journal.md values %s differ from schema enum %s" % (kind, field, sorted(vals), enum))
+            if enum is None and field in sch["properties"] and field not in ("skill", "session_id"):
+                fails.append("journal kind %s field %s: journal.md lists values but the schema has no enum" % (kind, field))
+    for x in js["examples"]["good"]:
+        k = x.get("kind")
+        errs = check(x, js["kinds"][k], defs) if k in js["kinds"] else ["unknown kind"]
+        if errs:
+            fails.append("journal good example rejected %s: %s" % (json.dumps(x), errs))
+    for x in js["examples"]["bad"]:
+        k = x["event"].get("kind")
+        if k in js["kinds"] and not check(x["event"], js["kinds"][k], defs):
+            fails.append("journal bad example accepted (%s): %s" % (x["why"], json.dumps(x["event"])))
+        if k not in js["kinds"] and x["why"] != "unknown kind":
+            fails.append("journal bad example has an unknown kind but is not the unknown-kind case: %s" % x["why"])
+    seen = {x["kind"] for x in js["examples"]["good"]}
+    if seen != set(js["kinds"]):
+        fails.append("journal good examples miss kinds %s" % sorted(set(js["kinds"]) - seen))
+    end_enum = js["kinds"]["end"]["properties"]["end_kind"]["enum"]
+    tools_end = d["tools"]["end_interview"]["result"]["properties"]["end_kind"]["enum"]
+    if set(end_enum) - set(tools_end) != {"abandoned"} or set(tools_end) - set(end_enum):
+        fails.append("end_kind enums: journal %s vs end_interview result %s (only abandoned may be journal-only)" % (end_enum, tools_end))
+    return len(js["examples"]["good"]), len(js["examples"]["bad"])
+
+
 def main():
     d = json.load(open(os.path.join(HERE, "tools.json")))
     defs = d["$defs"]
@@ -135,8 +216,9 @@ def main():
         fails.append("contract/CHANGES has no 'tool_schema %d' entry" % ts)
     if "`tool_schema` is **%d**" % ts not in open(os.path.join(ROOT, "contract/runtime.md")).read():
         fails.append("contract/runtime.md does not state tool_schema **%d**" % ts)
-    print("tools: %d, good examples: %d, bad examples: %d, spike-3 names checked: %d"
-          % (len(d["tools"]), n_good, n_bad, len(used)))
+    jg, jb = check_journal(d, fails)
+    print("tools: %d, good examples: %d, bad examples: %d, spike-3 names checked: %d, journal examples: %d good, %d bad"
+          % (len(d["tools"]), n_good, n_bad, len(used), jg, jb))
     for f in fails:
         print("FAIL", f)
     print("OK" if not fails else "FAILED")

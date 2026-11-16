@@ -40,6 +40,8 @@ def project_key(proj):
 def load_contract():
     with open(os.path.join(CONTRACT, "tools.json"), encoding="utf-8") as f:
         tools = json.load(f)
+    with open(os.path.join(CONTRACT, "journal.schema.json"), encoding="utf-8") as f:
+        tools["journal"] = json.load(f)  # machine-readable journal.md (kinds, envelope)
     spec = importlib.util.spec_from_file_location("check_contract", os.path.join(CONTRACT, "check_contract.py"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -422,6 +424,29 @@ class Run:
         for a in st.get("assert", []):
             self.obs.append(check_assert(name, a, body, self.vars))
 
+    def check_events(self):
+        """Every journal line against contract/journal.schema.json: valid JSON, known kind, per-kind fields,
+        v 2, RFC 3339 UTC ts, seq gapless from 1; the first event is `start`."""
+        js = self.tools["journal"]
+        defs = dict(self.tools["$defs"], **js["$defs"])
+        assert self.lines, "journal is empty"
+        for n, line in enumerate(self.lines, 1):
+            try:
+                e = json.loads(line)
+            except ValueError:
+                raise AssertionError("journal line %d is not JSON: %r" % (n, line[:80]))
+            kind = e.get("kind") if isinstance(e, dict) else None
+            if kind not in js["kinds"]:
+                raise AssertionError("journal line %d has unknown kind %r" % (n, kind))
+            errs = self.check(e, js["kinds"][kind], defs)
+            if errs:
+                raise AssertionError("journal line %d (%s) violates journal.schema.json: %s" % (n, kind, "; ".join(errs[:3])))
+            if e["seq"] != n:
+                raise AssertionError("journal line %d has seq %d (gapless 1-based expected)" % (n, e["seq"]))
+            if n == 1 and kind != "start":
+                raise AssertionError("journal starts with %r, expected start" % kind)
+        self.obs.append("%d events valid, seq 1..%d" % (len(self.lines), len(self.lines)))
+
     def do_journal(self, st):
         action = st["action"]
         path = self.journal_path()
@@ -432,10 +457,7 @@ class Run:
             self.vars["n1"] = str(len(self.lines) + 1)
             self.obs.append("journal has %d events" % len(self.lines))
         elif action == "check_events":
-            evs = [json.loads(l) for l in self.lines]
-            assert evs and all(e.get("v") == 2 for e in evs), "events lack v=2: %s" % self.lines[:1]
-            assert all(isinstance(e.get("ts"), str) and TS_RE.match(e["ts"]) for e in evs), \
-                "events lack RFC 3339 UTC ts"
+            self.check_events()
         elif action == "write":
             evs = [json.loads(l) for l in self.lines]
 
