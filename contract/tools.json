@@ -413,40 +413,40 @@
     ],
     "result_good": [
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "active",
       "existing": false
      },
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "active",
       "existing": true
      },
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "complete",
       "existing": true
      }
     ],
     "result_bad": [
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "started"
      },
      {
       "state": "active"
      },
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "pending",
       "existing": true
      },
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "active"
      },
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "ended",
       "existing": true
      }
@@ -1207,11 +1207,11 @@
       "last_event": 0,
       "resumable": [
        {
-        "interview_id": "iv-2",
+        "interview_id": "iv-20261116T101500Z-0b7e44aa",
         "last_event": 9
        },
        {
-        "interview_id": "iv-1",
+        "interview_id": "iv-20261116T093015Z-a3f9c2d1",
         "last_event": 4
        }
       ],
@@ -1619,7 +1619,7 @@
       },
       "last_event": 0,
       "resumable": {
-       "interview_id": "iv-1",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
        "last_event": 4
       },
       "version_mismatch": null
@@ -1720,7 +1720,7 @@
     "input_good": [
      {},
      {
-      "id": "iv-1"
+      "id": "iv-20261116T093015Z-a3f9c2d1"
      }
     ],
     "input_bad": [
@@ -1728,12 +1728,12 @@
       "id": ""
      },
      {
-      "interview_id": "iv-1"
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1"
      }
     ],
     "result_good": [
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "active",
       "last_event": 7,
       "items": {
@@ -1746,11 +1746,11 @@
     ],
     "result_bad": [
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "active"
      },
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "complete",
       "last_event": 7,
       "items": {
@@ -1799,7 +1799,7 @@
     "input_good": [
      {},
      {
-      "id": "iv-1"
+      "id": "iv-20261116T093015Z-a3f9c2d1"
      }
     ],
     "input_bad": [
@@ -1810,18 +1810,18 @@
       "id": "has space"
      },
      {
-      "interview_id": "iv-1"
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1"
      }
     ],
     "result_good": [
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "archived": true
      }
     ],
     "result_bad": [
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "archived": false
      }
     ]
@@ -1942,7 +1942,7 @@
     ],
     "result_good": [
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "ended",
       "end_kind": "normal",
       "decision_log": "/home/u/proj/.scratch/decision-iv-1.md"
@@ -1950,17 +1950,17 @@
     ],
     "result_bad": [
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "ended",
       "end_kind": "finished"
      },
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "ended",
       "end_kind": "abandoned"
      },
      {
-      "interview_id": "iv-1",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
       "state": "ended",
       "end_kind": "normal"
      }
