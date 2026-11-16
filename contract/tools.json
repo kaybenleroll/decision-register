@@ -1035,7 +1035,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Resume an unfinished journal (REQ-52): accepted only in state none or pending; rebinds to last_seen_session_id; claims the pid file exclusively. id may be omitted when exactly one unfinished journal exists; when several exist the error lists them. Replay failure names the 1-based line number and leaves state unchanged (REQ-60). The result state is always active (a journal whose last events include complete replays to active; the complete state is not restored). Not a start-engaging call.",
+   "description": "Resume an unfinished journal (REQ-52): accepted only in state none or pending; rebinds to last_seen_session_id; claims the pid file exclusively. id may be omitted when exactly one unfinished journal exists; when several exist the error lists them. An id naming a live-owned journal is refused (journal is live-owned), distinct from losing the claim race (journal already claimed). Wrong state, no journal, unknown id: see errors. Replay failure names the 1-based line number and leaves state unchanged (REQ-60). The result state is always active (a journal whose last events include complete replays to active; the complete state is not restored). Not a start-engaging call.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -1148,7 +1148,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Archive an unfinished journal and continue plain (REQ-52). id may be omitted when exactly one unfinished journal exists.",
+   "description": "Archive an unfinished journal and continue plain (REQ-52). id may be omitted when exactly one unfinished journal exists. Accepted in states none and pending only (a pending interview stays pending); the same no-journal, unknown-id, live-owned, several-and-no-id and wrong-state errors as resume. Archives by moving <id>.jsonl to archive/ and removing any <id>.pid file.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -1185,6 +1185,12 @@
     "input_bad": [
      {
       "id": 5
+     },
+     {
+      "id": "has space"
+     },
+     {
+      "interview_id": "iv-1"
      }
     ],
     "result_good": [
@@ -1589,11 +1595,6 @@
    "check": 11
   },
   {
-   "tools": "resume",
-   "when": "journal already claimed; several unfinished journals and no id; state not none or pending; replay failure",
-   "message_names": "journal already claimed | the list of interview ids | the state | the 1-based line number as a digit string"
-  },
-  {
    "tools": "note_prompt|skill_started|check_stop",
    "when": "call carries _meta claudecode/toolUseId",
    "message_names": "the tool name and 'hook-facing'"
@@ -1627,6 +1628,48 @@
    "when": "the id names no item (including every id in states none and pending, where the register is empty)",
    "message_names": "no such item: <id>; the call starts and engages nothing",
    "check": 7
+  },
+  {
+   "tools": "resume|discard",
+   "when": "no unfinished journal exists",
+   "message_names": "no unfinished journal",
+   "check": 6
+  },
+  {
+   "tools": "resume|discard",
+   "when": "the id names no unfinished journal (unknown, already archived, or ended)",
+   "message_names": "unknown interview id: <id>",
+   "check": 6
+  },
+  {
+   "tools": "resume|discard",
+   "when": "the id names a journal whose owner is alive (pid file with a live process and the same start time)",
+   "message_names": "journal is live-owned: <id>",
+   "check": 6
+  },
+  {
+   "tools": "resume|discard",
+   "when": "several unfinished journals exist and no id was given",
+   "message_names": "several unfinished journals: followed by the interview ids, comma separated",
+   "check": 6
+  },
+  {
+   "tools": "resume|discard",
+   "when": "state active or complete",
+   "message_names": "wrong state: followed by the state name",
+   "check": 6
+  },
+  {
+   "tools": "resume",
+   "when": "the exclusive pid-file create loses a race with another resumer",
+   "message_names": "journal already claimed",
+   "check": 6
+  },
+  {
+   "tools": "resume",
+   "when": "replay fails (REQ-31 violation, invalid JSON on a non-final line, seq gap, unknown kind, v above 2)",
+   "message_names": "replay failed at line followed by the 1-based line number as a digit string; state unchanged and the pid file removed",
+   "check": 6
   }
  ],
  "error_precedence": [
