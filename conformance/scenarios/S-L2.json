@@ -12,13 +12,6 @@
  ],
  "steps": [
   {
-   "call": "note_prompt",
-   "args": {
-    "session_id": "S1",
-    "prompt": "grill me on this plan"
-   }
-  },
-  {
    "call": "begin_interview",
    "args": {
     "tool_schema": 3,
@@ -50,6 +43,10 @@
     },
     {
      "path": "$key/$iid.jsonl",
+     "mode": "600"
+    },
+    {
+     "path": "$key/$iid.pid",
      "mode": "600"
     }
    ]

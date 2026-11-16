@@ -1,0 +1,48 @@
+{
+ "id": "S-L3",
+ "title": "an empty CLAUDE_PROJECT_DIR counts as unset: the project path is the server's working directory",
+ "req": [
+  "REQ-61"
+ ],
+ "env": {
+  "CLAUDE_PROJECT_DIR": ""
+ },
+ "steps": [
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "tq1"
+   }
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key",
+     "mode": "700"
+    },
+    {
+     "path": "$key/$iid.jsonl",
+     "mode": "600"
+    },
+    {
+     "path": "$key/$iid.pid",
+     "mode": "600"
+    }
+   ]
+  }
+ ]
+}
