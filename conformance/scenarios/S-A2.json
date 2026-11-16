@@ -82,6 +82,25 @@
    "matches": "(?i)duplicate"
   },
   {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "   "
+   },
+   "expect": "error",
+   "matches": "^invalid arguments:.*text"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "t",
+    "bogus": 1
+   },
+   "expect": "error",
+   "matches": "^invalid arguments:.*bogus"
+  },
+  {
    "call": "status",
    "args": {},
    "assert": [
