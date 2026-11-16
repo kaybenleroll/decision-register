@@ -98,16 +98,17 @@ class Server:
                 return m
 
     def call(self, name, args, meta):
-        """Return (is_error, text). meta None sends no _meta key at all (hook-style)."""
+        """Return (kind, text), kind in ok | tool_error (result.isError) | protocol_error (JSON-RPC error object).
+        meta None sends no _meta key at all (hook-style)."""
         params = {"name": name, "arguments": args}
         if meta is not None:
             params["_meta"] = meta
         m = self.rpc("tools/call", params)
         if "error" in m:
-            return True, json.dumps(m["error"])
+            return "protocol_error", json.dumps(m["error"])
         r = m["result"]
         text = "".join(c.get("text", "") for c in r.get("content", []) if isinstance(c, dict))
-        return bool(r.get("isError")), text
+        return ("tool_error" if r.get("isError") else "ok"), text
 
     def close(self):
         try:
@@ -124,9 +125,12 @@ class Server:
 # ---------------------------------------------------------------- scenario execution
 
 def subst(v, vars_):
-    """Replace "$name" strings with saved variables, recursively."""
+    """Replace a whole-string "$name" with the saved variable (any type), and "${name}" inside longer
+    strings with its text, recursively."""
     if isinstance(v, str) and v.startswith("$") and v[1:] in vars_:
         return vars_[v[1:]]
+    if isinstance(v, str) and "${" in v:
+        return re.sub(r"\$\{(\w+)\}", lambda m: str(vars_[m.group(1)]) if m.group(1) in vars_ else m.group(0), v)
     if isinstance(v, list):
         return [subst(x, vars_) for x in v]
     if isinstance(v, dict):
@@ -148,6 +152,49 @@ def derived_counts(st):
     for it in st["tree"]:
         c[it["status"].lower()] += 1
     return c
+
+
+def as_list(v):
+    return [] if v is None else ([v] if isinstance(v, str) else list(v))
+
+
+OPERATORS = ("eq", "ne", "contains", "not_contains", "matches", "len", "ge", "absent", "decision_block")
+
+
+def check_assert(name, a, body, vars_):
+    """One assert entry: optional `path` plus exactly one operator (validated by `validate`)."""
+    path = a.get("path")
+    where = "%s: %s" % (name, path or "result")
+    op = [k for k in a if k != "path"][0]
+    want = subst(a[op], vars_)
+    if op == "decision_block":
+        blocked = body.get("decision") == "block"
+        if want and not blocked:
+            raise AssertionError("%s: not blocked: %s" % (name, json.dumps(body)[:150]))
+        if not want and "decision" in body:
+            raise AssertionError("%s: a decision was returned: %s" % (name, json.dumps(body)[:150]))
+        return
+    if op == "absent":
+        try:
+            val = dig(body, path)
+        except (KeyError, IndexError, ValueError):
+            return
+        raise AssertionError("%s should be absent, is %r" % (where, val))
+    val = body if path is None else dig(body, path)
+    if op == "eq" and val != want:
+        raise AssertionError("%s is %r, expected %r" % (where, val, want))
+    if op == "ne" and val == want:
+        raise AssertionError("%s is %r, expected anything else" % (where, val))
+    if op == "contains" and want not in val:
+        raise AssertionError("%s lacks %r: %r" % (where, want, str(val)[:150]))
+    if op == "not_contains" and want in val:
+        raise AssertionError("%s should not contain %r: %r" % (where, want, str(val)[:150]))
+    if op == "matches" and not (isinstance(val, str) and re.search(want, val)):
+        raise AssertionError("%s does not match /%s/: %r" % (where, want, str(val)[:150]))
+    if op == "len" and len(val) != want:
+        raise AssertionError("%s has length %d, expected %r" % (where, len(val), want))
+    if op == "ge" and not val >= want:
+        raise AssertionError("%s is %r, expected at least %r" % (where, val, want))
 
 
 class Run:
@@ -229,18 +276,24 @@ class Run:
             meta = MODEL_META
         elif meta is False:
             meta = None
-        is_err, text = self.srv.call(name, args, meta)
+        kind, text = self.srv.call(name, args, meta)
         expect = st.get("expect", "ok")
-        if expect == "error":
-            if not is_err:
-                raise AssertionError("%s %s should have errored, got: %s" % (name, args, text[:150]))
-            for m in ([st["mention"]] if isinstance(st.get("mention"), str) else st.get("mention", [])):
-                m = subst(m, self.vars)
-                if m not in text:
-                    raise AssertionError("error for %s lacks %r: %s" % (name, m, text[:150]))
+        if expect in ("error", "protocol_error"):
+            want = "tool_error" if expect == "error" else "protocol_error"
+            if kind != want:
+                raise AssertionError("%s %s: expected %s, got %s: %s" % (name, args, want, kind, text[:150]))
+            for m in as_list(st.get("mention")):
+                if subst(m, self.vars) not in text:
+                    raise AssertionError("error for %s lacks %r: %s" % (name, subst(m, self.vars), text[:150]))
+            for m in as_list(st.get("not_mention")):
+                if subst(m, self.vars) in text:
+                    raise AssertionError("error for %s should not contain %r: %s" % (name, subst(m, self.vars), text[:150]))
+            for rx in as_list(st.get("matches")):
+                if not re.search(subst(rx, self.vars), text):
+                    raise AssertionError("error for %s does not match /%s/: %s" % (name, subst(rx, self.vars), text[:150]))
             return
-        if is_err:
-            raise AssertionError("%s %s unexpectedly failed: %s" % (name, args, text[:150]))
+        if kind != "ok":
+            raise AssertionError("%s %s unexpectedly failed (%s): %s" % (name, args, kind, text[:150]))
         body = {} if (text.strip() == "" and tool["audience"] == "hook") else json.loads(text)
         errs = self.check(body, tool["result"], self.tools["$defs"])
         if errs:
@@ -251,17 +304,7 @@ class Run:
         for var, path in st.get("save", {}).items():
             self.vars[var] = dig(body, path)
         for a in st.get("assert", []):
-            val = body if "path" not in a else dig(body, a["path"])
-            if "eq" in a:
-                want = subst(a["eq"], self.vars)
-                if val != want:
-                    raise AssertionError("%s: %s is %r, expected %r" % (name, a.get("path", "result"), val, want))
-            if "contains" in a:
-                want = subst(a["contains"], self.vars)
-                if want not in val:
-                    raise AssertionError("%s: %s lacks %r: %r" % (name, a.get("path", "result"), want, str(val)[:150]))
-            if "decision_block" in a and a["decision_block"] and body.get("decision") != "block":
-                raise AssertionError("%s: not blocked: %s" % (name, text[:150]))
+            check_assert(name, a, body, self.vars)
 
     def do_journal(self, st):
         action = st["action"]
@@ -324,6 +367,44 @@ def run_scenario(cmd, scen, tools, validator):
 
 # ---------------------------------------------------------------- static validation
 
+STEP_KEYS = {
+    "call": {"op", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert"},
+    "restart": {"op"}, "stop": {"op"}, "start": {"op"},
+    "journal": {"op", "action", "form"},
+    "fs": {"op", "assert"},
+}
+FS_KEYS = {"path", "exists", "mode"}
+EXPECTS = ("ok", "error", "protocol_error")
+
+
+def validate_assert(where, a, errs):
+    if not isinstance(a, dict):
+        errs.append("%s: assert entry must be an object" % where)
+        return
+    for k in a:
+        if k != "path" and k not in OPERATORS:
+            errs.append("%s: unknown assert key %r (operators: %s)" % (where, k, ", ".join(OPERATORS)))
+    ops = [k for k in a if k in OPERATORS]
+    if len(ops) != 1:
+        errs.append("%s: assert entry needs exactly one operator, has %d (%s)" % (where, len(ops), ", ".join(ops) or "none"))
+        return
+    op = ops[0]
+    if op in ("decision_block", "absent"):
+        if not isinstance(a[op], bool):
+            errs.append("%s: %s needs a boolean" % (where, op))
+        if op == "absent" and ("path" not in a or a[op] is not True):
+            errs.append("%s: absent needs a path and true" % where)
+        if op == "decision_block" and "path" in a:
+            errs.append("%s: decision_block applies to the whole result, not a path" % where)
+    elif op in ("len", "ge") and (not isinstance(a[op], (int, float)) or isinstance(a[op], bool)):
+        errs.append("%s: %s needs a number" % (where, op))
+    elif op == "matches":
+        try:
+            re.compile(re.sub(r"\$\{\w+\}", "0", a[op]))
+        except (re.error, TypeError) as e:
+            errs.append("%s: bad regex: %s" % (where, e))
+
+
 def validate(scenarios, tools, validator):
     errs, ids = [], set()
     top = {"id", "title", "req", "steps", "env", "unset_env", "pass_detail"}
@@ -340,35 +421,62 @@ def validate(scenarios, tools, validator):
         ids.add(s.get("id"))
         if s.get("id") and f != s["id"] + ".json":
             errs.append("%s: file name must be <id>.json" % f)
-        saved = {"iid", "n", "n1"}
         for i, st in enumerate(s.get("steps", [])):
             where = "%s step %d" % (f, i + 1)
             op = st.get("op", "call")
+            allowed = STEP_KEYS.get(op)
+            if allowed is None and op != "status_consistent":
+                errs.append("%s: unknown op %r" % (where, op))
+                continue
+            for k in st:
+                if allowed is not None and k not in allowed:
+                    errs.append("%s: unknown key %r for op %s" % (where, k, op))
             if op == "call":
                 name = st.get("call")
+                expect = st.get("expect", "ok")
+                if expect not in EXPECTS:
+                    errs.append("%s: bad expect %r" % (where, expect))
                 if name not in tools["tools"]:
-                    errs.append("%s: unknown tool %r" % (where, name))
+                    if not (expect == "protocol_error" and isinstance(name, str)):
+                        errs.append("%s: unknown tool %r" % (where, name))
                     continue
                 tool = tools["tools"][name]
                 args = st.get("args", {})
-                if st.get("expect") != "error" and not any(
+                if expect == "ok" and not any(
                         isinstance(v, str) and v.startswith("$") for v in json.dumps(args).split('"')):
                     for e in validator(args, tool["input"], tools["$defs"]):
                         errs.append("%s: %s args violate tools.json: %s" % (where, name, e))
-                if tool["audience"] == "hook" and st.get("meta") not in (None, False) and st.get("expect") != "error":
+                if tool["audience"] == "hook" and st.get("meta") not in (None, False) and expect == "ok":
                     errs.append("%s: hook-facing %s sent with _meta must expect error" % (where, name))
-                if st.get("expect", "ok") not in ("ok", "error"):
-                    errs.append("%s: bad expect" % where)
-                for var in st.get("save", {}):
-                    saved.add(var)
+                if expect == "ok":
+                    for k in ("mention", "not_mention", "matches"):
+                        if k in st:
+                            errs.append("%s: %s only applies to expect error or protocol_error" % (where, k))
+                else:
+                    for k in ("save", "assert"):
+                        if k in st:
+                            errs.append("%s: %s only applies to expect ok" % (where, k))
+                    for rx in as_list(st.get("matches")):
+                        try:
+                            re.compile(re.sub(r"\$\{\w+\}", "0", rx))
+                        except re.error as e:
+                            errs.append("%s: bad regex: %s" % (where, e))
+                for j, a in enumerate(st.get("assert", [])):
+                    validate_assert("%s assert %d" % (where, j + 1), a, errs)
             elif op == "journal":
                 if st.get("action") not in ("load", "check_events", "write"):
                     errs.append("%s: bad journal action" % where)
+                if (st.get("action") == "write") != ("form" in st):
+                    errs.append("%s: journal write needs form, other actions take none" % where)
             elif op == "fs":
                 if not st.get("assert"):
                     errs.append("%s: fs step needs assert" % where)
-            elif op not in ("restart", "stop", "start", "status_consistent"):
-                errs.append("%s: unknown op %r" % (where, op))
+                for a in st.get("assert", []):
+                    for k in a:
+                        if k not in FS_KEYS:
+                            errs.append("%s: unknown fs assert key %r" % (where, k))
+                    if "path" not in a:
+                        errs.append("%s: fs assert needs path" % where)
     return errs
 
 
