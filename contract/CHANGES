@@ -63,6 +63,10 @@ Entries are appended as the fixes land; all belong to this one bump.
   the log_item, resolve and park results (only reopen can make items Stale,
   REQ-36). Tree order pinned: Open, Stale, Parked, Resolved, creation order
   within a group. Why: REQ-31 states must be unrepresentable (review S2-7).
+- status.resumable is an array (empty when none) of {interview_id, last_event},
+  most recently modified journal first. Why: REQ-52 allows several unfinished
+  journals; a single object hid the others (review S2-6). version_mismatch
+  lifetime pinned (set by a mismatch, cleared by a later match).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes
