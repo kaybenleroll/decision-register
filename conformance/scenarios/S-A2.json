@@ -1,16 +1,17 @@
 {
  "id": "S-A2",
- "title": "reopen on an Open item errors; unknown depends_on errors naming the id",
+ "title": "reopen on an Open item errors naming id and status; unknown ids error naming the id; a failing call changes nothing",
  "req": [
   "REQ-36",
   "REQ-38",
-  "REQ-30"
+  "REQ-30",
+  "REQ-40"
  ],
  "steps": [
   {
    "call": "note_prompt",
    "args": {
-    "session_id": "S1",
+    "session_id": "sess-a2",
     "prompt": "grill me on this plan"
    }
   },
@@ -30,7 +31,7 @@
    "args": {
     "id": "q1",
     "kind": "question",
-    "text": "tq1"
+    "text": "text-one"
    }
   },
   {
@@ -40,7 +41,10 @@
     "reason": "r"
    },
    "expect": "error",
-   "mention": "q1"
+   "mention": [
+    "q1",
+    "Open"
+   ]
   },
   {
    "call": "log_item",
@@ -54,6 +58,55 @@
    },
    "expect": "error",
    "mention": "nope"
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "zz",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "mention": "zz"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-dup"
+   },
+   "expect": "error",
+   "mention": "q1",
+   "matches": "(?i)duplicate"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "len": 1
+    },
+    {
+     "path": "tree.0.text",
+     "eq": "text-one"
+    },
+    {
+     "path": "last_event",
+     "eq": 2
+    }
+   ]
   }
  ]
 }

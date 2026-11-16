@@ -172,8 +172,8 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-77c `skill_started` with wrong `tool_schema` returns `{}` and does not block; `status` reports the recorded mismatch | REQ-77, REQ-41 |
 | S-73a launcher with the binary missing serves a no-op stub MCP server: hook-facing tools return `{}`, `status` returns `{"unavailable":"binary not found"}`, one-line message on stderr | REQ-73, REQ-77 |
 | S-73b the launcher's binary-missing message differs from the version-mismatch error text | REQ-73, REQ-77 |
-| S-A1 dependent items go Stale on reopen and resolve back one at a time (kept) | REQ-36, REQ-38 |
-| S-A2 reopen on an Open item errors; unknown `depends_on` errors naming the id (kept) | REQ-36, REQ-38, REQ-30 |
+| S-A1 dependent items go Stale on reopen and resolve back one at a time; the tree lists Open, Stale, Parked, Resolved in that order and keeps each answer, source and rationale (kept) | REQ-36, REQ-38, REQ-31, REQ-45 |
+| S-A2 reopen on an Open item errors naming the id and its status; unknown `depends_on` or `resolve` ids error naming the id; a duplicate id errors; a failing call leaves the tree and `last_event` unchanged (kept) | REQ-36, REQ-38, REQ-30, REQ-40 |
 | S-A3 finish gate blocks with Stale items open and names them (kept) | REQ-42, REQ-43, REQ-45 |
 | S-A4 model resolve of a decision rejected; user resolve after a user prompt succeeds (kept) | REQ-32, REQ-34 |
 | S-A5 model park of a decision rejected; model park of a question succeeds (kept) | REQ-33, REQ-34 |
