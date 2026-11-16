@@ -36,7 +36,21 @@ Replay applies the REQ-31 checks (non-blank answer and rationale, single-line ra
 | `complete` | none | allowed finish attempt with nothing open (REQ-23) |
 | `mismatch` | `plugin_tool_schema`, `server_tool_schema` | `skill_started` or `begin_interview` sees a tool_schema mismatch (REQ-77) |
 | `resume` | `session_id`, `from_seq` | `resume` claims the journal (REQ-52) |
-| `end` | `end_kind` (`normal`, `ended_after_completion`, `ended_incomplete_by_model`, `abandoned`, `interrupted`, `stood_down`), `mode` (`register`, `plain`, `not_engaged`), `reason` | the interview ends (REQ-23, REQ-27). A journal without `end` whose owner is dead is `unfinished`. `interrupted` is written to the decision log only; the journal stays unfinished (REQ-27 rule 5). |
+| `end` | `end_kind` (`normal`, `ended_after_completion`, `ended_incomplete_by_model`, `abandoned`, `stood_down`), `mode` (`register`, `plain`, `not_engaged`), `reason` | the interview ends (REQ-23, REQ-27). A journal without `end` whose owner is dead is `unfinished`. `interrupted` is not a journal end kind: a crash or a server exit on an active interview writes no `end` event, the journal stays unfinished, and `interrupted` appears only among the decision-log kinds (REQ-62; REQ-27 rule 5). End kinds and triggers are listed below. |
+
+## End kinds (journal `end` event) and their triggers
+
+| `end_kind` | Trigger | `mode` |
+|---|---|---|
+| `normal` | `end_interview` on an active interview with nothing open; also a session change (REQ-26) on an active interview with nothing open | `register` |
+| `ended_incomplete_by_model` | `end_interview` with `abandon: true` and a non-blank reason while items are open (REQ-23); the log says "ended incomplete by the model" | `register` |
+| `abandoned` | session change (REQ-26) on an active interview with items open; the log is flagged incomplete | `register` |
+| `ended_after_completion` | a complete interview ends by `end_interview`, a session change or server exit (REQ-23, REQ-26); never downgraded | `register` |
+| `stood_down` | a pending interview ends by `end_interview` with `mode: plain` (mode `plain`), by its second Stop check with no model-facing register call (mode `not_engaged`), or by a session change (REQ-27 rule 3, REQ-26) | `plain` or `not_engaged` |
+
+`interrupted` (server exit or crash on an active, not-complete interview) is a decision-log kind only: no `end` event is written and the journal stays `unfinished` (REQ-27 rule 5, REQ-62). The `end_interview` tool result therefore never returns it.
+
+Every row and rule of the REQ-27 table maps to at least one of the 13 event names above; the frozen names are checked by `.scratch/check_lifecycle_events.py`.
 
 The kinds `engage`, `prompt`, `hook`, `stop`, `complete` and `mismatch` carry no register data a replay must reproduce except counters, caps and state; replay rebuilds those from them.
 

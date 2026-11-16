@@ -66,8 +66,8 @@ def main():
     d = json.load(open(os.path.join(HERE, "tools.json")))
     defs = d["$defs"]
     fails, n_good, n_bad = [], 0, 0
-    if d["tool_schema"] != 1:
-        fails.append("tool_schema is %r, expected 1" % d["tool_schema"])
+    if d["tool_schema"] != 2:
+        fails.append("tool_schema is %r, expected 2" % d["tool_schema"])
     expected = {"begin_interview", "log_item", "resolve", "park", "reopen", "status", "resume",
                 "discard", "end_interview", "note_prompt", "skill_started", "check_stop"}
     if set(d["tools"]) != expected:
@@ -88,13 +88,20 @@ def main():
                     fails.append("%s %s bad example accepted %s" % (name, kind, json.dumps(x)))
         if (t["audience"] == "hook") != t["rejects_meta"]:
             fails.append("%s: rejects_meta must be true exactly for hook-facing tools" % name)
+    # status.items counts must equal the counts derived from tree
+    for x in d["tools"]["status"]["examples"]["result_good"]:
+        derived = {k.lower(): 0 for k in ("Open", "Resolved", "Parked", "Stale")}
+        for node in x["tree"]:
+            derived[node["status"].lower()] += 1
+        if derived != x["items"]:
+            fails.append("status items %s differ from counts derived from tree %s" % (x["items"], derived))
     # (c) tool names used by the spike-3 script are kept
     src = open(os.path.join(ROOT, "docs/evidence/spike3/acceptance.py")).read()
     used = set(re.findall(r'(?:\.ok|\.err|\.call)\("([a-z_]+)"', src))
     missing = used - set(d["tools"])
     if missing:
         fails.append("spike-3 tool names missing from contract: %s" % sorted(missing))
-    # (b) tool_schema 1 is documented
+    # (b) tool_schema 2 is documented
     for f in ("contract/CHANGES", "contract/runtime.md"):
         if "tool_schema" not in open(os.path.join(ROOT, f)).read():
             fails.append("%s does not mention tool_schema" % f)

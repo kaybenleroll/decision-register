@@ -18,5 +18,14 @@ fails if tool_schema, the tool list or any example drifts.
 Log (newest first)
 ------------------
 
+tool_schema 2  (slice C1 walkthrough, 2026-11-16)  Journal format change, and a
+result-shape narrowing: `interrupted` removed from the journal `end` event's
+end_kind enum and from the `end_interview` result enum (a crash or server exit
+on an active interview writes no `end` event; `interrupted` is a decision-log
+kind only). End-kind triggers stated in journal.md. Added without schema change:
+`log_item` duplicate caller-supplied id error row, and the rule that `status`
+`items` counts equal the counts derived from `tree` (checked in check_contract.py).
+Bumped because the CHANGES rule counts a journal event shape change.
+
 tool_schema 1  (slice C1, 2026-11-16)  Initial freeze: REQ-40 tool list,
 journal_schema 2.
