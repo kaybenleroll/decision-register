@@ -80,8 +80,9 @@ class Server:
         self.n = 0
 
     def initialize(self):
-        self.rpc("initialize", {"protocolVersion": "2024-11-05", "capabilities": {},
-                                "clientInfo": {"name": "conformance", "version": "0"}})
+        m = self.rpc("initialize", {"protocolVersion": "2024-11-05", "capabilities": {},
+                                    "clientInfo": {"name": "conformance", "version": "0"}})
+        self.init = m.get("result")
         self._send({"jsonrpc": "2.0", "method": "notifications/initialized"})
 
     def kill(self):
@@ -181,6 +182,32 @@ def dig(obj, path):
         else:
             obj = obj[part]
     return obj
+
+
+IGNORED_SCHEMA_KEYS = ("description", "title", "$schema", "$id", "$defs", "definitions", "examples", "default")
+
+
+def normalise_schema(s, defs):
+    """Canonical form for comparing a server's inputSchema with tools.json: $ref resolved against the given
+    definitions, annotation keys dropped, set-like lists (required, enum, oneOf) sorted."""
+    while isinstance(s, dict) and "$ref" in s:
+        s = defs[s["$ref"].split("/")[-1]]
+    if isinstance(s, list):
+        return [normalise_schema(x, defs) for x in s]
+    if not isinstance(s, dict):
+        return s
+    out = {}
+    for k, v in s.items():
+        if k in IGNORED_SCHEMA_KEYS:
+            continue
+        if k in ("properties", "dependentRequired"):
+            v = {pk: normalise_schema(pv, defs) if k == "properties" else sorted(pv) for pk, pv in v.items()}
+        else:
+            v = normalise_schema(v, defs)
+        if k in ("required", "enum", "oneOf") and isinstance(v, list):
+            v = sorted(v, key=lambda x: json.dumps(x, sort_keys=True))
+        out[k] = v
+    return out
 
 
 def derived_counts(st):
@@ -283,6 +310,41 @@ class Run:
             return self.env["CLAUDE_PLUGIN_DATA"]
         return os.path.join(self.env.get("TMPDIR", "/tmp"), FALLBACK_DIR)
 
+    def do_tools_list(self):
+        """REQ-71: the initialize reply and the tool list (names, input schemas) match contract/tools.json."""
+        init = self.srv.init
+        assert isinstance(init, dict), "initialize returned no result"
+        assert init.get("protocolVersion") == "2024-11-05", "initialize protocolVersion is %r" % init.get("protocolVersion")
+        assert isinstance(init.get("capabilities", {}).get("tools"), dict), "initialize lacks capabilities.tools"
+        info = init.get("serverInfo")
+        assert isinstance(info, dict) and all(isinstance(info.get(k), str) and info[k].strip() for k in ("name", "version")), \
+            "initialize serverInfo needs a name and a version"
+        tools, cursor = [], None
+        while True:
+            m = self.srv.rpc("tools/list", {} if cursor is None else {"cursor": cursor})
+            assert "result" in m, "tools/list failed: %s" % json.dumps(m.get("error"))
+            tools += m["result"].get("tools", [])
+            cursor = m["result"].get("nextCursor")
+            if not cursor:
+                break
+        names = [x.get("name") for x in tools]
+        assert len(names) == len(set(names)), "duplicate tool names in tools/list: %s" % names
+        want = set(self.tools["tools"])
+        if set(names) != want:
+            raise AssertionError("tools/list names differ from tools.json: missing %s, unexpected %s"
+                                 % (sorted(want - set(names)), sorted(set(names) - want)))
+        for x in tools:
+            n = x["name"]
+            assert isinstance(x.get("description"), str) and x["description"].strip(), "%s has no description" % n
+            local = dict(self.tools["$defs"])
+            for key in ("$defs", "definitions"):
+                local.update((x.get("inputSchema") or {}).get(key, {}))
+            got = normalise_schema(x.get("inputSchema"), local)
+            exp = normalise_schema(self.tools["tools"][n]["input"], self.tools["$defs"])
+            if got != exp:
+                raise AssertionError("tools/list inputSchema of %s differs from tools.json: %s" % (n, json.dumps(got, sort_keys=True)[:200]))
+        self.obs.append("%d tools, input schemas equal tools.json" % len(tools))
+
     def do_fs(self, st):
         root = self.root()
         for a in st["assert"]:
@@ -314,15 +376,15 @@ class Run:
             self.do_journal(st)
         elif op == "fs":
             self.do_fs(st)
-        elif op == "status_consistent":
-            self.do_call({"call": "status", "args": {}})
+        elif op == "tools_list":
+            self.do_tools_list()
         else:
             raise AssertionError("unknown op %r" % op)
 
     def do_call(self, st):
         name = st["call"]
         args = subst(st.get("args", {}), self.vars)
-        tool = self.tools["tools"][name]
+        tool = self.tools["tools"].get(name, {"audience": "model", "result": {}})  # unknown name: protocol_error only
         meta = st.get("meta")
         if meta is None:
             meta = MODEL_META if tool["audience"] == "model" else None
@@ -479,6 +541,7 @@ STEP_KEYS = {
     "restart": {"op"}, "stop": {"op"}, "start": {"op"},
     "journal": {"op", "action", "form"},
     "fs": {"op", "assert"},
+    "tools_list": {"op"},
 }
 FS_KEYS = {"path", "exists", "mode"}
 EXPECTS = ("ok", "error", "protocol_error")
@@ -532,7 +595,7 @@ def validate(scenarios, tools, validator):
             where = "%s step %d" % (f, i + 1)
             op = st.get("op", "call")
             allowed = STEP_KEYS.get(op)
-            if allowed is None and op != "status_consistent":
+            if allowed is None:
                 errs.append("%s: unknown op %r" % (where, op))
                 continue
             for k in st:
