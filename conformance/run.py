@@ -277,6 +277,7 @@ class Run:
         self.lines = None
         self.srv = None
         self.env = None
+        self.jl = {}  # loaded journals by name
         self.obs = []  # observed values behind each passed assertion, for the TAP detail
 
     def start(self):
@@ -291,6 +292,7 @@ class Run:
         self.vars["key"] = project_key(env.get("CLAUDE_PROJECT_DIR") or os.path.realpath(self.cwd))
         self.srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"), self.cwd)
         self.srv.initialize()
+        self.vars["pid"] = self.srv.p.pid
 
     def stop_server(self):
         """Close the running server and require a graceful exit on stdin EOF."""
@@ -299,12 +301,13 @@ class Run:
             raise AssertionError("server did not exit within %d s of stdin EOF (runtime.md: exits on stdin EOF)"
                                  % EXIT_WAIT)
 
-    def journal_path(self):
+    def journal_path(self, where="active"):
         """Journal path per contract/runtime.md: <data>/<project key>/<id>.jsonl (active) or
         <data>/<project key>/archive/<id>.jsonl (archived); data is the temp fallback when
-        CLAUDE_PLUGIN_DATA is unset."""
-        p = os.path.join(self.root(), self.vars["key"], self.vars["iid"] + ".jsonl")
-        assert os.path.isfile(p), "journal not found at %s" % p
+        CLAUDE_PLUGIN_DATA is unset or empty."""
+        parts = [self.root(), self.vars["key"]] + (["archive"] if where == "archive" else []) + [self.vars["iid"] + ".jsonl"]
+        p = os.path.join(*parts)
+        assert os.path.isfile(p), "%s journal not found at %s" % (where, p)
         return p
 
     def root(self):
@@ -362,6 +365,15 @@ class Run:
                 self.obs.append("%s mode %s" % (a["path"] or "<data root>", got))
             elif not want:
                 self.obs.append("%s absent" % a["path"])
+            if want and ("matches" in a or a.get("nonempty")):
+                with open(p, encoding="utf-8") as f:
+                    content = f.read()
+                if a.get("nonempty") and not content.strip():
+                    raise AssertionError("%s is empty" % p)
+                rx = subst(a.get("matches"), self.vars)
+                if rx is not None and not re.search(rx, content):
+                    raise AssertionError("%s content does not match /%s/: %r" % (p, rx, content[:120]))
+                self.obs.append("%s content ok (%d bytes)" % (a["path"], len(content)))
 
     def step(self, st):
         op = st.get("op", "call")
@@ -424,7 +436,7 @@ class Run:
         for a in st.get("assert", []):
             self.obs.append(check_assert(name, a, body, self.vars))
 
-    def check_events(self):
+    def check_events(self, ended=None):
         """Every journal line against contract/journal.schema.json: valid JSON, known kind, per-kind fields,
         v 2, RFC 3339 UTC ts, seq gapless from 1; the first event is `start`."""
         js = self.tools["journal"]
@@ -445,45 +457,101 @@ class Run:
                 raise AssertionError("journal line %d has seq %d (gapless 1-based expected)" % (n, e["seq"]))
             if n == 1 and kind != "start":
                 raise AssertionError("journal starts with %r, expected start" % kind)
+        last = json.loads(self.lines[-1])["kind"]
+        if ended is True and last != "end":
+            raise AssertionError("journal does not end with an end event (last is %r)" % last)
+        if ended is False and any(json.loads(l)["kind"] == "end" for l in self.lines):
+            raise AssertionError("journal of a running or unfinished interview has an end event")
         self.obs.append("%d events valid, seq 1..%d" % (len(self.lines), len(self.lines)))
+
+    def journal_lines(self, name):
+        assert name in self.jl, "journal %r was not loaded" % name
+        return self.jl[name]
 
     def do_journal(self, st):
         action = st["action"]
-        path = self.journal_path()
         if action == "load":
-            with open(path, encoding="utf-8") as f:
-                self.lines = [l.rstrip("\n") for l in f if l.strip()]
-            self.vars["n"] = len(self.lines)
-            self.vars["n1"] = str(len(self.lines) + 1)
-            self.obs.append("journal has %d events" % len(self.lines))
+            name = st.get("into", "main")
+            with open(self.journal_path(st.get("where", "active")), encoding="utf-8") as f:
+                lines = [l.rstrip("\n") for l in f if l.strip()]
+            self.jl[name] = lines
+            self.vars["n_" + name] = len(lines)
+            self.vars["np1_" + name] = len(lines) + 1
+            if name == "main":
+                self.vars["n"] = len(lines)
+                self.vars["n1"] = str(len(lines) + 1)
+                self.vars["np1"] = len(lines) + 1
+            self.obs.append("journal %s has %d events" % (name, len(lines)))
         elif action == "check_events":
-            self.check_events()
+            self.lines = self.journal_lines(st.get("from", "main"))
+            self.check_events(st.get("ended"))
+        elif action == "assert_events":
+            self.assert_events(st)
         elif action == "write":
-            evs = [json.loads(l) for l in self.lines]
+            lines = self.journal_lines(st.get("from", "main"))
+            evs = [json.loads(l) for l in lines]
+            four = [e for e in evs if e["kind"] in ("item", "resolve", "park", "reopen")]  # the only kinds v1 had
 
             def v1(e):
                 e = dict(e)
-                e.pop("v", None)
-                e.pop("ts", None)
+                for k in ("v", "ts", "seq"):
+                    e.pop(k, None)
                 return json.dumps(e)
 
             form = st["form"]
             if form == "orig":
-                out = list(self.lines)
-            elif form == "v1_all":
-                out = [v1(e) for e in evs]
-            elif form == "v1_but_last":
-                out = [v1(e) for e in evs[:-1]] + [self.lines[-1]]
+                out = list(lines)
+            elif form == "v1_all":  # spike-3 journal: only item, resolve, park, reopen; no v, ts, seq
+                out = [v1(e) for e in four]
+                self.vars["v1_n"] = len(out)
+            elif form == "v1_but_last":  # v1 lines, then one v2 line whose seq continues the line numbers
+                last = dict(four[-1], seq=len(four))
+                out = [v1(e) for e in four[:-1]] + [json.dumps(last)]
+                self.vars["v1_n"] = len(out)
             elif form == "orig_plus_v3":
-                bad = dict(evs[-1])
-                bad["v"] = 3
-                out = self.lines + [json.dumps(bad)]
+                bad = dict(evs[-1], v=3, seq=len(evs) + 1)
+                out = list(lines) + [json.dumps(bad)]
             else:
                 raise AssertionError("unknown journal form %r" % form)
-            with open(path, "w", encoding="utf-8") as f:
+            with open(self.journal_path("active"), "w", encoding="utf-8") as f:
                 f.write("\n".join(out) + "\n")
         else:
             raise AssertionError("unknown journal action %r" % action)
+
+    def assert_events(self, st):
+        """Assertions on a loaded journal: `events` (partial objects matching distinct events in order),
+        `last` (the final event), `count` ({kind: n}), `absent` (kinds that must not occur), `total` (line count),
+        `prefix` (the lines of another loaded journal are the first lines of this one)."""
+        name = st.get("from", "main")
+        lines = self.journal_lines(name)
+        evs = [json.loads(l) for l in lines]
+
+        def match(e, part):
+            return all(k in e and e[k] == v for k, v in subst(part, self.vars).items())
+
+        if "total" in st and len(evs) != subst(st["total"], self.vars):
+            raise AssertionError("journal %s has %d events, expected %s" % (name, len(evs), subst(st["total"], self.vars)))
+        pos = 0
+        for part in st.get("events", []):
+            while pos < len(evs) and not match(evs[pos], part):
+                pos += 1
+            if pos >= len(evs):
+                raise AssertionError("journal %s lacks (in order) an event matching %s" % (name, json.dumps(subst(part, self.vars))))
+            pos += 1
+        if "last" in st and not match(evs[-1], st["last"]):
+            raise AssertionError("last journal event %s does not match %s" % (json.dumps(evs[-1])[:150], json.dumps(subst(st["last"], self.vars))))
+        for kind, n in st.get("count", {}).items():
+            got = sum(1 for e in evs if e["kind"] == kind)
+            if got != n:
+                raise AssertionError("journal %s has %d %s events, expected %d" % (name, got, kind, n))
+        for kind in st.get("absent", []):
+            if any(e["kind"] == kind for e in evs):
+                raise AssertionError("journal %s has a %s event" % (name, kind))
+        if "prefix" in st:
+            pre = self.journal_lines(st["prefix"])
+            if lines[:len(pre)] != pre:
+                raise AssertionError("journal %s does not start with the lines of journal %s" % (name, st["prefix"]))
+        self.obs.append("journal %s: %d events, checks passed" % (name, len(evs)))
 
     def close(self):
         """End of scenario: the running server must also exit on stdin EOF."""
@@ -561,11 +629,11 @@ def fill_variables(args, schema, defs):
 STEP_KEYS = {
     "call": {"op", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert"},
     "restart": {"op"}, "stop": {"op"}, "start": {"op"},
-    "journal": {"op", "action", "form"},
+    "journal": {"op", "action", "form", "where", "into", "from", "ended", "events", "last", "count", "absent", "total", "prefix"},
     "fs": {"op", "assert"},
     "tools_list": {"op"},
 }
-FS_KEYS = {"path", "exists", "mode"}
+FS_KEYS = {"path", "exists", "mode", "matches", "nonempty"}
 EXPECTS = ("ok", "error", "protocol_error")
 
 
@@ -656,10 +724,20 @@ def validate(scenarios, tools, validator):
                 for j, a in enumerate(st.get("assert", [])):
                     validate_assert("%s assert %d" % (where, j + 1), a, errs)
             elif op == "journal":
-                if st.get("action") not in ("load", "check_events", "write"):
+                action = st.get("action")
+                if action not in ("load", "check_events", "assert_events", "write"):
                     errs.append("%s: bad journal action" % where)
-                if (st.get("action") == "write") != ("form" in st):
-                    errs.append("%s: journal write needs form, other actions take none" % where)
+                per_action = {"load": {"where", "into"}, "check_events": {"from", "ended"}, "write": {"form", "from"},
+                              "assert_events": {"from", "events", "last", "count", "absent", "total", "prefix"}}
+                for k in st:
+                    if k not in ("op", "action") and k not in per_action.get(action, set()):
+                        errs.append("%s: key %r does not apply to journal %s" % (where, k, action))
+                if action == "write" and st.get("form") not in ("orig", "v1_all", "v1_but_last", "orig_plus_v3"):
+                    errs.append("%s: journal write needs a known form" % where)
+                if action == "assert_events" and not any(k in st for k in ("events", "last", "count", "absent", "total", "prefix")):
+                    errs.append("%s: assert_events asserts nothing" % where)
+                if st.get("where", "active") not in ("active", "archive"):
+                    errs.append("%s: where is active or archive" % where)
             elif op == "fs":
                 if not st.get("assert"):
                     errs.append("%s: fs step needs assert" % where)
