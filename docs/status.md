@@ -46,14 +46,14 @@ Open items for the user:
 
 ## 2026-11-16 (issues and milestones filed)
 
-- Done: on the user's instruction, filed 6 milestones (M0 to M5), 31 issues in kaybenleroll/decision-register (#2 to #34: 7 decision gates G0 to G6 labelled needs-user, 23 slices, tracking issue #34) and 5 dotfiles issues D1 to D5 (kaybenleroll/dotfiles #552 to #556, each referring to #34). `ready` on C1 to C5, X1, V1 to V4; `provisional` on the rest. Record: .scratch/issues-created.tsv (untracked).
+- Done: on the user's instruction, filed 6 milestones (M0 to M5), 31 issues in kaybenleroll/decision-register (#4 to #34: 7 decision gates G0 to G6 labelled needs-user, 23 slices, tracking issue #34) and 5 dotfiles issues D1 to D5 (kaybenleroll/dotfiles #552 to #556, each referring to #34). `ready` on C1 to C5, X1, V1 to V4; `provisional` on the rest. Record: .scratch/issues-created.tsv (untracked).
 - Not done: no code; docs/requirements.md is not yet approved by the user; ADRs 0002 and 0003 remain Proposed. PR #3 open, not merged.
 - Awaiting the user: requirements approval and the gate decisions (issues labelled needs-user). Gates G4 and G6 carry no recommendation in the plan.
 
 ## 2026-11-16 (gate decisions folded)
 
 - Done: folded the user's gate-walk decisions of 2026-11-16 into docs/requirements.md, ADR 0002, ADR 0003 and docs/build-plan.md, tagged `[user: gate walk 2026-11-16]`: purpose (REQ-1, REQ-2); grill-me skill stays in dotfiles with a register mode and plain fallback (REQ-12, REQ-15, REQ-24 list = `grill-me`, REQ-51); per-prompt budget, one `source: user` answer per presented item, minimum 1, flat 4 fallback (REQ-32); N = 2, `decision` kind and finish classifier confirmed as starting values, classifier names presented items (REQ-34, REQ-35, REQ-43); new REQ-45 (full tree from `status`, open items in every Stop reason) and REQ-46 (classifier replay test); REQ-72 values confirmed as starting values; names parked to the release milestone (REQ-73). Build plan: gates G1 to G5 decided, G6 parked, G0 open; new slices P5 (skill register mode, dotfiles side) and V7 (compaction injection, [open]); P2 folded into P5; D4 and D5 rewritten.
-- Not done: requirements and ADRs are not approved (DRAFT / Proposed); approval is the user's after reviewing the diff. The issues filed earlier (#2 to #34, dotfiles #552 to #556) predate these changes and are not updated.
+- Not done: requirements and ADRs are not approved (DRAFT / Proposed); approval is the user's after reviewing the diff. The issues filed earlier (#4 to #34, dotfiles #552 to #556) predate these changes and are not updated.
 - Not verified: compaction injection (V7), plus the earlier open verify-in-build items.
 
 ## 2026-11-16 (stress-test pass 2 done; lifecycle revised)
@@ -62,19 +62,19 @@ Open items for the user:
 - Verified: spike 6 (live): `${session_id}` substitutes into UserPromptSubmit and Stop hooks and equals claude's session id (two runs); text returned by a prompt hook is not shown to the model; a failing `mcp_tool` hook shows no error in `--output-format json` (stream-json and interactive untested). Notes: docs/evidence/spike6/. Hand-traces for the new lifecycle rules are in the log entry.
 - Not verified: V8 to V10 (hook output for expansion and PreToolUse hooks; skill-name form for a user-level skill; UserPromptSubmit-before-start ordering); REQ-53 interactive error visibility; compaction and session id; the engagement rule's 2-Stop threshold.
 - For the user, at approval: REQ-13 ([user]) now has an [assistant] bookkeeping exception; `begin_interview` is refused while an unfinished journal exists; REQ-35 counts children of any status (no 'withdrawn' status exists); the 34 requirements still tagged [assistant] are listed in section 12.
-- Issues: #2 to #34 and dotfiles #552 to #556 predate this revision and still need updating; not done yet.
+- Issues: #4 to #34 and dotfiles #552 to #556 predate this revision and still need updating; not done yet.
 - Nothing merged. PR #3 open.
 
 ## 2026-11-16 (requirements approved)
 
 - Done: the user approved docs/requirements.md in their own words after a /query-walkthrough of four items. Decisions: Q1 = hooks keep `last_seen_session_id` and `prompt_seen` while no interview is active (REQ-13 bookkeeping exception accepted); Q2 = mutating calls and `begin_interview` are refused while an unfinished journal exists, until resume or discard (REQ-21, REQ-52); Q3 = a pending interview with no register call is stood down at its second Stop check, threshold of 2 to be revisited after the live smoke runs (REQ-27 rule 3); Q4 = REQ-35 counts all children of any status, no 'withdrawn' status.
 - Gates: #4 (approval) closed; #10 (names) still parked.
-- Not done: issues #2 to #34 and dotfiles #552 to #556 still predate the revisions.
+- Not done: issues #4 to #34 and dotfiles #552 to #556 still predate the revisions.
 
 ## 2026-11-16 (slice C1: contract frozen)
 
 - Done: C1 (issue #11) on branch issue-11-c1-tool-schema: `contract/tools.json` (REQ-40 tool list, JSON Schema per input and result, good and bad examples, error-message table), `contract/journal.md` (event kinds, `v: 2`), `contract/runtime.md` (process start, injected environment, `_meta`, hook-style calls, spike-3 script changes for C2), `contract/CHANGES` (bump rule; `tool_schema` 1), `contract/check_contract.py` (stdlib checker).
-- Verified: `python3 -I contract/check_contract.py` passes: 12 tools, 34 good and 53 bad examples all behave; tool_schema is 1 and documented; the 9 tool names used by the spike-3 `acceptance.py` are all kept.
+- Verified: `python3 -I contract/check_contract.py` passes: 12 tools, 34 good and 53 bad examples all behave (35 good after the tool_schema 2 bump); tool_schema was 1 and documented (2 after the walkthrough, 3 after the review fixes); the 9 tool names used by the spike-3 `acceptance.py` are all kept.
 - Choices the plan left open (not user decisions; revisit before M0 closes): `log_item` keeps an optional caller-supplied `id` (spike 3 used it; the plan's argument list omits it); `reopen` requires `reason` (spike 3 SPEC); `status` keeps `journal_schema` and the `items` counts object (spike 3 A7); the skill-name argument is called `skill`; clock offset variable is `REGSPIKE_CLOCK_OFFSET_SECONDS`; `end_kind` and journal event names are the assistant's proposal.
 - Not done: no suite harness, scenarios or fake server (C2 to C5); the C1 data-file scenario format is C2's.
 
