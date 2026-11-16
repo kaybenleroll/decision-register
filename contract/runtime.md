@@ -76,3 +76,9 @@ Both implementations must produce byte-identical paths; the suite computes the s
 | stdin EOF | none | none | none | none |
 
 Every row removes the interview's pid file. The queue is flushed before the `end` event, the archive rename and the log write.
+
+## Unwritable data directory (REQ-50, REQ-61)
+
+- The server fails open. Start-up never fails because the data root, project folder, `archive` folder or decision-log directory cannot be created or written; tool calls never return an error because a journal or log write failed, and the in-memory register keeps working.
+- A failed journal or decision-log write sets `status.write_error` to a non-empty message (last failure wins; it is cleared by the next successful write of the same kind). The write is retried at the next flush. Events queued while writes fail are kept in memory and written, in order, when a flush succeeds; if the server exits first they are lost and no `end` event or archive rename is attempted twice.
+- Consequently `resume` has nothing to resume for such an interview, and `status.last_event` counts events even when they are not on disk.

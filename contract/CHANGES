@@ -96,6 +96,9 @@ Entries are appended as the fixes land; all belong to this one bump.
 - `_meta` test pinned: presence of the key claudecode/toolUseId (a _meta
   without it is hook-style); check_stop always returns JSON text, never empty
   text. Why: runtime.md and tools.json disagreed (review S2-11, S3-2).
+- status gains a required write_error (string or null); unwritable data
+  directory behaviour pinned (fail open, in-memory continues, retry). Why:
+  REQ-50 fail-open was unspecified for storage failure (review S3-8).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes

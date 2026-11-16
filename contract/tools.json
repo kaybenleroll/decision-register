@@ -907,7 +907,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; after an interview ends the state is none, never ended), the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable (an array of {interview_id, last_event}, one per unfinished journal with no live owner, most recently modified first, ties by interview id ascending; empty when none), and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7). The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale); check_contract.py checks this on every good example and C2 scenarios assert it. version_mismatch reflects the most recent tool_schema comparison: set by a mismatching skill_started or begin_interview, cleared by a later matching one, null if none was made. decision_log is the absolute path of the current interview's decision log once written (first allowed finish attempt, end, or exit), else null (runtime.md 'Decision log').",
+   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; after an interview ends the state is none, never ended), the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable (an array of {interview_id, last_event}, one per unfinished journal with no live owner, most recently modified first, ties by interview id ascending; empty when none), and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7). The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale); check_contract.py checks this on every good example and C2 scenarios assert it. version_mismatch reflects the most recent tool_schema comparison: set by a mismatching skill_started or begin_interview, cleared by a later matching one, null if none was made. decision_log is the absolute path of the current interview's decision log once written (first allowed finish attempt, end, or exit), else null (runtime.md 'Decision log'). write_error is null, or the last journal or decision-log write failure message (runtime.md 'Unwritable data directory').",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -929,7 +929,8 @@
      "last_event",
      "resumable",
      "version_mismatch",
-     "decision_log"
+     "decision_log",
+     "write_error"
     ],
     "properties": {
      "server_version": {
@@ -1071,6 +1072,16 @@
         "$ref": "#/$defs/path"
        }
       ]
+     },
+     "write_error": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "$ref": "#/$defs/nonblank"
+       }
+      ]
      }
     }
    },
@@ -1106,7 +1117,8 @@
       "last_event": 0,
       "resumable": [],
       "version_mismatch": null,
-      "decision_log": null
+      "decision_log": null,
+      "write_error": null
      },
      {
       "server_version": "0.1.0",
@@ -1183,7 +1195,8 @@
       "last_event": 9,
       "resumable": [],
       "version_mismatch": null,
-      "decision_log": "/home/u/proj/.scratch/decision-iv-20261116T093015Z-a3f9c2d1.md"
+      "decision_log": "/home/u/proj/.scratch/decision-iv-20261116T093015Z-a3f9c2d1.md",
+      "write_error": null
      },
      {
       "server_version": "0.1.0",
@@ -1216,7 +1229,33 @@
        }
       ],
       "version_mismatch": null,
-      "decision_log": null
+      "decision_log": null,
+      "write_error": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": [],
+      "version_mismatch": null,
+      "decision_log": null,
+      "write_error": "journal: permission denied"
      }
     ],
     "result_bad": [
@@ -1646,6 +1685,30 @@
       "last_event": 0,
       "resumable": [],
       "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "none",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": [],
+      "version_mismatch": null,
+      "decision_log": null
      }
     ]
    }
