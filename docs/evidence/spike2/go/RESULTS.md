@@ -1,0 +1,18 @@
+# Go candidate results
+
+- **image**: "docker.io/library/golang:1-bookworm (go1.27.4) digest sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea (alt listed: sha256:fb7cceb528b47141eccd9b60bf3cbd27d5ef5f8cf5b7d338bec866da495b50dc); image id a814d7b046f6"
+- **sdk**: "github.com/modelcontextprotocol/go-sdk v1.8.0 (official, released 2026-09-04; latest resolved by go get @latest)"
+- **protocol**: "2025-06-18"
+- **gates**: {"hook_block": true, "container_build_clean": true, "protocol_ok": true}
+- **start_ms_median**: 3.6
+- **start_ms_p95**: 4.1
+- **rss_mb**: 8.8
+- **artefact_bytes**: 8126624
+- **needs_runtime**: false
+- **build_s**: 6.9
+- **loc**: 334
+- **deps_direct**: 1
+- **deps_transitive**: 8
+- **type_safety**: "Sealed-interface sum type. Resolved{} with empty strings compiles and is constructible (store.go: `it.State = Resolved{e.Answer, e.Source, e.Rationale}`); the compiler does not force non-empty values, and a nil State is also possible. So: possible (validated at runtime only in apply()); but Resolved cannot lack the fields structurally."
+- **test_friction**: "Six plain go test funcs in store_test.go, t.TempDir for journals; testing logic separate from MCP glue so no server needed. Low friction."
+- **notes**: "All container commands used podman explicitly (no docker shim), per coordinator. Build: golang image, CGO off, -trimpath -s -w, static binary; build_s median of 3 (6.8/6.9/7.5) with module downloads excluded (module cache kept, build cache cleared). Host-run binary; no runtime differs. Tests ran in container: pass. Glue: ~100 lines main.go using generic mcp.AddTool with struct-derived schemas; no workarounds. Gotcha: running claude from a dir containing .mcp.json loads it as project server and the plugin server is shadowed (run 1 wasted, cost 0.0065); run 2 from neutral cwd PASS: check_stop blocked twice (chain cap 2) on same server, journal shows 2 stop_block. note_prompt before begin is a no-op as specified. Stale state exists in type but no transition produces it (spec silent). deps_transitive = indirect entries in go.mod (8). Container-wrapped start not measured. Live spend ~USD 0.013."

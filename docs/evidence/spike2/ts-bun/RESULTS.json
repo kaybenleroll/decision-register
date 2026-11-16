@@ -1,0 +1,10 @@
+{"image":"docker.io/oven/bun@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d (oven/bun:1, bun 1.4.4)",
+"sdk":"@modelcontextprotocol/sdk 1.29.0 (official; latest on npm 1.32.2, modified 2026-10-23) + zod 3",
+"protocol":"2025-06-18",
+"gates":{"hook_block":true,"container_build_clean":true,"protocol_ok":true},
+"start_ms_median":51.1,"start_ms_p95":54.9,"rss_mb":42.5,
+"artefact_bytes":109467824,"needs_runtime":false,"build_s":0.31,
+"loc":124,"deps_direct":2,"deps_transitive":95,
+"type_safety":"Resolved item without answer: compile error (discriminated union; Item 'Resolved' variant in src/state.ts requires answer/source/rationale). Caveat: journal replay uses untyped JSON.parse, so journal contents are unchecked at runtime.",
+"test_friction":"bun:test built in, zero config; six tests ~40 lines. Register class kept separate from MCP glue so tests need no transport.",
+"notes":"All container commands used podman explicitly (no docker), per coordinator instruction. Build median of 3 = 0.31s (runs 4.97, 0.30, 0.31; deps pre-installed so download excluded; first run likely cold). Binary embeds the bun runtime (109 MB). Live: 1 run, haiku, USD 0.0073; journal shows chain 1 and 2 (Stop blocked twice via check_stop; one server instance, status pid 1030740). Pinned SDK 1.29.0 is not latest."}

@@ -1,0 +1,10 @@
+{"image":"docker.io/library/rust:1-slim sha256:4b68057dc8c103af4fa66b5cd29f21b18afec79fadfcd8fb91e295e939f0690c (image id a5dfbb6ea039..., rustc 1.100.0), run via podman",
+"sdk":"rmcp 3.10.0 (official modelcontextprotocol/rust-sdk), released 2026-11-12",
+"protocol":"2025-06-18 (client offered 2025-06-18)",
+"gates":{"hook_block":"PASS","container_build_clean":"PASS","protocol_ok":"PASS"},
+"start_ms_median":2.85,"start_ms_p95":3.21,"rss_mb":5.04,
+"artefact_bytes":1869344,"needs_runtime":false,
+"build_s":35.8,"loc":242,"deps_direct":5,"deps_transitive":79,
+"type_safety":"Compile error: Status::Resolved{answer,source,rationale} fields are mandatory (core.rs Event::Resolve apply: `i.status = Status::Resolved { answer: ..., source: ..., rationale: ... }`); no Resolved without them can be constructed. Transition rules (double resolve, user-prompt rule) are still runtime checks.",
+"test_friction":"Six #[test] fns in core.rs, run with cargo test in container (6 passed). Tests drive pure State directly, no MCP layer; journal dir under target/. Zero friction.",
+"notes":"Used podman explicitly (no docker shim), per coordinator. Build times: 35.1/35.8/36.8s, fresh target dir each, deps pre-fetched (download excluded), includes container start. Binary dynamic glibc (libc, libm, libgcc_s), built in Debian image, ran on host. Host-vs-container runtime differs not applicable (native binary). Live: 1 run of 2, USD 0.0079, 9 turns; journal showed stop_block twice; status tool reported pid 1113137, same process held chain state. Model parked q1 by itself (parked-by-model counts open per spec), so 2 blocks seen. Stop-hook input is {} (no last_assistant_message passed; param optional). No container-wrapped start sample taken."}
