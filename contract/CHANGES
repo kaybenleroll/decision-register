@@ -80,6 +80,12 @@ Entries are appended as the fixes land; all belong to this one bump.
   (rename aside, verify, O_EXCL create) sequence and orphan pruning. Why: REQ-52
   gave pid and start time but no format, and O_EXCL cannot replace a crashed
   owner's file (review S2-3, build-plan F1).
+- Pending interview fates: replaced-by-resume, server exit while pending and
+  session change each write an `end` event (stood_down, mode not_engaged) and
+  archive the journal, so no ghost unfinished journal remains; mode `plain` is
+  reserved for end_interview mode plain; "Interview ends and server exit" table
+  in runtime.md. Why: a hook start journals a pending interview, and nothing
+  ended it on those paths (review S2-4).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes

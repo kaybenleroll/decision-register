@@ -46,7 +46,9 @@ Replay applies the REQ-31 checks (non-blank answer and rationale, single-line ra
 | `ended_incomplete_by_model` | `end_interview` with `abandon: true` and a non-blank reason while items are open (REQ-23); the log says "ended incomplete by the model" | `register` |
 | `abandoned` | session change (REQ-26) on an active interview with items open; the log is flagged incomplete | `register` |
 | `ended_after_completion` | a complete interview ends by `end_interview`, a session change or server exit (REQ-23, REQ-26); never downgraded | `register` |
-| `stood_down` | a pending interview ends by `end_interview` with `mode: plain` (mode `plain`), by its second Stop check with no model-facing register call (mode `not_engaged`), or by a session change (REQ-27 rule 3, REQ-26) | `plain` or `not_engaged` |
+| `stood_down` | a pending interview ends by `end_interview` with `mode: plain` (mode `plain`); or, with mode `not_engaged`: by its second Stop check with no model-facing register call, by a session change (REQ-27 rule 3, REQ-26), by being replaced when a `resume` succeeds (REQ-52; `reason` "replaced by resume"), or by server exit (stdin EOF) while pending (`reason` "server exit while pending") | `plain` or `not_engaged` (`plain` only for `end_interview` with `mode: plain`) |
+
+A pending interview holds no items, so none of its ends is unfinished: every end of a pending interview writes an `end` event with `end_kind` `stood_down` and the journal is archived, including server exit and replacement by `resume`; a pending journal never becomes an unfinished ghost.
 
 `interrupted` (server exit or crash on an active, not-complete interview) is a decision-log kind only: no `end` event is written and the journal stays `unfinished` (REQ-27 rule 5, REQ-62). The `end_interview` tool result never returns `interrupted` or `abandoned` (tools.json keeps its own four-value enum; the journal enum has five). After an interview ends, `status.state` is `none`.
 

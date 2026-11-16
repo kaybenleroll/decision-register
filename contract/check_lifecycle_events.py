@@ -18,6 +18,8 @@ T = {
  ("pending","second Stop check, no call, into ended stood down"): ["stop","end"],
  ("pending","end_interview mode plain into ended stood down"): ["end"],
  ("pending","session change into ended stood down"): ["end"],
+ ("pending","successful resume replaces the pending interview, ended stood down"): ["end","resume"],
+ ("pending","server exit (stdin EOF) while pending, ended stood down"): ["end"],
  ("active","allowed finish attempt, nothing open, into complete"): ["stop","complete"],
  ("active","end_interview into ended (normal / incomplete by model)"): ["end"],
  ("active","session change into ended (abandoned / normal)"): ["end"],

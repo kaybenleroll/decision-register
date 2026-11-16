@@ -61,3 +61,18 @@ Both implementations must produce byte-identical paths; the suite computes the s
 - Claim by `resume` (and the stale replace) in this order: (1) read the pid file content C and decide it is stale; (2) rename `<id>.pid` to `<id>.pid.stale-<own pid>-<8 random hex>` (if the rename fails because the file is gone, go on to step 4: another claimer acted); (3) read the renamed file; if its content differs from C it was another claimer's live file: rename it back only if `<id>.pid` does not exist (otherwise leave it) and fail with `journal already claimed`; (4) create `<id>.pid` with `O_CREAT|O_EXCL`; `EEXIST` fails with `journal already claimed`; (5) delete the renamed stale file; (6) replay the journal; on replay failure remove the new pid file and leave the journal unfinished. Residual window: between steps 2 and 3 a third process can observe no pid file and claim; the steps narrow F1 but a rename-aside cannot make it zero, which build-plan slice I4 settles by test.
 - Removal: the server removes its pid file at `end_interview`, session-change end, stand-down, and on EOF (after the journal flush and log write). A hard crash leaves it; it is then stale by the liveness rule.
 - Orphans: pruning (30 days, "Journal location") also removes any `<id>.pid` and `<id>.pid.stale-*` file in `<dir>` older than 30 days whose journal `<id>.jsonl` is not there, and any `.stale-*` file older than one hour.
+
+## Interview ends and server exit
+
+| Event | State before | `end` event | Journal | Decision log |
+|---|---|---|---|---|
+| `end_interview` | pending (mode plain) | `stood_down`, mode `plain` | archived | written, mode `plain` |
+| second Stop check without a register call | pending | `stood_down`, mode `not_engaged` | archived | written, mode `not engaged` |
+| session change (REQ-26) | pending | `stood_down`, mode `not_engaged` | archived | written, mode `not engaged` |
+| successful `resume` | pending | `stood_down`, mode `not_engaged`, reason "replaced by resume", written after the resume succeeded | archived | written, mode `not engaged` |
+| stdin EOF | pending | `stood_down`, mode `not_engaged`, reason "server exit while pending" | archived | written, mode `not engaged` |
+| stdin EOF | active, not complete | none | kept, pid file removed: unfinished | written, `end_kind: interrupted` |
+| stdin EOF | complete | `ended_after_completion` | archived | written |
+| stdin EOF | none | none | none | none |
+
+Every row removes the interview's pid file. The queue is flushed before the `end` event, the archive rename and the log write.
