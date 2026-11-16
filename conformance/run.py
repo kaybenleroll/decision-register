@@ -11,9 +11,10 @@ Usage:
 Output is TAP-like (`ok N - id title`, `not ok N - id title`, diagnostics as `# ` lines). Exit status is
 non-zero on any failure, on a validation error, or when --only matches nothing.
 
-Contract: contract/runtime.md. The suite starts the command directly, sets CLAUDE_PLUGIN_DATA and
-CLAUDE_PROJECT_DIR to fresh per-scenario directories under .scratch/conformance/ and reads journals
-only below CLAUDE_PLUGIN_DATA. Scenario files: conformance/scenarios/*.json (format: conformance/README.md).
+Contract: contract/runtime.md. The suite drives the server over stdio, starts the command directly, sets
+CLAUDE_PLUGIN_DATA and CLAUDE_PROJECT_DIR to fresh per-scenario directories under a unique run directory in
+.scratch/conformance/ and reads and writes files only below CLAUDE_PLUGIN_DATA. Scenario files:
+conformance/scenarios/*.json (format: conformance/README.md).
 """
 import fnmatch, glob, hashlib, importlib.util, json, os, queue, re, shutil, signal, subprocess, sys, tempfile, threading, time
 
