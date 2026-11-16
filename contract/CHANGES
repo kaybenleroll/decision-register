@@ -86,6 +86,13 @@ Entries are appended as the fixes land; all belong to this one bump.
   reserved for end_interview mode plain; "Interview ends and server exit" table
   in runtime.md. Why: a hook start journals a pending interview, and nothing
   ended it on those paths (review S2-4).
+- Journal details: hook vs prompt vs stop (one `hook` event per hook call,
+  `prompt`/`stop` additional), hook_health derivation, `stop.blocks` is an
+  object {prompt, finish, unlogged}, `resume.from_seq` equals the result
+  `last_event` (pre-resume), `start.route/implicit/skill/session_id` rules,
+  `mismatch` rule, replay failure modes (torn final line ignored; invalid JSON,
+  gap, unknown kind fail naming the line), v1 shape. Why: counters and caps
+  must replay identically (review S2-9, S2-10, S3-4).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes

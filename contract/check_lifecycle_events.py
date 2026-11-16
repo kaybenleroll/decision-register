@@ -15,7 +15,7 @@ T = {
  ("none","begin_interview register starts into active"): ["start"],
  ("none","hooks record last_seen_session_id / prompt_seen (no interview, no journal)"): None,
  ("pending","engagement into active"): ["engage"],
- ("pending","second Stop check, no call, into ended stood down"): ["stop","end"],
+ ("pending","second Stop check, no call, into ended stood down"): ["hook","end"],
  ("pending","end_interview mode plain into ended stood down"): ["end"],
  ("pending","session change into ended stood down"): ["end"],
  ("pending","successful resume replaces the pending interview, ended stood down"): ["end","resume"],
