@@ -4,7 +4,8 @@
  "req": [
   "REQ-42",
   "REQ-43",
-  "REQ-45"
+  "REQ-45",
+  "REQ-40"
  ],
  "steps": [
   {
@@ -151,6 +152,19 @@
      "path": "reason",
      "not_contains": "q99"
     }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-a3",
+    "last_assistant_message": "done"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": [
+    "check_stop",
+    "hook-facing"
    ]
   },
   {
