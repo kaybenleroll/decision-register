@@ -7,7 +7,8 @@
   "validation": "input and result are JSON Schema (draft 2020-12 subset: type, enum, const, required, properties, additionalProperties, items, minimum, minLength, maxProperties, pattern, oneOf, dependentRequired, $ref to #/$defs). contract/check_contract.py checks them with a stdlib validator.",
   "ids": "Item ids match ^[A-Za-z0-9_.-]{1,64}$. Statuses are capitalised (Open, Resolved, Parked, Stale); the items counts in status use lower-case keys.",
   "unknown_arguments": "Input schemas set additionalProperties false: an unknown argument is an error, so a model-facing tool cannot be handed a session id.",
-  "errors": "Every domain failure (invalid arguments, refused transition, unknown id, rule violation, wrong state, unfinished journal, mismatch, _meta rejection) is a tools/call result with isError true and a single text content item holding a plain-text message that contains the substrings named in the errors table; it is never a JSON-RPC error. JSON-RPC errors are only for a malformed protocol request (unparseable JSON, unknown method, unknown tool name, malformed params envelope). A failing call changes no state and writes no journal event."
+  "errors": "Every domain failure (invalid arguments, refused transition, unknown id, rule violation, wrong state, unfinished journal, mismatch, _meta rejection) is a tools/call result with isError true and a single text content item holding a plain-text message that contains the substrings named in the errors table; it is never a JSON-RPC error. JSON-RPC errors are only for a malformed protocol request (unparseable JSON, unknown method, unknown tool name, malformed params envelope). A failing call changes no state and writes no journal event.",
+  "no_effect_on_error": "A call that returns an error changes nothing: it does not start an interview, engage a pending one, return a complete one to active, change a counter or cap, or write a journal event. Hook-facing calls that are rejected (row 2 or 3) do not record last_seen_session_id or count as hook calls."
  },
  "$defs": {
   "id": {
@@ -1555,5 +1556,92 @@
    "when": "call carries _meta claudecode/toolUseId",
    "message_names": "the tool name and 'hook-facing'"
   }
- ]
+ ],
+ "error_precedence": [
+  "Protocol: unparseable JSON, unknown method or unknown tool name is a JSON-RPC error (the only non-isError failures).",
+  "Hook-facing tools only: a call carrying _meta claudecode/toolUseId is rejected (isError, row 'call carries _meta').",
+  "Argument validation against the tool's input schema, including unknown arguments and cross-field dependencies (isError, message starts 'invalid arguments:' and names the parameter).",
+  "begin_interview only: tool_schema differs from the server's (message names both values).",
+  "Unfinished journal: begin_interview, log_item, resolve, park and reopen are refused while an unfinished journal exists and the server is in state none or pending (message 'unfinished journal: call resume or discard').",
+  "Wrong lifecycle state or nothing to act on, per state_matrix (resume and discard in active/complete; end_interview in none, pending without mode plain, mode plain outside pending, abandon with nothing open; no unfinished journal / unknown id / live owner for resume and discard).",
+  "Item lookup: unknown id for resolve, park, reopen, or missing parent / depends_on for log_item (message 'no such item: <id>' or 'missing item: <id>'); duplicate caller id for log_item; subquestion without parent.",
+  "Transition table (REQ-38): transition not allowed for the item's current status.",
+  "Kind rules: decision item with source model or parked_by model (REQ-34); under-sized parent resolved by model (REQ-35).",
+  "User-prompt rules: hooks not firing (REQ-44), no user prompt since the budget point, per-prompt budget spent, volunteered-answer cap reached (REQ-32, REQ-33).",
+  "Open items without abandon true and a reason (end_interview only; checked after row 6 so a wrong state is reported first)."
+ ],
+ "state_matrix": {
+  "begin_interview": {
+   "none": "result: starts an interview into active, existing false; the skill value is recorded unvalidated (an unlisted skill name is accepted)",
+   "pending": "result: engages the pending interview into active, existing true (REQ-27 rule 3)",
+   "active": "result: no-op, state active, existing true",
+   "complete": "result: no-op, state complete (does not return to active), existing true"
+  },
+  "log_item": {
+   "none": "result: implicit start into active (route implicit), item logged; rule errors leave state none",
+   "pending": "result: engages into active, item logged",
+   "active": "result: item logged",
+   "complete": "result: item logged and the interview returns to active"
+  },
+  "resolve": {
+   "none": "error: no such item (the register is empty); does not start an interview",
+   "pending": "error: no such item (a pending interview holds no items); does not engage",
+   "active": "result: transition applied, or the error rows for unknown id, transition, kind and prompt rules",
+   "complete": "result: transition applied and the interview returns to active; any error leaves it complete"
+  },
+  "park": {
+   "none": "error: no such item (the register is empty); does not start an interview",
+   "pending": "error: no such item (a pending interview holds no items); does not engage",
+   "active": "result: transition applied, or the error rows for unknown id, transition, kind and prompt rules",
+   "complete": "result: transition applied and the interview returns to active; any error leaves it complete"
+  },
+  "reopen": {
+   "none": "error: no such item (the register is empty); does not start an interview",
+   "pending": "error: no such item (a pending interview holds no items); does not engage",
+   "active": "result: transition applied, or the error rows for unknown id, transition, kind and prompt rules",
+   "complete": "result: transition applied and the interview returns to active; any error leaves it complete"
+  },
+  "status": {
+   "none": "result: state none; never starts an interview",
+   "pending": "result: state pending; does not engage",
+   "active": "result: state active",
+   "complete": "result: state complete; does not return it to active"
+  },
+  "resume": {
+   "none": "result: replays the journal and claims it, state active; errors: no unfinished journal, unknown id, live owner, several and no id, replay failure, journal already claimed",
+   "pending": "result: as none; the pending interview is replaced (ended as stood_down, not_engaged) only after the resume succeeded",
+   "active": "error: wrong state (message names active)",
+   "complete": "error: wrong state (message names complete)"
+  },
+  "discard": {
+   "none": "result: archives the named (or only) unfinished journal; state stays none; errors: no unfinished journal, unknown id, live owner, several and no id",
+   "pending": "result: as none; the pending interview stays pending",
+   "active": "error: wrong state (message names active)",
+   "complete": "error: wrong state (message names complete)"
+  },
+  "end_interview": {
+   "none": "error: no interview to end",
+   "pending": "with mode plain and no abandon/reason: result stood_down; otherwise error (pending interview: use mode plain)",
+   "active": "nothing open and no abandon: result normal; open items without abandon: error naming them; abandon true with reason and items open: result ended_incomplete_by_model; abandon true with nothing open: error; mode plain: error",
+   "complete": "no abandon: result ended_after_completion; abandon: error (nothing open); mode plain: error"
+  },
+  "note_prompt": {
+   "none": "result {}: records last_seen_session_id (and prompt_seen for note_prompt); skill_started with a listed name starts a pending interview",
+   "pending": "result {}: counted in hook_health; skill_started is a no-op returning the existing interview",
+   "active": "result {}: counted in hook_health",
+   "complete": "result {}: counted in hook_health"
+  },
+  "skill_started": {
+   "none": "result {}: records last_seen_session_id (and prompt_seen for note_prompt); skill_started with a listed name starts a pending interview",
+   "pending": "result {}: counted in hook_health; skill_started is a no-op returning the existing interview",
+   "active": "result {}: counted in hook_health",
+   "complete": "result {}: counted in hook_health"
+  },
+  "check_stop": {
+   "none": "result {}: allows and clears prompt_seen",
+   "pending": "result {}: allows; the second check stands the interview down",
+   "active": "result {} or a block decision (REQ-42, REQ-43)",
+   "complete": "result {}: allows every turn"
+  }
+ }
 }

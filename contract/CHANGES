@@ -34,6 +34,10 @@ Entries are appended as the fixes land; all belong to this one bump.
   is the const active; the end_interview result end_kind no longer lists
   `abandoned`, which is journal-only (session change). Why: unreachable and
   ambiguous values let two implementations diverge (review S2-5).
+- State x tool matrix (tools.json state_matrix) and numbered error precedence
+  (error_precedence): every cell of the REQ-27 table now has a stated result or
+  error; a failing call changes nothing (never starts, engages or revives an
+  interview). Why: two implementations diverged on unspecified cells (S1-2).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes

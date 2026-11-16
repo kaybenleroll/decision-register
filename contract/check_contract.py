@@ -95,6 +95,14 @@ def main():
             derived[node["status"].lower()] += 1
         if derived != x["items"]:
             fails.append("status items %s differ from counts derived from tree %s" % (x["items"], derived))
+    # every (state x tool) cell of the REQ-27 table has a stated outcome; error precedence is numbered
+    sm = d.get("state_matrix", {})
+    for name in d["tools"]:
+        for st in ("none", "pending", "active", "complete"):
+            if not sm.get(name, {}).get(st):
+                fails.append("state_matrix lacks %s in state %s" % (name, st))
+    if len(d.get("error_precedence", [])) < 10:
+        fails.append("error_precedence list missing or short")
     # (c) tool names used by the spike-3 script are kept
     src = open(os.path.join(ROOT, "docs/evidence/spike3/acceptance.py")).read()
     used = set(re.findall(r'(?:\.ok|\.err|\.call)\("([a-z_]+)"', src))
