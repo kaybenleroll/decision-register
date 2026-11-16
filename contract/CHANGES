@@ -1,0 +1,22 @@
+Contract change rule
+====================
+
+The contract is tools.json (tool names, parameters, result shapes, error
+messages the suite matches on), journal.md (event kinds and the journal
+schema) and runtime.md (process start).
+
+Any change to a tool name, a parameter (name, type, optionality, allowed
+values), a result shape, or a journal event shape bumps `tool_schema` by one
+in tools.json, in the same commit, and adds an entry below. A change to
+`journal_schema` (the `v` field) also bumps `tool_schema`. Wording changes
+that alter no schema and no matched error text do not bump it.
+
+The plugin declares the `tool_schema` it requires; both implementations and
+the conformance suite read the value from tools.json. contract/check_contract.py
+fails if tool_schema, the tool list or any example drifts.
+
+Log (newest first)
+------------------
+
+tool_schema 1  (slice C1, 2026-11-16)  Initial freeze: REQ-40 tool list,
+journal_schema 2.

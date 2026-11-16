@@ -1,0 +1,1413 @@
+{
+ "tool_schema": 1,
+ "journal_schema": 2,
+ "conventions": {
+  "transport": "MCP over stdio, newline-delimited JSON-RPC 2.0; tools/call result.content[0].text carries the result; failures set result.isError true (a JSON-RPC error is also accepted by the suite).",
+  "result_text": "For every tool the text is a JSON object matching result, except that note_prompt and skill_started may return empty text, which counts as {}.",
+  "validation": "input and result are JSON Schema (draft 2020-12 subset: type, enum, const, required, properties, additionalProperties, items, minimum, minLength, maxProperties, pattern, oneOf, dependentRequired, $ref to #/$defs). contract/check_contract.py checks them with a stdlib validator.",
+  "ids": "Item ids match ^[A-Za-z0-9_.-]{1,64}$. Statuses are capitalised (Open, Resolved, Parked, Stale); the items counts in status use lower-case keys.",
+  "unknown_arguments": "Input schemas set additionalProperties false: an unknown argument is an error, so a model-facing tool cannot be handed a session id."
+ },
+ "$defs": {
+  "id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+  },
+  "nonblank": {
+   "type": "string",
+   "pattern": "\\S"
+  },
+  "kind": {
+   "enum": [
+    "question",
+    "subquestion",
+    "decision"
+   ]
+  },
+  "status": {
+   "enum": [
+    "Open",
+    "Resolved",
+    "Parked",
+    "Stale"
+   ]
+  },
+  "source": {
+   "enum": [
+    "user",
+    "model"
+   ]
+  },
+  "state": {
+   "enum": [
+    "none",
+    "pending",
+    "active",
+    "complete",
+    "ended"
+   ]
+  },
+  "toolSchema": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "empty_hook_result": {
+   "type": "object",
+   "maxProperties": 0
+  },
+  "item": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "kind",
+    "text",
+    "parent",
+    "depends_on",
+    "status",
+    "answer",
+    "source",
+    "rationale",
+    "parked_by",
+    "park_reason"
+   ],
+   "properties": {
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "kind": {
+     "$ref": "#/$defs/kind"
+    },
+    "text": {
+     "type": "string"
+    },
+    "parent": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/id"
+      }
+     ]
+    },
+    "depends_on": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/id"
+     }
+    },
+    "status": {
+     "$ref": "#/$defs/status"
+    },
+    "answer": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    },
+    "source": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/source"
+      }
+     ]
+    },
+    "rationale": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    },
+    "parked_by": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/source"
+      }
+     ]
+    },
+    "park_reason": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    }
+   }
+  }
+ },
+ "tools": {
+  "begin_interview": {
+   "audience": "model",
+   "mutating": false,
+   "rejects_meta": false,
+   "engages_pending": true,
+   "description": "Register-mode start by the skill after its status probe (REQ-21). No session id: binds to last_seen_session_id (REQ-27 rule 1). A start while an interview is pending, active or complete in the same session is a no-op returning the existing interview id (REQ-22). Refused while an unfinished journal exists (REQ-52). Error on tool_schema mismatch names both values (REQ-77).",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "tool_schema",
+     "skill",
+     "mode"
+    ],
+    "properties": {
+     "tool_schema": {
+      "$ref": "#/$defs/toolSchema"
+     },
+     "skill": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "mode": {
+      "const": "register"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "interview_id",
+     "state"
+    ],
+    "properties": {
+     "interview_id": {
+      "$ref": "#/$defs/id"
+     },
+     "state": {
+      "$ref": "#/$defs/state"
+     },
+     "existing": {
+      "type": "boolean"
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {
+      "tool_schema": 1,
+      "skill": "grill-me",
+      "mode": "register"
+     }
+    ],
+    "input_bad": [
+     {
+      "tool_schema": 1,
+      "skill": "grill-me",
+      "mode": "plain"
+     },
+     {
+      "tool_schema": 1,
+      "skill": "grill-me",
+      "mode": "register",
+      "session_id": "s1"
+     },
+     {
+      "skill": "grill-me",
+      "mode": "register"
+     },
+     {
+      "tool_schema": "1",
+      "skill": "grill-me",
+      "mode": "register"
+     }
+    ],
+    "result_good": [
+     {
+      "interview_id": "iv-1",
+      "state": "active",
+      "existing": false
+     }
+    ],
+    "result_bad": [
+     {
+      "interview_id": "iv-1",
+      "state": "started"
+     },
+     {
+      "state": "active"
+     }
+    ]
+   }
+  },
+  "log_item": {
+   "audience": "model",
+   "mutating": true,
+   "rejects_meta": false,
+   "engages_pending": true,
+   "description": "Log an item. id is an optional caller-supplied label (kept from spike 3); the server assigns one if absent. depends_on ids must already exist. A subquestion requires parent. answer, source and rationale together record a decision the user volunteered (REQ-32); source user is subject to the per-prompt rule.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "kind",
+     "text"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "kind": {
+      "$ref": "#/$defs/kind"
+     },
+     "text": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "parent": {
+      "$ref": "#/$defs/id"
+     },
+     "depends_on": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/id"
+      }
+     },
+     "answer": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "source": {
+      "$ref": "#/$defs/source"
+     },
+     "rationale": {
+      "type": "string",
+      "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$"
+     }
+    },
+    "dependentRequired": {
+     "answer": [
+      "source",
+      "rationale"
+     ],
+     "source": [
+      "answer",
+      "rationale"
+     ],
+     "rationale": [
+      "answer",
+      "source"
+     ]
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "status"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "status": {
+      "$ref": "#/$defs/status"
+     },
+     "stale": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/id"
+      }
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {
+      "kind": "question",
+      "text": "Which store?"
+     },
+     {
+      "id": "q2",
+      "kind": "subquestion",
+      "text": "Sub",
+      "parent": "q1",
+      "depends_on": [
+       "q1"
+      ]
+     },
+     {
+      "kind": "decision",
+      "text": "Use X",
+      "answer": "X",
+      "source": "user",
+      "rationale": "User said so"
+     }
+    ],
+    "input_bad": [
+     {
+      "kind": "topic",
+      "text": "x"
+     },
+     {
+      "kind": "question",
+      "text": "   "
+     },
+     {
+      "kind": "question"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "answer": "a"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "answer": "a",
+      "source": "model",
+      "rationale": "two\nlines"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "depends_on": "q1"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "id": "bad id"
+     }
+    ],
+    "result_good": [
+     {
+      "id": "q1",
+      "status": "Open"
+     },
+     {
+      "id": "q2",
+      "status": "Resolved"
+     }
+    ],
+    "result_bad": [
+     {
+      "id": "q1"
+     },
+     {
+      "id": "q1",
+      "status": "open"
+     }
+    ]
+   }
+  },
+  "resolve": {
+   "audience": "model",
+   "mutating": true,
+   "rejects_meta": false,
+   "engages_pending": true,
+   "description": "Resolve an Open, Stale or Parked item (REQ-38). answer, source and rationale are all required (REQ-31). source user needs a user prompt since the item's last model action (REQ-32); a decision item takes source user only (REQ-34).",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "answer",
+     "source",
+     "rationale"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "answer": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "source": {
+      "$ref": "#/$defs/source"
+     },
+     "rationale": {
+      "type": "string",
+      "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "status"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "status": {
+      "$ref": "#/$defs/status"
+     },
+     "stale": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/id"
+      }
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {
+      "id": "q1",
+      "answer": "Postgres",
+      "source": "model",
+      "rationale": "Only store with the feature"
+     }
+    ],
+    "input_bad": [
+     {
+      "id": "q1",
+      "answer": "a",
+      "source": "model"
+     },
+     {
+      "id": "q1",
+      "answer": "",
+      "source": "model",
+      "rationale": "r"
+     },
+     {
+      "id": "q1",
+      "answer": "a",
+      "source": "robot",
+      "rationale": "r"
+     },
+     {
+      "answer": "a",
+      "source": "user",
+      "rationale": "r"
+     }
+    ],
+    "result_good": [
+     {
+      "id": "q1",
+      "status": "Resolved"
+     }
+    ],
+    "result_bad": [
+     {
+      "id": "q1",
+      "status": "Done"
+     }
+    ]
+   }
+  },
+  "park": {
+   "audience": "model",
+   "mutating": true,
+   "rejects_meta": false,
+   "engages_pending": true,
+   "description": "Park an Open, Stale or model-Parked item (REQ-38). parked_by user is subject to the user-prompt rule (REQ-33); a decision item is parked by user only (REQ-34).",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "reason",
+     "parked_by"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "reason": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "parked_by": {
+      "$ref": "#/$defs/source"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "status"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "status": {
+      "$ref": "#/$defs/status"
+     },
+     "stale": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/id"
+      }
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {
+      "id": "q1",
+      "reason": "Out of scope",
+      "parked_by": "user"
+     }
+    ],
+    "input_bad": [
+     {
+      "id": "q1",
+      "reason": "x"
+     },
+     {
+      "id": "q1",
+      "reason": "x",
+      "parked_by": "assistant"
+     },
+     {
+      "id": "q1",
+      "reason": " ",
+      "parked_by": "model"
+     }
+    ],
+    "result_good": [
+     {
+      "id": "q1",
+      "status": "Parked"
+     }
+    ],
+    "result_bad": [
+     {
+      "id": "q1",
+      "status": "Parked",
+      "parked_by": "model"
+     }
+    ]
+   }
+  },
+  "reopen": {
+   "audience": "model",
+   "mutating": true,
+   "rejects_meta": false,
+   "engages_pending": true,
+   "description": "Reopen a Resolved item (REQ-36): it becomes Open and every Resolved item depending on it, directly or transitively, becomes Stale; the result lists those ids in stale. Error if the item is not Resolved.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "reason"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "reason": {
+      "$ref": "#/$defs/nonblank"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "status",
+     "stale"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "status": {
+      "$ref": "#/$defs/status"
+     },
+     "stale": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/id"
+      }
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {
+      "id": "q1",
+      "reason": "New evidence"
+     }
+    ],
+    "input_bad": [
+     {
+      "id": "q1"
+     },
+     {
+      "reason": "r"
+     }
+    ],
+    "result_good": [
+     {
+      "id": "q1",
+      "status": "Open",
+      "stale": [
+       "q2",
+       "q3"
+      ]
+     }
+    ],
+    "result_bad": [
+     {
+      "id": "q1",
+      "status": "Open"
+     }
+    ]
+   }
+  },
+  "status": {
+   "audience": "model",
+   "mutating": false,
+   "rejects_meta": false,
+   "engages_pending": false,
+   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state, the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable, and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7).",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {}
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "server_version",
+     "tool_schema",
+     "journal_schema",
+     "state",
+     "interview_id",
+     "items",
+     "tree",
+     "hook_health",
+     "last_event",
+     "resumable",
+     "version_mismatch"
+    ],
+    "properties": {
+     "server_version": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "tool_schema": {
+      "$ref": "#/$defs/toolSchema"
+     },
+     "journal_schema": {
+      "const": 2
+     },
+     "state": {
+      "$ref": "#/$defs/state"
+     },
+     "interview_id": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "$ref": "#/$defs/id"
+       }
+      ]
+     },
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "open",
+       "resolved",
+       "parked",
+       "stale"
+      ],
+      "properties": {
+       "open": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "resolved": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "parked": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "stale": {
+        "type": "integer",
+        "minimum": 0
+       }
+      }
+     },
+     "tree": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/item"
+      }
+     },
+     "hook_health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "note_prompt",
+       "skill_started",
+       "check_stop",
+       "prompt_seen"
+      ],
+      "properties": {
+       "note_prompt": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "skill_started": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "check_stop": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "prompt_seen": {
+        "type": "boolean"
+       }
+      }
+     },
+     "last_event": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "resumable": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "interview_id",
+         "last_event"
+        ],
+        "properties": {
+         "interview_id": {
+          "$ref": "#/$defs/id"
+         },
+         "last_event": {
+          "type": "integer",
+          "minimum": 0
+         }
+        }
+       }
+      ]
+     },
+     "version_mismatch": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "plugin_tool_schema",
+         "server_tool_schema"
+        ],
+        "properties": {
+         "plugin_tool_schema": {
+          "$ref": "#/$defs/toolSchema"
+         },
+         "server_tool_schema": {
+          "$ref": "#/$defs/toolSchema"
+         }
+        }
+       }
+      ]
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {}
+    ],
+    "input_bad": [
+     {
+      "verbose": true
+     }
+    ],
+    "result_good": [
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 1,
+      "journal_schema": 2,
+      "state": "none",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": null,
+      "version_mismatch": null
+     }
+    ],
+    "result_bad": [
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 1,
+      "state": "none"
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 1,
+      "journal_schema": 2,
+      "state": "running",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": null,
+      "version_mismatch": null
+     }
+    ]
+   }
+  },
+  "resume": {
+   "audience": "model",
+   "mutating": false,
+   "rejects_meta": false,
+   "engages_pending": false,
+   "description": "Resume an unfinished journal (REQ-52): accepted only in state none or pending; rebinds to last_seen_session_id; claims the pid file exclusively. id may be omitted when exactly one unfinished journal exists; when several exist the error lists them. Replay failure names the 1-based line number and leaves state unchanged (REQ-60). Not a start-engaging call.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "interview_id",
+     "state",
+     "last_event",
+     "items"
+    ],
+    "properties": {
+     "interview_id": {
+      "$ref": "#/$defs/id"
+     },
+     "state": {
+      "$ref": "#/$defs/state"
+     },
+     "last_event": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "open",
+       "resolved",
+       "parked",
+       "stale"
+      ],
+      "properties": {
+       "open": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "resolved": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "parked": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "stale": {
+        "type": "integer",
+        "minimum": 0
+       }
+      }
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {},
+     {
+      "id": "iv-1"
+     }
+    ],
+    "input_bad": [
+     {
+      "id": ""
+     },
+     {
+      "interview_id": "iv-1"
+     }
+    ],
+    "result_good": [
+     {
+      "interview_id": "iv-1",
+      "state": "active",
+      "last_event": 7,
+      "items": {
+       "open": 1,
+       "resolved": 2,
+       "parked": 0,
+       "stale": 0
+      }
+     }
+    ],
+    "result_bad": [
+     {
+      "interview_id": "iv-1",
+      "state": "active"
+     }
+    ]
+   }
+  },
+  "discard": {
+   "audience": "model",
+   "mutating": false,
+   "rejects_meta": false,
+   "engages_pending": false,
+   "description": "Archive an unfinished journal and continue plain (REQ-52). id may be omitted when exactly one unfinished journal exists.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "interview_id",
+     "archived"
+    ],
+    "properties": {
+     "interview_id": {
+      "$ref": "#/$defs/id"
+     },
+     "archived": {
+      "const": true
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {},
+     {
+      "id": "iv-1"
+     }
+    ],
+    "input_bad": [
+     {
+      "id": 5
+     }
+    ],
+    "result_good": [
+     {
+      "interview_id": "iv-1",
+      "archived": true
+     }
+    ],
+    "result_bad": [
+     {
+      "interview_id": "iv-1",
+      "archived": false
+     }
+    ]
+   }
+  },
+  "end_interview": {
+   "audience": "model",
+   "mutating": false,
+   "rejects_meta": false,
+   "engages_pending": false,
+   "description": "End the interview (REQ-23). Refused while items are open unless abandon is true with a non-blank reason. mode plain stands a pending interview down without flagging it incomplete (REQ-27 rule 3). Not a start-engaging call.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+     "abandon": {
+      "type": "boolean"
+     },
+     "reason": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "mode": {
+      "const": "plain"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "interview_id",
+     "state",
+     "end_kind"
+    ],
+    "properties": {
+     "interview_id": {
+      "$ref": "#/$defs/id"
+     },
+     "state": {
+      "const": "ended"
+     },
+     "end_kind": {
+      "enum": [
+       "normal",
+       "ended_after_completion",
+       "ended_incomplete_by_model",
+       "abandoned",
+       "interrupted",
+       "stood_down"
+      ]
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {},
+     {
+      "abandon": true,
+      "reason": "User left"
+     },
+     {
+      "mode": "plain"
+     }
+    ],
+    "input_bad": [
+     {
+      "abandon": "yes"
+     },
+     {
+      "mode": "register"
+     },
+     {
+      "reason": ""
+     }
+    ],
+    "result_good": [
+     {
+      "interview_id": "iv-1",
+      "state": "ended",
+      "end_kind": "normal"
+     }
+    ],
+    "result_bad": [
+     {
+      "interview_id": "iv-1",
+      "state": "ended",
+      "end_kind": "finished"
+     }
+    ]
+   }
+  },
+  "note_prompt": {
+   "audience": "hook",
+   "mutating": false,
+   "rejects_meta": true,
+   "engages_pending": false,
+   "description": "UserPromptSubmit hook: counts a user prompt and records last_seen_session_id, even when no interview is active (REQ-13, REQ-27). Rejects any call carrying _meta claudecode/toolUseId. Returns empty text or exactly {} (REQ-41).",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "session_id",
+     "prompt"
+    ],
+    "properties": {
+     "session_id": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "prompt": {
+      "type": "string"
+     }
+    }
+   },
+   "result": {
+    "$ref": "#/$defs/empty_hook_result"
+   },
+   "examples": {
+    "input_good": [
+     {
+      "session_id": "s1",
+      "prompt": "hello"
+     },
+     {
+      "session_id": "s1",
+      "prompt": ""
+     }
+    ],
+    "input_bad": [
+     {
+      "prompt": "hello"
+     },
+     {
+      "session_id": "s1"
+     },
+     {
+      "session_id": "",
+      "prompt": "x"
+     }
+    ],
+    "result_good": [
+     {}
+    ],
+    "result_bad": [
+     {
+      "decision": "block"
+     },
+     {
+      "note": "counted"
+     }
+    ]
+   }
+  },
+  "skill_started": {
+   "audience": "hook",
+   "mutating": false,
+   "rejects_meta": true,
+   "engages_pending": false,
+   "description": "UserPromptExpansion and PreToolUse(Skill) hooks: a skill name exactly matching the configured list starts a pending interview (REQ-20, REQ-24). Never blocks or denies; on a tool_schema mismatch returns {} and records the mismatch for status (REQ-77). Rejects _meta claudecode/toolUseId. Returns empty text or exactly {}.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "tool_schema",
+     "session_id",
+     "skill"
+    ],
+    "properties": {
+     "tool_schema": {
+      "$ref": "#/$defs/toolSchema"
+     },
+     "session_id": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "skill": {
+      "$ref": "#/$defs/nonblank"
+     }
+    }
+   },
+   "result": {
+    "$ref": "#/$defs/empty_hook_result"
+   },
+   "examples": {
+    "input_good": [
+     {
+      "tool_schema": 1,
+      "session_id": "s1",
+      "skill": "grill-me"
+     }
+    ],
+    "input_bad": [
+     {
+      "session_id": "s1",
+      "skill": "grill-me"
+     },
+     {
+      "tool_schema": 1,
+      "session_id": "s1"
+     },
+     {
+      "tool_schema": 0,
+      "session_id": "s1",
+      "skill": "x"
+     }
+    ],
+    "result_good": [
+     {}
+    ],
+    "result_bad": [
+     {
+      "permissionDecision": "deny"
+     }
+    ]
+   }
+  },
+  "check_stop": {
+   "audience": "hook",
+   "mutating": false,
+   "rejects_meta": true,
+   "engages_pending": false,
+   "description": "Stop hook: records last_seen_session_id, classifies the turn and applies the finish gate (REQ-42, REQ-43). Returns {} to allow or a block decision whose reason names the open items (first 10, text truncated to 120 characters, REQ-45). Rejects _meta claudecode/toolUseId. Fails open.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "session_id",
+     "last_assistant_message"
+    ],
+    "properties": {
+     "session_id": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "last_assistant_message": {
+      "type": "string"
+     }
+    }
+   },
+   "result": {
+    "oneOf": [
+     {
+      "$ref": "#/$defs/empty_hook_result"
+     },
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "decision",
+       "reason"
+      ],
+      "properties": {
+       "decision": {
+        "const": "block"
+       },
+       "reason": {
+        "$ref": "#/$defs/nonblank"
+       }
+      }
+     }
+    ]
+   },
+   "examples": {
+    "input_good": [
+     {
+      "session_id": "s1",
+      "last_assistant_message": "Done."
+     },
+     {
+      "session_id": "s1",
+      "last_assistant_message": ""
+     }
+    ],
+    "input_bad": [
+     {
+      "session_id": "s1"
+     },
+     {
+      "last_assistant_message": "x"
+     }
+    ],
+    "result_good": [
+     {},
+     {
+      "decision": "block",
+      "reason": "2 open: q1 Which store?"
+     }
+    ],
+    "result_bad": [
+     {
+      "decision": "allow"
+     },
+     {
+      "decision": "block"
+     },
+     {
+      "decision": "block",
+      "reason": ""
+     }
+    ]
+   }
+  }
+ },
+ "errors": [
+  {
+   "tools": "begin_interview",
+   "when": "tool_schema differs from the server's",
+   "message_names": "both values, plugin and server (REQ-77)"
+  },
+  {
+   "tools": "begin_interview|log_item|resolve|park|reopen",
+   "when": "an unfinished journal exists",
+   "message_names": "unfinished journal: call resume or discard"
+  },
+  {
+   "tools": "resolve|park|reopen",
+   "when": "transition not allowed by REQ-38",
+   "message_names": "the item id and its current status"
+  },
+  {
+   "tools": "log_item",
+   "when": "depends_on or parent names a missing item",
+   "message_names": "the missing id"
+  },
+  {
+   "tools": "resolve",
+   "when": "decision item with source model; or REQ-35 parent with fewer than N children and source model",
+   "message_names": "the item id"
+  },
+  {
+   "tools": "park",
+   "when": "decision item with parked_by model",
+   "message_names": "the item id"
+  },
+  {
+   "tools": "resolve|park|log_item",
+   "when": "source or parked_by user without a user prompt since the budget point",
+   "message_names": "a message saying so; when no prompt hook call was ever seen, a message saying hooks are not firing (REQ-44)"
+  },
+  {
+   "tools": "end_interview",
+   "when": "items open without abandon true and a reason",
+   "message_names": "the open item ids"
+  },
+  {
+   "tools": "resume",
+   "when": "journal already claimed; several unfinished journals and no id; state not none or pending; replay failure",
+   "message_names": "journal already claimed | the list of interview ids | the state | the 1-based line number as a digit string"
+  },
+  {
+   "tools": "note_prompt|skill_started|check_stop",
+   "when": "call carries _meta claudecode/toolUseId",
+   "message_names": "the tool name and 'hook-facing'"
+  }
+ ]
+}
