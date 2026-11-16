@@ -79,6 +79,35 @@
    ]
   },
   {
+   "call": "end_interview",
+   "args": {},
+   "expect": "error",
+   "mention": [
+    "q1",
+    "q2"
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "mode": "plain"
+   },
+   "expect": "error",
+   "mention": "pending"
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/$iid.jsonl"
+    },
+    {
+     "path": "$key/archive/$iid.jsonl",
+     "exists": false
+    }
+   ]
+  },
+  {
    "call": "resolve",
    "args": {
     "id": "q1",
