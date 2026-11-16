@@ -36,3 +36,10 @@ Open items for the user:
 - Not verified: whether compaction changes `session_id`; whether `last_assistant_message` is ever empty; hook error visibility; `/clear` and `/compact` in interactive sessions; start-command variable expansion. Spike results remain single trials.
 - Blockers: none. Awaiting: the user's approval of docs/requirements.md, including the [assistant] clauses listed in its section 12. Then ADR 0002, the language ADR with the retirement rule, and the build plan. Nothing committed since 4fa1c2d, nothing pushed, no PR.
 - Questions for the user: REQ-15 (where the canonical grill-me skill text lives); confirm REQ-34 (decision kind), REQ-35 (N = 2), REQ-43 (finish-attempt rule); REQ-72 values (20% margin, Rust tie-break); whether wayfinder and write-a-prd are on the skill-name list.
+
+## 2026-11-16 (ADRs and build plan drafted)
+
+- Done: drafted docs/adr/0002-register-design.md and docs/adr/0003-parallel-rust-typescript.md (both Proposed) and docs/build-plan.md (23 slices, 6 proposed milestones M0 to M5, 5 dotfiles issue drafts; nothing filed). Requirements amended after drafting: REQ-72 measures (contradiction removed), REQ-52 and REQ-61 (pid and start-time file instead of a file lock, because Node has no portable flock; journal keyed by CLAUDE_PROJECT_DIR), REQ-80 (data-file scenarios from the start).
+- Verified: REQ ids and paths cited in the three new documents were checked by script. Not verified: the finish-attempt classifier in the build plan (section 5.1) is unmeasured.
+- Blockers: none. Awaiting the user: approval of docs/requirements.md; REQ-15; the [assistant] clauses in its section 12; the ADR 0002 per-prompt budget; REQ-72 values; review of the milestone list before any issue is filed.
+- Commits are local on requirements-phase; nothing pushed, no PR.
