@@ -282,6 +282,9 @@ class Run:
 
     def start(self):
         env = dict(os.environ, CLAUDE_PLUGIN_DATA=self.data, CLAUDE_PROJECT_DIR=self.proj)
+        # the contract's optional variables are set only by the scenarios that test them (runtime.md)
+        for k in ("CLAUDE_CODE_SESSION_ID", "REGSPIKE_CLOCK_OFFSET_SECONDS"):
+            env.pop(k, None)
         for k, v in self.scen.get("env", {}).items():
             env[k] = v.replace("$dir", self.dir) if isinstance(v, str) else v
         for k in self.scen.get("unset_env", []):
