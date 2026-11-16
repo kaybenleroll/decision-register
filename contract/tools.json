@@ -325,6 +325,10 @@
      "type": "null"
     }
    }
+  },
+  "path": {
+   "type": "string",
+   "minLength": 1
   }
  },
  "tools": {
@@ -903,7 +907,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; after an interview ends the state is none, never ended), the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable (an array of {interview_id, last_event}, one per unfinished journal with no live owner, most recently modified first, ties by interview id ascending; empty when none), and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7). The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale); check_contract.py checks this on every good example and C2 scenarios assert it. version_mismatch reflects the most recent tool_schema comparison: set by a mismatching skill_started or begin_interview, cleared by a later matching one, null if none was made.",
+   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; after an interview ends the state is none, never ended), the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable (an array of {interview_id, last_event}, one per unfinished journal with no live owner, most recently modified first, ties by interview id ascending; empty when none), and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7). The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale); check_contract.py checks this on every good example and C2 scenarios assert it. version_mismatch reflects the most recent tool_schema comparison: set by a mismatching skill_started or begin_interview, cleared by a later matching one, null if none was made. decision_log is the absolute path of the current interview's decision log once written (first allowed finish attempt, end, or exit), else null (runtime.md 'Decision log').",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -924,7 +928,8 @@
      "hook_health",
      "last_event",
      "resumable",
-     "version_mismatch"
+     "version_mismatch",
+     "decision_log"
     ],
     "properties": {
      "server_version": {
@@ -1056,6 +1061,16 @@
         }
        }
       ]
+     },
+     "decision_log": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "$ref": "#/$defs/path"
+       }
+      ]
      }
     }
    },
@@ -1090,7 +1105,8 @@
       },
       "last_event": 0,
       "resumable": [],
-      "version_mismatch": null
+      "version_mismatch": null,
+      "decision_log": null
      },
      {
       "server_version": "0.1.0",
@@ -1166,7 +1182,8 @@
       },
       "last_event": 9,
       "resumable": [],
-      "version_mismatch": null
+      "version_mismatch": null,
+      "decision_log": "/home/u/proj/.scratch/decision-iv-20261116T093015Z-a3f9c2d1.md"
      },
      {
       "server_version": "0.1.0",
@@ -1198,7 +1215,8 @@
         "last_event": 4
        }
       ],
-      "version_mismatch": null
+      "version_mismatch": null,
+      "decision_log": null
      }
     ],
     "result_bad": [
@@ -1605,6 +1623,29 @@
        "last_event": 4
       },
       "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "none",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": [],
+      "version_mismatch": null
      }
     ]
    }
@@ -1791,7 +1832,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "End the interview (REQ-23). Refused while items are open unless abandon is true with a non-blank reason. end_kind: normal = active, nothing open; ended_incomplete_by_model = abandon true with a reason while items are open; ended_after_completion = complete interview; stood_down = mode plain on a pending interview. The journal-only kinds abandoned (session change) and the log-only kind interrupted are never returned by this tool. mode plain stands a pending interview down without flagging it incomplete (REQ-27 rule 3). The result state is the const ended (the transition just made); a later status reports none. Not a start-engaging call. Input is either {mode: plain} alone, or an optional abandon (true only) that must come with a reason, and a reason that must come with abandon. Per-state outcomes: see state_matrix.",
+   "description": "End the interview (REQ-23). Refused while items are open unless abandon is true with a non-blank reason. end_kind: normal = active, nothing open; ended_incomplete_by_model = abandon true with a reason while items are open; ended_after_completion = complete interview; stood_down = mode plain on a pending interview. The journal-only kinds abandoned (session change) and the log-only kind interrupted are never returned by this tool. mode plain stands a pending interview down without flagging it incomplete (REQ-27 rule 3). The result state is the const ended (the transition just made); a later status reports none. Not a start-engaging call. Input is either {mode: plain} alone, or an optional abandon (true only) that must come with a reason, and a reason that must come with abandon. Per-state outcomes: see state_matrix. The result carries decision_log, the absolute path of the log just written.",
    "input": {
     "oneOf": [
      {
@@ -1835,7 +1876,8 @@
     "required": [
      "interview_id",
      "state",
-     "end_kind"
+     "end_kind",
+     "decision_log"
     ],
     "properties": {
      "interview_id": {
@@ -1851,6 +1893,9 @@
        "ended_incomplete_by_model",
        "stood_down"
       ]
+     },
+     "decision_log": {
+      "$ref": "#/$defs/path"
      }
     }
    },
@@ -1899,7 +1944,8 @@
      {
       "interview_id": "iv-1",
       "state": "ended",
-      "end_kind": "normal"
+      "end_kind": "normal",
+      "decision_log": "/home/u/proj/.scratch/decision-iv-1.md"
      }
     ],
     "result_bad": [
@@ -1912,6 +1958,11 @@
       "interview_id": "iv-1",
       "state": "ended",
       "end_kind": "abandoned"
+     },
+     {
+      "interview_id": "iv-1",
+      "state": "ended",
+      "end_kind": "normal"
      }
     ]
    }

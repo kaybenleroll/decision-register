@@ -67,6 +67,11 @@ Entries are appended as the fixes land; all belong to this one bump.
   most recently modified journal first. Why: REQ-52 allows several unfinished
   journals; a single object hid the others (review S2-6). version_mismatch
   lifetime pinned (set by a mismatch, cleared by a later match).
+- Decision log pinned in runtime.md (directory rule, file name, modes,
+  journal_position header line, mode and end_kind strings); status gains a
+  required decision_log (path or null) and the end_interview result a required
+  decision_log path. Why: the log was not in the contract, so REQ-63 replay
+  could not find or compare it (review S2-1).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes
