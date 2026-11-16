@@ -43,3 +43,9 @@ Open items for the user:
 - Verified: REQ ids and paths cited in the three new documents were checked by script. Not verified: the finish-attempt classifier in the build plan (section 5.1) is unmeasured.
 - Blockers: none. Awaiting the user: approval of docs/requirements.md; REQ-15; the [assistant] clauses in its section 12; the ADR 0002 per-prompt budget; REQ-72 values; review of the milestone list before any issue is filed.
 - Commits are local on requirements-phase; nothing pushed, no PR.
+
+## 2026-11-16 (issues and milestones filed)
+
+- Done: on the user's instruction, filed 6 milestones (M0 to M5), 31 issues in kaybenleroll/decision-register (#2 to #34: 7 decision gates G0 to G6 labelled needs-user, 23 slices, tracking issue #34) and 5 dotfiles issues D1 to D5 (kaybenleroll/dotfiles #552 to #556, each referring to #34). `ready` on C1 to C5, X1, V1 to V4; `provisional` on the rest. Record: .scratch/issues-created.tsv (untracked).
+- Not done: no code; docs/requirements.md is not yet approved by the user; ADRs 0002 and 0003 remain Proposed. PR #3 open, not merged.
+- Awaiting the user: requirements approval and the gate decisions (issues labelled needs-user). Gates G4 and G6 carry no recommendation in the plan.
