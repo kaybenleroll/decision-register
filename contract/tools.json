@@ -2,11 +2,12 @@
  "tool_schema": 3,
  "journal_schema": 2,
  "conventions": {
-  "transport": "MCP over stdio, newline-delimited JSON-RPC 2.0; tools/call result.content[0].text carries the result; failures set result.isError true (a JSON-RPC error is also accepted by the suite).",
+  "transport": "MCP over stdio, newline-delimited JSON-RPC 2.0; tools/call result.content[0].text carries the result.",
   "result_text": "For every tool the text is a JSON object matching result, except that note_prompt and skill_started may return empty text, which counts as {}.",
   "validation": "input and result are JSON Schema (draft 2020-12 subset: type, enum, const, required, properties, additionalProperties, items, minimum, minLength, maxProperties, pattern, oneOf, dependentRequired, $ref to #/$defs). contract/check_contract.py checks them with a stdlib validator.",
   "ids": "Item ids match ^[A-Za-z0-9_.-]{1,64}$. Statuses are capitalised (Open, Resolved, Parked, Stale); the items counts in status use lower-case keys.",
-  "unknown_arguments": "Input schemas set additionalProperties false: an unknown argument is an error, so a model-facing tool cannot be handed a session id."
+  "unknown_arguments": "Input schemas set additionalProperties false: an unknown argument is an error, so a model-facing tool cannot be handed a session id.",
+  "errors": "Every domain failure (invalid arguments, refused transition, unknown id, rule violation, wrong state, unfinished journal, mismatch, _meta rejection) is a tools/call result with isError true and a single text content item holding a plain-text message that contains the substrings named in the errors table; it is never a JSON-RPC error. JSON-RPC errors are only for a malformed protocol request (unparseable JSON, unknown method, unknown tool name, malformed params envelope). A failing call changes no state and writes no journal event."
  },
  "$defs": {
   "id": {
