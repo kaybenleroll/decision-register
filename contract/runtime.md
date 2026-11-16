@@ -36,9 +36,9 @@ Both implementations must produce byte-identical paths; the suite computes the s
 
 ## `_meta` and hook-style calls
 
-- A model-style call is `tools/call` with `params._meta = {"claudecode/toolUseId": "<id>"}`. A hook-style call is `tools/call` with no `_meta` key at all. The three hook-facing tools reject the former (REQ-40); model-facing tools accept both.
+- A model-style call is a `tools/call` whose `params._meta` object has the key `claudecode/toolUseId` (any value, including null or empty: presence of the key is the test). Any other call is hook-style: no `_meta`, or a `_meta` without that key (for example one holding only `progressToken`). The three hook-facing tools reject the former (REQ-40); model-facing tools accept both.
 - A hook-style call that carries a session id passes it as the `session_id` argument of the hook-facing tool (`note_prompt`, `check_stop`, `skill_started`). Model-facing tools take no session id.
-- Hook-facing results are empty text or exactly `{}`; only `check_stop` may return `{"decision":"block","reason":...}`.
+- Hook-facing results: `note_prompt` and `skill_started` return empty text or the text `{}`; `check_stop` always returns JSON text, either `{}` or `{"decision":"block","reason":...}` (never empty text).
 
 ## Compatibility with spike 3 (`docs/evidence/spike3/acceptance.py`)
 

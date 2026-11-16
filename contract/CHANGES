@@ -93,6 +93,9 @@ Entries are appended as the fixes land; all belong to this one bump.
   `mismatch` rule, replay failure modes (torn final line ignored; invalid JSON,
   gap, unknown kind fail naming the line), v1 shape. Why: counters and caps
   must replay identically (review S2-9, S2-10, S3-4).
+- `_meta` test pinned: presence of the key claudecode/toolUseId (a _meta
+  without it is hook-style); check_stop always returns JSON text, never empty
+  text. Why: runtime.md and tools.json disagreed (review S2-11, S3-2).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes
