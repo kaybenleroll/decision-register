@@ -15,7 +15,7 @@ Contract: contract/runtime.md. The suite starts the command directly, sets CLAUD
 CLAUDE_PROJECT_DIR to fresh per-scenario directories under .scratch/conformance/ and reads journals
 only below CLAUDE_PLUGIN_DATA. Scenario files: conformance/scenarios/*.json (format: conformance/README.md).
 """
-import fnmatch, glob, hashlib, importlib.util, json, os, queue, re, shutil, subprocess, sys, threading, time
+import fnmatch, glob, hashlib, importlib.util, json, os, queue, re, shutil, signal, subprocess, sys, threading, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -23,6 +23,7 @@ SCEN_DIR = os.path.join(HERE, "scenarios")
 CONTRACT = os.path.join(ROOT, "contract")
 SCRATCH = os.path.join(ROOT, ".scratch", "conformance")
 TIMEOUT = 20
+EXIT_WAIT = 5
 MODEL_META = {"claudecode/toolUseId": "toolu_conformance"}
 TS_RE = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|\+00:00)$")
 
@@ -61,13 +62,26 @@ class Server:
         self.env = env
         self.errf = open(errpath, "ab")
         self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errf,
-                                  env=env, text=True, bufsize=1)
+                                  env=env, text=True, bufsize=1, start_new_session=True)
         self.q = queue.Queue()
         threading.Thread(target=self._rd, daemon=True).start()
         self.n = 0
+
+    def initialize(self):
         self.rpc("initialize", {"protocolVersion": "2024-11-05", "capabilities": {},
                                 "clientInfo": {"name": "conformance", "version": "0"}})
         self._send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+
+    def kill(self):
+        """Kill the server's whole process group (a launcher may have children)."""
+        try:
+            os.killpg(self.p.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+        try:
+            self.p.wait(timeout=5)
+        except Exception:
+            pass
 
     def _rd(self):
         for line in self.p.stdout:
@@ -111,15 +125,20 @@ class Server:
         return ("tool_error" if r.get("isError") else "ok"), text
 
     def close(self):
+        """Close stdin and wait up to EXIT_WAIT seconds for the server to exit by itself (runtime.md: exits on
+        stdin EOF). Always leaves no process behind. Returns True when the exit was graceful."""
         try:
             self.p.stdin.close()
         except Exception:
             pass
+        graceful = True
         try:
-            self.p.wait(timeout=5)
+            self.p.wait(timeout=EXIT_WAIT)
         except Exception:
-            self.p.kill()
+            graceful = False
+        self.kill()
         self.errf.close()
+        return graceful
 
 
 # ---------------------------------------------------------------- scenario execution
@@ -209,7 +228,7 @@ class Run:
         self.vars = {"key": project_key(self.proj), "dir": self.dir}
         self.lines = None
         self.srv = None
-        self.start()
+        self.env = None
 
     def start(self):
         env = dict(os.environ, CLAUDE_PLUGIN_DATA=self.data, CLAUDE_PROJECT_DIR=self.proj)
@@ -217,7 +236,16 @@ class Run:
             env[k] = v.replace("$dir", self.dir) if isinstance(v, str) else v
         for k in self.scen.get("unset_env", []):
             env.pop(k, None)
+        self.env = env
         self.srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"))
+        self.srv.initialize()
+
+    def stop_server(self):
+        """Close the running server and require a graceful exit on stdin EOF."""
+        srv, self.srv = self.srv, None
+        if srv and not srv.close():
+            raise AssertionError("server did not exit within %d s of stdin EOF (runtime.md: exits on stdin EOF)"
+                                 % EXIT_WAIT)
 
     def journal_path(self):
         """Journal path per contract/runtime.md: <data>/<project key>/<id>.jsonl (active) or
@@ -228,9 +256,9 @@ class Run:
         return p
 
     def root(self):
-        if "CLAUDE_PLUGIN_DATA" in self.srv.env:
-            return self.srv.env["CLAUDE_PLUGIN_DATA"]
-        return os.path.join(self.srv.env.get("TMPDIR", "/tmp"), FALLBACK_DIR)
+        if "CLAUDE_PLUGIN_DATA" in self.env:
+            return self.env["CLAUDE_PLUGIN_DATA"]
+        return os.path.join(self.env.get("TMPDIR", "/tmp"), FALLBACK_DIR)
 
     def do_fs(self, st):
         root = self.root()
@@ -250,10 +278,10 @@ class Run:
         if op == "call":
             return self.do_call(st)
         if op == "restart":
-            self.srv.close()
+            self.stop_server()
             self.start()
         elif op == "stop":
-            self.srv.close()
+            self.stop_server()
         elif op == "start":
             self.start()
         elif op == "journal":
@@ -347,22 +375,30 @@ class Run:
             raise AssertionError("unknown journal action %r" % action)
 
     def close(self):
+        """End of scenario: the running server must also exit on stdin EOF."""
+        self.stop_server()
+
+    def abort(self):
         if self.srv:
-            self.srv.close()
+            self.srv.kill()
+            self.srv.errf.close()
+            self.srv = None
 
 
 def run_scenario(cmd, scen, tools, validator):
     r = None
     try:
         r = Run(cmd, scen, tools, validator)
+        r.start()
         for st in scen["steps"]:
             r.step(st)
+        r.close()
         return True, scen.get("pass_detail", "")
     except Exception as e:
         return False, "%s: %s" % (type(e).__name__, str(e).replace("\n", " ")[:300])
     finally:
         if r:
-            r.close()
+            r.abort()
 
 
 # ---------------------------------------------------------------- static validation
