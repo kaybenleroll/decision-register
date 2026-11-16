@@ -281,7 +281,7 @@
    "mutating": true,
    "rejects_meta": false,
    "engages_pending": true,
-   "description": "Log an item. id is an optional caller-supplied label (kept from spike 3); the server assigns one if absent. depends_on ids must already exist. A subquestion requires parent. answer, source and rationale together record a decision the user volunteered (REQ-32); source user is subject to the per-prompt rule.",
+   "description": "Log an item. id is an optional caller-supplied label (kept from spike 3); the server assigns one if absent. depends_on ids must already exist. A subquestion requires parent. answer, source and rationale together record a decision the user volunteered (REQ-32); source user is subject to the per-prompt rule. Errors on: a kind decision with a model answer (REQ-34), a subquestion without parent, the budget rows.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -412,6 +412,11 @@
       "kind": "question",
       "text": "t",
       "id": "bad id"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "source": "model"
      }
     ],
     "result_good": [
@@ -1550,17 +1555,20 @@
   {
    "tools": "begin_interview",
    "when": "tool_schema differs from the server's",
-   "message_names": "both values, plugin and server (REQ-77)"
+   "message_names": "both values, plugin and server (REQ-77)",
+   "check": 4
   },
   {
    "tools": "begin_interview|log_item|resolve|park|reopen",
    "when": "an unfinished journal exists",
-   "message_names": "unfinished journal: call resume or discard"
+   "message_names": "unfinished journal: call resume or discard",
+   "check": 5
   },
   {
    "tools": "resolve|park|reopen",
    "when": "transition not allowed by REQ-38",
-   "message_names": "the item id and its current status"
+   "message_names": "the item id and its current status",
+   "check": 8
   },
   {
    "tools": "log_item",
@@ -1571,22 +1579,26 @@
   {
    "tools": "resolve",
    "when": "decision item with source model; or REQ-35 parent with fewer than N children and source model",
-   "message_names": "the item id"
+   "message_names": "the item id",
+   "check": 9
   },
   {
    "tools": "park",
    "when": "decision item with parked_by model",
-   "message_names": "the item id"
+   "message_names": "the item id",
+   "check": 9
   },
   {
    "tools": "resolve|park|log_item",
    "when": "source or parked_by user without a user prompt since the budget point",
-   "message_names": "a message saying so; when no prompt hook call was ever seen, a message saying hooks are not firing (REQ-44)"
+   "message_names": "a message saying so; when no prompt hook call was ever seen, a message saying hooks are not firing (REQ-44)",
+   "check": 10
   },
   {
    "tools": "log_item",
    "when": "a caller-supplied id is already used by an item in this interview",
-   "message_names": "the duplicate id, e.g. \"duplicate id: q1\"; nothing is logged and no journal event is written"
+   "message_names": "the duplicate id, e.g. \"duplicate id: q1\"; nothing is logged and no journal event is written",
+   "check": 7
   },
   {
    "tools": "end_interview",
@@ -1597,7 +1609,8 @@
   {
    "tools": "note_prompt|skill_started|check_stop",
    "when": "call carries _meta claudecode/toolUseId",
-   "message_names": "the tool name and 'hook-facing'"
+   "message_names": "the tool name and 'hook-facing'",
+   "check": 2
   },
   {
    "tools": "end_interview",
@@ -1670,6 +1683,36 @@
    "when": "replay fails (REQ-31 violation, invalid JSON on a non-final line, seq gap, unknown kind, v above 2)",
    "message_names": "replay failed at line followed by the 1-based line number as a digit string; state unchanged and the pid file removed",
    "check": 6
+  },
+  {
+   "tools": "*",
+   "when": "arguments fail the input schema (missing, unknown or mistyped parameter, blank text, multi-line rationale, cross-field dependency)",
+   "message_names": "invalid arguments: followed by the parameter name",
+   "check": 3
+  },
+  {
+   "tools": "log_item",
+   "when": "kind subquestion without parent (the input schema cannot express this)",
+   "message_names": "subquestion needs a parent",
+   "check": 7
+  },
+  {
+   "tools": "log_item",
+   "when": "kind decision carrying answer with source model (REQ-34)",
+   "message_names": "decision item can be answered by the user only: <id>",
+   "check": 9
+  },
+  {
+   "tools": "resolve|log_item",
+   "when": "source user, a prompt exists but the per-prompt budget max(1, p) (flat 4 when the classifier returned unknown) is spent (REQ-32)",
+   "message_names": "user-answer budget spent: followed by used and allowed counts",
+   "check": 10
+  },
+  {
+   "tools": "log_item",
+   "when": "more than 4 volunteered answers (answer+source+rationale) since the previous user prompt (REQ-32)",
+   "message_names": "volunteered-answer cap reached",
+   "check": 10
   }
  ],
  "error_precedence": [

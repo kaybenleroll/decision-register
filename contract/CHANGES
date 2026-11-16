@@ -48,6 +48,10 @@ Entries are appended as the fixes land; all belong to this one bump.
   live-owned journal (distinct from "journal already claimed"), several
   journals without an id, wrong state; discard is accepted in none and pending.
   Why: only the claim/several/state/replay rows existed (review S1-2).
+- Error rows added: invalid arguments (any tool), subquestion without parent,
+  decision-item answer by the model through log_item (REQ-34), per-prompt budget
+  spent and volunteered-answer cap (REQ-32); every row now carries `check`, its
+  number in error_precedence. Why: required rejections had no row (S2-8).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes
