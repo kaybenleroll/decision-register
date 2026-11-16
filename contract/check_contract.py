@@ -108,6 +108,12 @@ def main():
                 fails.append("state_matrix lacks %s in state %s" % (name, st))
     if len(d.get("error_precedence", [])) < 10:
         fails.append("error_precedence list missing or short")
+    # tree order: Open, Stale, Parked, Resolved (creation order within a group is not visible in examples)
+    rank = {"Open": 0, "Stale": 1, "Parked": 2, "Resolved": 3}
+    for x in d["tools"]["status"]["examples"]["result_good"]:
+        r = [rank[n["status"]] for n in x["tree"]]
+        if r != sorted(r):
+            fails.append("status tree not ordered Open, Stale, Parked, Resolved")
     # (c) tool names used by the spike-3 script are kept
     src = open(os.path.join(ROOT, "docs/evidence/spike3/acceptance.py")).read()
     used = set(re.findall(r'(?:\.ok|\.err|\.call)\("([a-z_]+)"', src))

@@ -57,6 +57,12 @@ Entries are appended as the fixes land; all belong to this one bump.
   U+2029; a trailing `$` means end of string and the Python checker translates
   it to \Z. Why: Python's `$` matched "ok\n" while ECMAScript/Rust did not, so
   suite and servers disagreed (review S3-1).
+- Item/tree schema: $defs.item is a oneOf by status (Open all-null; Stale keeps
+  its answer/source/rationale; Parked needs parked_by and park_reason; Resolved
+  needs non-null answer, source and single-line rationale). `stale` removed from
+  the log_item, resolve and park results (only reopen can make items Stale,
+  REQ-36). Tree order pinned: Open, Stale, Parked, Resolved, creation order
+  within a group. Why: REQ-31 states must be unrepresentable (review S2-7).
 
 (no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
 project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes

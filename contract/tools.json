@@ -58,6 +58,27 @@
    "maxProperties": 0
   },
   "item": {
+   "oneOf": [
+    {
+     "$ref": "#/$defs/itemOpen"
+    },
+    {
+     "$ref": "#/$defs/itemStale"
+    },
+    {
+     "$ref": "#/$defs/itemParked"
+    },
+    {
+     "$ref": "#/$defs/itemResolved"
+    }
+   ],
+   "description": "Open: answer, source, rationale, parked_by, park_reason all null. Stale: keeps the answer, source and rationale it had when Resolved; parked fields null. Parked: parked_by and park_reason set, answer fields null (park and reopen clear them). Resolved: answer, source and rationale set, parked fields null (resolve clears a model park). Order in tree: Open, then Stale, then Parked, then Resolved; within each group by creation order."
+  },
+  "oneline": {
+   "type": "string",
+   "pattern": "^[^\\r\\n\\x0b\\x0c\\x85\\u2028\\u2029]*\\S[^\\r\\n\\x0b\\x0c\\x85\\u2028\\u2029]*$"
+  },
+  "itemOpen": {
    "type": "object",
    "additionalProperties": false,
    "required": [
@@ -81,7 +102,7 @@
      "$ref": "#/$defs/kind"
     },
     "text": {
-     "type": "string"
+     "$ref": "#/$defs/nonblank"
     },
     "parent": {
      "oneOf": [
@@ -100,63 +121,210 @@
      }
     },
     "status": {
-     "$ref": "#/$defs/status"
+     "const": "Open"
     },
     "answer": {
-     "oneOf": [
-      {
-       "type": "null"
-      },
-      {
-       "type": "string"
-      }
-     ]
+     "type": "null"
     },
     "source": {
-     "oneOf": [
-      {
-       "type": "null"
-      },
-      {
-       "$ref": "#/$defs/source"
-      }
-     ]
+     "type": "null"
     },
     "rationale": {
-     "oneOf": [
-      {
-       "type": "null"
-      },
-      {
-       "type": "string"
-      }
-     ]
+     "type": "null"
     },
     "parked_by": {
-     "oneOf": [
-      {
-       "type": "null"
-      },
-      {
-       "$ref": "#/$defs/source"
-      }
-     ]
+     "type": "null"
     },
     "park_reason": {
-     "oneOf": [
-      {
-       "type": "null"
-      },
-      {
-       "type": "string"
-      }
-     ]
+     "type": "null"
     }
    }
   },
-  "oneline": {
-   "type": "string",
-   "pattern": "^[^\\r\\n\\x0b\\x0c\\x85\\u2028\\u2029]*\\S[^\\r\\n\\x0b\\x0c\\x85\\u2028\\u2029]*$"
+  "itemStale": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "kind",
+    "text",
+    "parent",
+    "depends_on",
+    "status",
+    "answer",
+    "source",
+    "rationale",
+    "parked_by",
+    "park_reason"
+   ],
+   "properties": {
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "kind": {
+     "$ref": "#/$defs/kind"
+    },
+    "text": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "parent": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/id"
+      }
+     ]
+    },
+    "depends_on": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/id"
+     }
+    },
+    "status": {
+     "const": "Stale"
+    },
+    "answer": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "source": {
+     "$ref": "#/$defs/source"
+    },
+    "rationale": {
+     "$ref": "#/$defs/oneline"
+    },
+    "parked_by": {
+     "type": "null"
+    },
+    "park_reason": {
+     "type": "null"
+    }
+   }
+  },
+  "itemParked": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "kind",
+    "text",
+    "parent",
+    "depends_on",
+    "status",
+    "answer",
+    "source",
+    "rationale",
+    "parked_by",
+    "park_reason"
+   ],
+   "properties": {
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "kind": {
+     "$ref": "#/$defs/kind"
+    },
+    "text": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "parent": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/id"
+      }
+     ]
+    },
+    "depends_on": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/id"
+     }
+    },
+    "status": {
+     "const": "Parked"
+    },
+    "answer": {
+     "type": "null"
+    },
+    "source": {
+     "type": "null"
+    },
+    "rationale": {
+     "type": "null"
+    },
+    "parked_by": {
+     "$ref": "#/$defs/source"
+    },
+    "park_reason": {
+     "$ref": "#/$defs/nonblank"
+    }
+   }
+  },
+  "itemResolved": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "kind",
+    "text",
+    "parent",
+    "depends_on",
+    "status",
+    "answer",
+    "source",
+    "rationale",
+    "parked_by",
+    "park_reason"
+   ],
+   "properties": {
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "kind": {
+     "$ref": "#/$defs/kind"
+    },
+    "text": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "parent": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/id"
+      }
+     ]
+    },
+    "depends_on": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/id"
+     }
+    },
+    "status": {
+     "const": "Resolved"
+    },
+    "answer": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "source": {
+     "$ref": "#/$defs/source"
+    },
+    "rationale": {
+     "$ref": "#/$defs/oneline"
+    },
+    "parked_by": {
+     "type": "null"
+    },
+    "park_reason": {
+     "type": "null"
+    }
+   }
   }
  },
  "tools": {
@@ -351,12 +519,6 @@
      },
      "status": {
       "$ref": "#/$defs/status"
-     },
-     "stale": {
-      "type": "array",
-      "items": {
-       "$ref": "#/$defs/id"
-      }
      }
     }
    },
@@ -459,6 +621,11 @@
      {
       "id": "q1",
       "status": "open"
+     },
+     {
+      "id": "q1",
+      "status": "Open",
+      "stale": []
      }
     ]
    }
@@ -506,12 +673,6 @@
      },
      "status": {
       "$ref": "#/$defs/status"
-     },
-     "stale": {
-      "type": "array",
-      "items": {
-       "$ref": "#/$defs/id"
-      }
      }
     }
    },
@@ -564,6 +725,11 @@
      {
       "id": "q1",
       "status": "Done"
+     },
+     {
+      "id": "q1",
+      "status": "Open",
+      "stale": []
      }
     ]
    }
@@ -607,12 +773,6 @@
      },
      "status": {
       "$ref": "#/$defs/status"
-     },
-     "stale": {
-      "type": "array",
-      "items": {
-       "$ref": "#/$defs/id"
-      }
      }
     }
    },
@@ -651,6 +811,11 @@
       "id": "q1",
       "status": "Parked",
       "parked_by": "model"
+     },
+     {
+      "id": "q1",
+      "status": "Open",
+      "stale": []
      }
     ]
    }
@@ -660,7 +825,7 @@
    "mutating": true,
    "rejects_meta": false,
    "engages_pending": true,
-   "description": "Reopen a Resolved item (REQ-36): it becomes Open and every Resolved item depending on it, directly or transitively, becomes Stale; the result lists those ids in stale. Error if the item is not Resolved.",
+   "description": "Reopen a Resolved item (REQ-36): it becomes Open and every Resolved item depending on it, directly or transitively, becomes Stale; the result lists those ids in stale. Error if the item is not Resolved. Only reopen can make items Stale, so only its result carries stale.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -958,14 +1123,14 @@
         "park_reason": null
        },
        {
-        "id": "q2",
+        "id": "q4",
         "kind": "question",
-        "text": "t q2",
+        "text": "t q4",
         "parent": null,
         "depends_on": [],
-        "status": "Resolved",
+        "status": "Stale",
         "answer": "a",
-        "source": "user",
+        "source": "model",
         "rationale": "r",
         "parked_by": null,
         "park_reason": null
@@ -984,15 +1149,15 @@
         "park_reason": "later"
        },
        {
-        "id": "q4",
+        "id": "q2",
         "kind": "question",
-        "text": "t q4",
+        "text": "t q2",
         "parent": null,
         "depends_on": [],
-        "status": "Stale",
-        "answer": null,
-        "source": null,
-        "rationale": null,
+        "status": "Resolved",
+        "answer": "a",
+        "source": "user",
+        "rationale": "r",
         "parked_by": null,
         "park_reason": null
        }
@@ -1057,6 +1222,310 @@
        "prompt_seen": false
       },
       "last_event": 0,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "i1",
+      "items": {
+       "open": 1,
+       "resolved": 1,
+       "parked": 1,
+       "stale": 1
+      },
+      "tree": [
+       {
+        "id": "q1",
+        "kind": "question",
+        "text": "t q1",
+        "parent": null,
+        "depends_on": [],
+        "status": "Open",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q2",
+        "kind": "question",
+        "text": "t q2",
+        "parent": null,
+        "depends_on": [],
+        "status": "Resolved",
+        "answer": null,
+        "source": "user",
+        "rationale": "r",
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q3",
+        "kind": "question",
+        "text": "t q3",
+        "parent": null,
+        "depends_on": [],
+        "status": "Parked",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": "user",
+        "park_reason": "later"
+       },
+       {
+        "id": "q4",
+        "kind": "question",
+        "text": "t q4",
+        "parent": null,
+        "depends_on": [],
+        "status": "Stale",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       }
+      ],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 9,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "i1",
+      "items": {
+       "open": 1,
+       "resolved": 1,
+       "parked": 1,
+       "stale": 1
+      },
+      "tree": [
+       {
+        "id": "q1",
+        "kind": "question",
+        "text": "t q1",
+        "parent": null,
+        "depends_on": [],
+        "status": "Open",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q2",
+        "kind": "question",
+        "text": "t q2",
+        "parent": null,
+        "depends_on": [],
+        "status": "Resolved",
+        "answer": "a",
+        "source": "user",
+        "rationale": "",
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q3",
+        "kind": "question",
+        "text": "t q3",
+        "parent": null,
+        "depends_on": [],
+        "status": "Parked",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": "user",
+        "park_reason": "later"
+       },
+       {
+        "id": "q4",
+        "kind": "question",
+        "text": "t q4",
+        "parent": null,
+        "depends_on": [],
+        "status": "Stale",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       }
+      ],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 9,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "i1",
+      "items": {
+       "open": 1,
+       "resolved": 1,
+       "parked": 1,
+       "stale": 1
+      },
+      "tree": [
+       {
+        "id": "q1",
+        "kind": "question",
+        "text": "t q1",
+        "parent": null,
+        "depends_on": [],
+        "status": "Open",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q2",
+        "kind": "question",
+        "text": "t q2",
+        "parent": null,
+        "depends_on": [],
+        "status": "Resolved",
+        "answer": "a",
+        "source": "user",
+        "rationale": "r",
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q3",
+        "kind": "question",
+        "text": "t q3",
+        "parent": null,
+        "depends_on": [],
+        "status": "Parked",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": "later"
+       },
+       {
+        "id": "q4",
+        "kind": "question",
+        "text": "t q4",
+        "parent": null,
+        "depends_on": [],
+        "status": "Stale",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       }
+      ],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 9,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "i1",
+      "items": {
+       "open": 1,
+       "resolved": 1,
+       "parked": 1,
+       "stale": 1
+      },
+      "tree": [
+       {
+        "id": "q1",
+        "kind": "question",
+        "text": "t q1",
+        "parent": null,
+        "depends_on": [],
+        "status": "Open",
+        "answer": "a",
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q2",
+        "kind": "question",
+        "text": "t q2",
+        "parent": null,
+        "depends_on": [],
+        "status": "Resolved",
+        "answer": "a",
+        "source": "user",
+        "rationale": "r",
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q3",
+        "kind": "question",
+        "text": "t q3",
+        "parent": null,
+        "depends_on": [],
+        "status": "Parked",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": "user",
+        "park_reason": "later"
+       },
+       {
+        "id": "q4",
+        "kind": "question",
+        "text": "t q4",
+        "parent": null,
+        "depends_on": [],
+        "status": "Stale",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       }
+      ],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 9,
       "resumable": null,
       "version_mismatch": null
      }
