@@ -68,12 +68,14 @@ MAPPING = {
     ("unfinished", "left", "1805ce561d"): (["resume"], "resume; discard and pruning are file moves and deletions"),
 }
 # whole-row pins (cover the Stop gate and Model-facing calls columns, which hold no state change)
-ROW_PINS = {"none": "26dda1df7e", "pending": "1fd93f2d9b", "active": "01138372ae", "complete": "20e802a278",
+# Re-pinned 2026-11-17 (walk Q5): REQ-21/REQ-27 now say SUCCESSFUL mutating calls start or engage; a failing call changes
+# nothing. Mapping reviewed: the same events record the same transitions (start, engage), only the trigger is narrowed.
+ROW_PINS = {"none": "ecc91373f5", "pending": "cd95e3e70e", "active": "01138372ae", "complete": "20e802a278",
             "ended": "1b5dd6ac26", "unfinished": "70622b77fb"}
 # rules 1-5 of REQ-27: events carrying what the rule needs
 RULES = {1: ("68449d82be", ["start", "hook", "resume"]),      # session ids on start, hook and resume
          2: ("dfd955191a", ["prompt", "start"]),               # prompt_count on start; prompt events
-         3: ("b8450b0340", ["engage", "end", "mismatch"]),     # engagement, stand-down, mismatch before plain
+         3: ("939f8bee41", ["engage", "end", "mismatch"]),     # engagement, stand-down, mismatch before plain
          4: ("35ae3833da", ["complete", "item", "resolve", "park", "reopen", "end"]),
          5: ("570e37d853", ["end", "resume"])}
 # "Written when" cell of every event kind (key) and the End kinds / runtime.md ends tables
@@ -163,7 +165,7 @@ if set(tools["state_matrix"].get("status", {})) != enum_states:
     fails.append("tools.json state_matrix states differ from the state enum")
 pend = next((r for s, r in rows if s == "pending"), "")
 calls_cell = norm(pend.split("|")[2]) if pend else ""
-m = re.search(r"first of (.*?) engages it", calls_cell)
+m = re.search(r"first successful one of (.*?) engages it", calls_cell)
 engaging = set(re.findall(r"`(\w+)`", m.group(1))) if m else set()
 flagged = {n for n, t in tools["tools"].items() if t["engages_pending"]}
 if not engaging or engaging != flagged:
