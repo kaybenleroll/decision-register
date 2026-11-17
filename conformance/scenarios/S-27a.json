@@ -1,0 +1,235 @@
+{
+ "id": "S-27a",
+ "title": "the invoking prompt counts: note_prompt while inactive sets prompt_seen and the hook start keeps that one prompt, so a source user answer volunteered in the kickoff prompt is accepted and hooks are not reported as not firing; with no earlier prompt the same call says hooks are not firing",
+ "req": [
+  "REQ-27",
+  "REQ-22",
+  "REQ-44",
+  "REQ-32"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-27a",
+    "prompt": "/grill-me and my first answer is plain text"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": true
+     }
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-27a",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 1,
+      "skill_started": 1,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-q1",
+    "answer": "ans-q1",
+    "source": "user",
+    "rationale": "why-q1"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.0.source",
+     "eq": "user"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 1,
+      "skill_started": 1,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27a",
+    "last_assistant_message": "chat"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "route": "hook",
+     "prompt_count": 1
+    }
+   },
+   "count": {
+    "start": 1
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "ended_after_completion"
+    }
+   ]
+  },
+  {
+   "op": "restart"
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-27a",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 1,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-q1",
+    "answer": "ans-q1",
+    "source": "user",
+    "rationale": "why-q1"
+   },
+   "expect": "error",
+   "matches": "hooks are not firing"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}
