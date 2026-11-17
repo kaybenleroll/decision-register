@@ -1,0 +1,188 @@
+{
+ "id": "S-35b",
+ "title": "a subquestion without a parent is rejected ('subquestion needs a parent') and logs nothing; a question or decision with a parent, and any kind as parent, is accepted",
+ "req": [
+  "REQ-35",
+  "REQ-30"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-35b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "a question"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "s0",
+    "kind": "subquestion",
+    "text": "orphan"
+   },
+   "expect": "error",
+   "mention": "subquestion needs a parent"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "subquestion",
+    "text": "orphan, no id"
+   },
+   "expect": "error",
+   "mention": "subquestion needs a parent"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "s0",
+    "kind": "subquestion",
+    "text": "orphan",
+    "parent": "nope"
+   },
+   "expect": "error",
+   "mention": "nope"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "len": 1
+    },
+    {
+     "path": "last_event",
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "question under q1",
+    "parent": "q1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d1",
+    "kind": "decision",
+    "text": "decision under q1",
+    "parent": "q1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "s1",
+    "kind": "subquestion",
+    "text": "subquestion under q1",
+    "parent": "q1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "s2",
+    "kind": "subquestion",
+    "text": "subquestion under a subquestion",
+    "parent": "s1"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 5,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "q2"
+    },
+    {
+     "path": "tree.1.kind",
+     "eq": "question"
+    },
+    {
+     "path": "tree.1.parent",
+     "eq": "q1"
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "d1"
+    },
+    {
+     "path": "tree.2.kind",
+     "eq": "decision"
+    },
+    {
+     "path": "tree.2.parent",
+     "eq": "q1"
+    },
+    {
+     "path": "tree.3.id",
+     "eq": "s1"
+    },
+    {
+     "path": "tree.3.kind",
+     "eq": "subquestion"
+    },
+    {
+     "path": "tree.3.parent",
+     "eq": "q1"
+    },
+    {
+     "path": "tree.4.id",
+     "eq": "s2"
+    },
+    {
+     "path": "tree.4.kind",
+     "eq": "subquestion"
+    },
+    {
+     "path": "tree.4.parent",
+     "eq": "s1"
+    }
+   ]
+  }
+ ]
+}
