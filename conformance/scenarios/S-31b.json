@@ -1,0 +1,618 @@
+{
+ "id": "S-31b",
+ "title": "replay applies the REQ-31 check to resolve lines (and a blank park reason): resume fails naming the 1-based line, changes no state and leaves no pid file; the same journal without the defect resumes",
+ "req": [
+  "REQ-31",
+  "REQ-60"
+ ],
+ "steps": [
+  {
+   "op": "repeat",
+   "rows": [
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "resolve",
+       "id": "q1",
+       "answer": "  ",
+       "source": "model",
+       "rationale": "why"
+      }
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "resolve",
+       "id": "q1",
+       "answer": "",
+       "source": "model",
+       "rationale": "why"
+      }
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "resolve",
+       "id": "q1",
+       "source": "model",
+       "rationale": "why"
+      }
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "resolve",
+       "id": "q1",
+       "answer": "an",
+       "rationale": "why"
+      }
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "resolve",
+       "id": "q1",
+       "answer": "an",
+       "source": "assistant",
+       "rationale": "why"
+      }
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "resolve",
+       "id": "q1",
+       "answer": "an",
+       "source": "model"
+      }
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "resolve",
+       "id": "q1",
+       "answer": "an",
+       "source": "model",
+       "rationale": " "
+      }
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "resolve",
+       "id": "q1",
+       "answer": "an",
+       "source": "model",
+       "rationale": "two\nlines"
+      }
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "resolve",
+       "id": "q1",
+       "answer": "an",
+       "source": "model",
+       "rationale": "a b"
+      }
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "item",
+       "id": "q2",
+       "item_kind": "question",
+       "text": "text-q2",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 4,
+       "kind": "resolve",
+       "id": "q1",
+       "answer": "an-q1",
+       "source": "model",
+       "rationale": "why-q1"
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 5,
+       "kind": "resolve",
+       "id": "q2",
+       "answer": "an-q2",
+       "source": "model",
+       "rationale": "no\nway"
+      }
+     ],
+     "ln": 5
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "sess-31b",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "resolve",
+       "id": "q1",
+       "answer": "an-q1",
+       "source": "model",
+       "rationale": "why-q1"
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 4,
+       "kind": "item",
+       "id": "q2",
+       "item_kind": "question",
+       "text": "t",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 5,
+       "kind": "park",
+       "id": "q2",
+       "reason": " ",
+       "parked_by": "model"
+      }
+     ],
+     "ln": 5
+    }
+   ],
+   "steps": [
+    {
+     "op": "seed",
+     "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+     "lines": "$lines"
+    },
+    {
+     "call": "resume",
+     "args": {},
+     "expect": "error",
+     "matches": "replay failed at line ${ln}(?!\\d)"
+    },
+    {
+     "call": "status",
+     "args": {},
+     "assert": [
+      {
+       "path": "state",
+       "eq": "none"
+      },
+      {
+       "path": "interview_id",
+       "eq": null
+      },
+      {
+       "path": "items",
+       "eq": {
+        "open": 0,
+        "resolved": 0,
+        "parked": 0,
+        "stale": 0
+       }
+      },
+      {
+       "path": "resumable",
+       "len": 1
+      }
+     ]
+    },
+    {
+     "op": "fs",
+     "assert": [
+      {
+       "path": "$key/iv-20261116T093015Z-a3f9c2d1.pid",
+       "exists": false
+      },
+      {
+       "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+       "exists": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "sess-31b",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 3,
+     "kind": "resolve",
+     "id": "q1",
+     "answer": "an-q1",
+     "source": "model",
+     "rationale": "why-q1"
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "iv-20261116T093015Z-a3f9c2d1"
+   },
+   "assert": [
+    {
+     "path": "interview_id",
+     "eq": "iv-20261116T093015Z-a3f9c2d1"
+    },
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "last_event",
+     "eq": 3
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "q1"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.0.answer",
+     "eq": "an-q1"
+    },
+    {
+     "path": "tree.0.rationale",
+     "eq": "why-q1"
+    }
+   ]
+  }
+ ]
+}
