@@ -155,3 +155,9 @@ Open items for the user:
   10. Q10: PR #40 merges with a merge commit (`gh pr merge 40 --merge`), a deliberate exception to the squash rule so the atomic commits are kept; the PR body closes #11 and #12 with one keyword per line.
 - Amendment: REQ-21 and REQ-27 [assistant] wording only; no [user] clause touched.
 - Verified: `check_contract.py`, `check_lifecycle_events.py` and `conformance/run.py --validate` exit 0; the throwaway stub passes 14/14.
+
+## 2026-11-17 (C3 scenario group, #13; branch issue-13-m0-scenarios)
+
+- Done: 18 scenarios added (suite now 32): S-30a, S-30b, S-31a, S-31b, S-33a, S-33b, S-34a, S-35a, S-35b, S-35c, S-36a, S-38a, S-38b, S-38c, S-45a (the C3 list) plus S-45c, S-13b and S-23g, which the build plan assigns to C4 and C5 but which were written here to kill three surviving mutants (C4 and C5 need not author them again). S-A6 was changed: its branch parent q2 had one sub-question and the model resolved it, which REQ-35 as revised rejects; it now has two.
+- Verified: contract checkers, `run.py --validate` and `selftest.py` exit 0; the throwaway stub (updated for REQ-35, the "N more" line, replay REQ-31 checks, pending-state flush and the start-time prompt count in `hook_health`; not committed) passes 32/32; the original 128 mutants are all killed (the three survivors included) and 100 of 102 new C3 mutants are killed (the other two are equivalent mutants).
+- Assumptions to confirm: a Resolved parent with one child is flagged by the finish gate (S-35a), a parent with no children is not a branch (resolvable by the model), and the "N more" line names the number left after the first 10 (S-45c matches `2 more`). Not covered, per build plan: `skill_started` outcomes (S-20d, C5) and `discard` (C5).
