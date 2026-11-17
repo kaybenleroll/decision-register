@@ -119,7 +119,7 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-33a park records `parked_by` and reason; model park keeps blocking; user park does not | REQ-33 |
 | S-33b `parked_by=user` without a prompt rejected | REQ-33 |
 | S-34a `decision` resolved only with `source=user`; parked only with `parked_by=user` | REQ-34 |
-| S-35a `log_item` never rejects on branch size; finish gate flags under-sized parent; `resolve` of a parent with fewer than 2 children is rejected for source `model` | REQ-35 |
+| S-35a `log_item` never rejects on branch size; finish gate flags under-sized parent; `resolve` of a parent that has children but fewer than 2 is rejected for source `model` (a zero-child parent is not a branch: accepted) | REQ-35 |
 | S-35b `subquestion` without parent rejected ("subquestion needs a parent"); `question` with parent accepted | REQ-35 |
 | S-35c a parent parked by the user is not flagged by the gate; `resolve` of an under-sized parent with source `user` accepted; children of any kind and any status count toward N | REQ-35, REQ-33 |
 | S-36a reopen makes dependants (direct and transitive) Stale; Stale blocks finish; resolvable again | REQ-36 |
