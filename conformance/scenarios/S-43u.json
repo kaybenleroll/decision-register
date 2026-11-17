@@ -200,6 +200,25 @@
    "call": "check_stop",
    "args": {
     "session_id": "sess-43u",
+    "last_assistant_message": "-\tQ1. pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43u",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43u",
     "last_assistant_message": "-Q1. pick\nwhat now?"
    },
    "assert": [
@@ -378,6 +397,14 @@
     {
      "kind": "stop",
      "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
      "decision": "block",
      "presented": []
     },
@@ -412,7 +439,7 @@
     }
    ],
    "count": {
-    "stop": 14
+    "stop": 15
    }
   }
  ]
