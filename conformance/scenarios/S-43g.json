@@ -147,6 +147,44 @@
    ]
   },
   {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43g",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43g",
+    "last_assistant_message": "\u00a0\u2003 \n"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43g",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43g",
+    "last_assistant_message": "\u3000\u2028\t"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
    "op": "journal",
    "action": "load"
   },
@@ -187,10 +225,22 @@
      "classification": "question",
      "decision": "allow",
      "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": []
     }
    ],
    "count": {
-    "stop": 4
+    "stop": 6
    },
    "absent": [
     "complete"
