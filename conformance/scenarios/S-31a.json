@@ -1,0 +1,281 @@
+{
+ "id": "S-31a",
+ "title": "resolve without answer, source or rationale, with a blank answer or rationale, a multi-line rationale or an unknown source is rejected naming the parameter and changes nothing; a volunteered log_item answer is held to the same rules",
+ "req": [
+  "REQ-31"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-31a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-one"
+   }
+  },
+  {
+   "op": "repeat",
+   "rows": [
+    {
+     "args": {
+      "id": "q1",
+      "source": "model",
+      "rationale": "why"
+     },
+     "param": "answer"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "an",
+      "rationale": "why"
+     },
+     "param": "source"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "an",
+      "source": "model"
+     },
+     "param": "rationale"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "",
+      "source": "model",
+      "rationale": "why"
+     },
+     "param": "answer"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "   ",
+      "source": "model",
+      "rationale": "why"
+     },
+     "param": "answer"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "\t \n",
+      "source": "model",
+      "rationale": "why"
+     },
+     "param": "answer"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "an",
+      "source": "model",
+      "rationale": ""
+     },
+     "param": "rationale"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "an",
+      "source": "model",
+      "rationale": "   "
+     },
+     "param": "rationale"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "an",
+      "source": "model",
+      "rationale": "first line\nsecond line"
+     },
+     "param": "rationale"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "an",
+      "source": "model",
+      "rationale": "windows\r\nline"
+     },
+     "param": "rationale"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "an",
+      "source": "model",
+      "rationale": "trailing newline\n"
+     },
+     "param": "rationale"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "an",
+      "source": "model",
+      "rationale": "unicode line separator"
+     },
+     "param": "rationale"
+    },
+    {
+     "args": {
+      "id": "q1",
+      "answer": "an",
+      "source": "assistant",
+      "rationale": "why"
+     },
+     "param": "source"
+    }
+   ],
+   "steps": [
+    {
+     "call": "resolve",
+     "args": "$args",
+     "expect": "error",
+     "matches": "^invalid arguments:.*${param}"
+    }
+   ]
+  },
+  {
+   "op": "repeat",
+   "rows": [
+    {
+     "args": {
+      "kind": "question",
+      "text": "t",
+      "answer": "an"
+     },
+     "param": "source"
+    },
+    {
+     "args": {
+      "kind": "question",
+      "text": "t",
+      "answer": "an",
+      "source": "model"
+     },
+     "param": "rationale"
+    },
+    {
+     "args": {
+      "kind": "question",
+      "text": "t",
+      "answer": "  ",
+      "source": "model",
+      "rationale": "why"
+     },
+     "param": "answer"
+    },
+    {
+     "args": {
+      "kind": "question",
+      "text": "t",
+      "answer": "an",
+      "source": "model",
+      "rationale": "two\nlines"
+     },
+     "param": "rationale"
+    }
+   ],
+   "steps": [
+    {
+     "call": "log_item",
+     "args": "$args",
+     "expect": "error",
+     "matches": "^invalid arguments:.*${param}"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "len": 1
+    },
+    {
+     "path": "last_event",
+     "eq": 2
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "plain answer",
+    "source": "model",
+    "rationale": "one line, with punctuation: yes; no."
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.0.answer",
+     "eq": "plain answer"
+    },
+    {
+     "path": "tree.0.rationale",
+     "eq": "one line, with punctuation: yes; no."
+    },
+    {
+     "path": "tree.0.source",
+     "eq": "model"
+    }
+   ]
+  }
+ ]
+}
