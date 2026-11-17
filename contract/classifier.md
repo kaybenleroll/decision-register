@@ -17,7 +17,9 @@ Result of one classification: `finish` (no ids), `question` with `presented` = l
    `decision` "allow", `presented` []. Counts no block.
 2. `U` = message unchanged (used for labels and for word overlap).
 3. `S` (used only for the `?` test) = U with, in order: fenced code ```...``` removed (non-greedy, across lines),
-   inline code `...` removed (no backtick or newline inside), URLs `https?://\S+` removed, then every line whose
+   inline code removed (one backtick, then any run of characters that are neither a backtick nor a newline, possibly empty,
+   then one backtick; scanned left to right, so only single-backtick spans are recognised: in a double-backtick span such as
+   ``` a ``?`` b ``` the pair ` `` ` is an empty span, and the `?` between the pairs stays in `S`), URLs `https?://\S+` removed, then every line whose
    first non-blank character is `>` removed (quote-line stripping).
 4. `?` test: the message "asks" iff `S` contains `?`.
 
@@ -29,9 +31,12 @@ Labels are read from the unstripped message `U`, so a label inside code, a bold 
 Forms:
 - anywhere in a line, not preceded by a letter, digit or underscore: `Q1:`, `**Q1:**`, `**Q1**:`, `` `Q1:` ``
   (0-2 of `*` or backtick before; then `:` then 0-2 of `*`/backtick, or 1-2 of `*`/backtick then `:`).
-- at line start only, after optional indentation and an optional list marker (`-`, `*`, `+`, `1.`, `1)`) and optional
-  `*`/backtick wrapper: `Q1:`, `Q1.`, `Q1)`.
-Not labels: `Q1` with no punctuation, `Q1?`, `Q1,`, mid-line `Q1.` or `Q1)`, `Q1-2`, `Q10` read as `Q1`.
+- at line start only, after optional indentation and an optional list marker and optional `*`/backtick wrapper: `Q1:`,
+  `Q1.`, `Q1)`, then 0-2 of `*`/backtick (so `**Q1**.` and `` `Q1`) `` are labels, as are the mid-line forms). A list
+  marker is `-`, `*` or `+`, or one or more digits then `.` or `)` (`10.`, `3)`), and must be followed by at least one
+  space or tab: `- Q1.` and `10. Q1.` are labels, `-Q1.` and `1.Q1.` are not (a bare `*Q1.` reads `*` as a wrapper).
+Not labels: `Q1` with no punctuation, `Q1?`, `Q1,`, mid-line `Q1.` or `Q1)`, `Q1-2`, `-Q1.` (no space after the marker),
+`Q10` read as `Q1`.
 
 ## 4. Finish attempt
 Finish attempt = no `?` in `S` AND not a single labelled request.
@@ -64,6 +69,9 @@ now, while, another, under, its, key, choice, use (scenario item texts use them)
 - finish attempt: block while anything is unresolved (REQ-43), classification `finish`.
 - question turn concerning >= 1 item: allow, classification `question`, `presented` = ids.
 - question turn concerning none (incl. `?` with only resolved/parked/unknown labels, or no label and < 3 shared words): block as unlogged, `presented` [].
+- The `reason` text of a block is not specified for an unlogged block: the journal row (`classification`, `decision`,
+  `presented`) is the contract, and a conformance scenario tells finish from unlogged by that row, never by the `reason`.
+  A finish block's `reason` names the open items (REQ-45), so it contains the id of an open item.
 
 ## 8. `unknown`
 The classifier returns `unknown` on an internal error, a timeout or an unparseable message (REQ-43). The tool schema types

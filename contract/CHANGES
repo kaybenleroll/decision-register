@@ -19,6 +19,14 @@ without a valid precedence number.
 
 Log (newest first)
 
+(no bump, 2026-11-17)  contract/classifier.md, label and inline-code details decided
+by the user: a line-start list marker must be followed by a space or tab (`-Q1.` is
+not a label); numbered markers take any number of digits (`10. Q1.`); a closing
+`*`/backtick wrapper is allowed after the label on line-start forms (`**Q1**.`);
+only single-backtick inline code is stripped before the `?` test (a `?` in a
+double-backtick span counts); the `reason` of an unlogged block stays unspecified.
+Wording only, so tool_schema stays 4.
+
 (no bump, 2026-11-17)  contract/classifier.md: the finish-attempt classifier rules
 (label forms, stripping, finish attempt, concerned items, content words, the
 88-word stop list, empty-message rule) and the note that `unknown` is covered by
