@@ -81,7 +81,7 @@ RULES = {1: ("68449d82be", ["start", "hook", "resume"]),      # session ids on s
 # "Written when" cell of every event kind (key) and the End kinds / runtime.md ends tables
 WRITTEN = {"start": "35db742d85", "engage": "6d28cc8b60", "prompt": "5d519c11cb", "hook": "52f929a950", "item": "05f2987824",
            "resolve": "6cd3fd08a5", "park": "7feeba7820", "reopen": "b81686baa7", "stop": "177316c034", "complete": "667c72ed60",
-           "mismatch": "311985a9f5", "resume": "f820c8213f", "end": "82c95031fb"}
+           "mismatch": "43e35bf3cc", "resume": "f820c8213f", "end": "82c95031fb"}
 END_KINDS = {"normal": "1b1b5a9fad", "ended_incomplete_by_model": "a0c34b692b", "abandoned": "a4f773e622",
              "ended_after_completion": "a2fc387f00", "stood_down": "cea2fe972b"}
 RUNTIME_ENDS = {"256ebe44ed": True, "9a9670271d": True, "c34dae1ee4": True, "15313763bf": True, "f3885e6244": True,
