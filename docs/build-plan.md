@@ -102,6 +102,7 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-26d `begin_interview` or implicit start binds to `last_seen_session_id` recorded by an earlier hook call; with no hook call seen it falls back to `CLAUDE_CODE_SESSION_ID` | REQ-26, REQ-27, REQ-21 |
 | S-26e `resume` rebinds the resumed interview to `last_seen_session_id`; the next hook call with that id does not abandon it | REQ-26, REQ-27, REQ-52 |
 | S-26f session change on a `complete` interview ends it as "ended after completion" and the log is not downgraded; on a pending interview it stands it down | REQ-26, REQ-27, REQ-23 |
+| S-26g session change ends an interview whose only item is user-parked as normal, not abandoned (a user-parked item is not open) | REQ-26 |
 | S-27a invoking prompt counted: `note_prompt` while inactive sets `prompt_seen`; the hook start keeps that one prompt, so a `source=user` answer volunteered in the kickoff prompt is accepted and REQ-44 does not report hooks as not firing | REQ-27, REQ-22, REQ-44, REQ-32 |
 | S-27b hook-started interview is `pending`; a second Stop check with no model-facing register call stands it down: gate off, log note "skill did not engage", mode `not engaged` | REQ-27, REQ-62 |
 | S-27c engagement: `begin_interview` (register), `log_item`, `resolve`, `park` or `reopen` makes a pending interview `active`; `status` alone does not | REQ-27, REQ-21 |
@@ -152,6 +153,11 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-43n the listed non-stop words (first, key, use, ...) are content words | REQ-43 |
 | S-43o single labelled request without `?`: accepted line-start forms, case-insensitive Q | REQ-43 |
 | S-43p not a single labelled request: finish attempt | REQ-43 |
+| S-43q item text word forms: lower-cased, split on every character outside a-z and 0-9, tokens of two or more characters kept, including digits-only ones | REQ-43 |
+| S-43r words of a stale item's answer do not count towards overlap: only the item text is compared | REQ-43 |
+| S-43s presented is every concerned item in creation order, not label or lexical order (Q2 before Q10) | REQ-43 |
+| S-43t question-mark test stripping: only backtick fences, one-line inline code, https? URLs and `>` quote lines are removed, in that order; only the ASCII ? counts | REQ-43 |
+| S-43u label and code details: closing wrapper after a line-start label (`**Q1**.`), multi-digit list markers, marker needs a space, only single-backtick code stripped (`?` in double backticks counts); unlogged block reason text not asserted | REQ-43 |
 | S-44a user-sourced answer with zero hook calls seen (counting calls made while inactive): error says hooks are not firing | REQ-44, REQ-27 |
 | S-45a `status` returns the full tree: every item with id, text, parent, status, answer, `parked_by`; order Open, Stale, Parked, Resolved, creation order within a group; Resolved items carry non-null answer, source and rationale, Parked items a reason | REQ-45, REQ-31 |
 | S-45b Stop block reason names each open item with id and text | REQ-45, REQ-43 |
