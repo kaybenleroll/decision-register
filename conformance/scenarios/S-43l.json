@@ -257,11 +257,11 @@
    "call": "check_stop",
    "args": {
     "session_id": "sess-43l",
-    "last_assistant_message": "storäge engine choice?"
+    "last_assistant_message": "storage engineä choice, what now?"
    },
    "assert": [
     {
-     "decision_block": true
+     "decision_block": false
     }
    ]
   },
@@ -276,11 +276,30 @@
    "call": "check_stop",
    "args": {
     "session_id": "sess-43l",
-    "last_assistant_message": "störage engine choice retention?"
+    "last_assistant_message": "storage's engine's choice's what now?"
    },
    "assert": [
     {
-     "decision_block": true
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43l",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43l",
+    "last_assistant_message": "storage engine’s choice’s what now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
     }
    ]
   },
@@ -376,18 +395,30 @@
     {
      "kind": "stop",
      "classification": "question",
-     "decision": "block",
-     "presented": []
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
     },
     {
      "kind": "stop",
      "classification": "question",
-     "decision": "block",
-     "presented": []
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
     }
    ],
    "count": {
-    "stop": 13
+    "stop": 14
    }
   }
  ]
