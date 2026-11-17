@@ -1,0 +1,240 @@
+{
+ "id": "S-52g",
+ "title": "a hook start while an unfinished journal exists proceeds into pending; status reports resumable alongside; begin_interview, log_item, resolve, park and reopen are refused (and do not engage) until resume or discard",
+ "req": [
+  "REQ-52",
+  "REQ-27"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52g",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid_c": "interview_id",
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "open 1"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-52g",
+    "last_assistant_message": "Q1: open 1?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    }
+   ]
+  },
+  {
+   "op": "kill"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52g-2",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-52g-2",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid_p": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "resumable.0.interview_id",
+     "eq": "$iid_c"
+    },
+    {
+     "path": "resumable",
+     "len": 1
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "expect": "error",
+   "mention": "unfinished journal: call resume or discard"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "x"
+   },
+   "expect": "error",
+   "mention": "unfinished journal: call resume or discard"
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "unfinished journal: call resume or discard"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "Q1",
+    "reason": "rs",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": "unfinished journal: call resume or discard"
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "Q1",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": "unfinished journal: call resume or discard"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_p"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "discard",
+   "args": {},
+   "assert": [
+    {
+     "path": "interview_id",
+     "eq": "$iid_c"
+    },
+    {
+     "path": "archived",
+     "eq": true
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_p"
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_p"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "now allowed"
+   }
+  }
+ ]
+}
