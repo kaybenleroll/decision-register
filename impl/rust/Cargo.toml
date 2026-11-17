@@ -1,0 +1,18 @@
+[package]
+name = "regspike-rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+description = "Structured decision register MCP server (working name)"
+publish = false
+
+[lib]
+name = "regspike_rs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "regspike-rs"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"
