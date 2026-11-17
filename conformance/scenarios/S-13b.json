@@ -1,0 +1,184 @@
+{
+ "id": "S-13b",
+ "title": "check_stop in state none allows and clears prompt_seen: a prompt followed by a Stop check and then skill_started starts with prompt count 0, whereas the same without the Stop check counts 1",
+ "req": [
+  "REQ-27",
+  "REQ-13"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-13b",
+    "prompt": "p"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "hook_health.prompt_seen",
+     "eq": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-13b",
+    "last_assistant_message": "just chatting"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "hook_health.prompt_seen",
+     "eq": false
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 3,
+    "session_id": "sess-13b",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 1,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ],
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-13b",
+    "last_assistant_message": "chatting"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "route": "hook",
+     "prompt_count": 0
+    }
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "mode": "plain"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-13b",
+    "prompt": "grill me"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 3,
+    "session_id": "sess-13b",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 1,
+      "skill_started": 1,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ],
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-13b",
+    "last_assistant_message": "chatting"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "route": "hook",
+     "prompt_count": 1
+    }
+   }
+  }
+ ]
+}
