@@ -60,7 +60,7 @@ def fake_server():
                 open(path, "w").write("hello\n")
             with open(os.path.join(data, "meta.log"), "a") as f:
                 f.write(json.dumps(m["params"].get("_meta", "none"), sort_keys=True) + "\n")
-            res = {"content": [{"type": "text", "text": ""}]}
+            res = {"content": [{"type": "text", "text": os.environ.get("FAKE_TEXT", "")}]}
         else:
             res = {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}}, "serverInfo": {"name": "fake", "version": "0"}}
         sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": m["id"], "result": res}) + "\n")
@@ -459,6 +459,126 @@ def per_event_assertions_run():
             assert frag in str(e), "wrong failure for %s: %s" % (kw, e)
         else:
             raise AssertionError("%s should have failed" % kw)
+
+
+# ---------------------------------------------------------------- launcher and strip_path
+
+@test
+def launcher_keys_parsed():
+    accepts(NOTE, launcher="plugin/bin/regspike-launch")
+    accepts(NOTE, launcher="plugin/bin/regspike-launch", strip_path="cat")
+    accepts(NOTE, launcher="l.sh", strip_path="my-bin_1.x")
+
+
+@test
+def launcher_keys_rejected_when_malformed():
+    for bad in ("", "/abs/launch", "../launch", "a/../b", "a//b", "a/", "a b", 3, None, ["x"]):
+        rejects("launcher must be", NOTE, launcher=bad)
+    for bad in ("", "a/b", "/cat", "-x", "a b", 3, None):
+        rejects("strip_path must be", NOTE, launcher="l.sh", strip_path=bad)
+    rejects("strip_path needs launcher", NOTE, strip_path="cat")
+
+
+@test
+def launcher_absent_is_pending_not_failure():
+    sc = scen(NOTE, launcher="no/such/launcher")
+    assert "pending P1" in run.pending_reason(sc), run.pending_reason(sc)
+    assert run.pending_reason(scen(NOTE)) is None
+    import contextlib, io
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert run.main(["--only", "S-A1", "--validate"]) == 0
+
+
+def with_launcher(body, f):
+    old = run.LAUNCHER_ROOT
+    d = tempfile.mkdtemp(prefix="launcher-", dir=run.SCRATCH if os.path.isdir(run.SCRATCH) else None)
+    try:
+        run.LAUNCHER_ROOT = d
+        path = os.path.join(d, "launch.sh")
+        with open(path, "w") as fh:
+            fh.write("#!/bin/sh\n" + body)
+        os.chmod(path, 0o755)
+        f()
+    finally:
+        run.LAUNCHER_ROOT = old
+        shutil.rmtree(d, ignore_errors=True)
+
+
+LAUNCH_BODY = ('if command -v cat >/dev/null 2>&1; then echo present; else echo absent; fi > "$CLAUDE_PLUGIN_DATA/path.txt"\n'
+               'exec "%s" -I "%s" --fake\n' % (sys.executable, os.path.abspath(__file__)))
+
+
+@test
+def launcher_starts_instead_of_the_command():
+    def go():
+        assert run.pending_reason(scen(NOTE, launcher="launch.sh")) is None
+        # the command after `--` (an exit-at-once program) is ignored: the launcher's server answers
+        ok, detail = run.run_scenario([sys.executable, "-c", "pass"], scen(NOTE, {"op": "fs", "assert": [
+            {"path": "path.txt", "root": "data", "matches": "present"}]}, launcher="launch.sh"), TOOLS, VALIDATOR)
+        shutil.rmtree(os.path.join(run.RUN_DIR, "T"), ignore_errors=True)
+        assert ok, detail
+    global PLAY_DIR
+    if PLAY_DIR is None:
+        os.makedirs(run.SCRATCH, exist_ok=True)
+        PLAY_DIR = run.RUN_DIR = tempfile.mkdtemp(prefix="selftest-", dir=run.SCRATCH)
+    with_launcher(LAUNCH_BODY, go)
+
+
+@test
+def strip_path_removes_only_the_named_binary():
+    if not shutil.which("cat") or not shutil.which("ls"):
+        return
+    farm = tempfile.mkdtemp(prefix="farm-", dir=run.SCRATCH if os.path.isdir(run.SCRATCH) else None)
+    try:
+        p = run.stripped_path("cat", os.environ["PATH"], farm)
+        assert shutil.which("cat", path=p) is None, shutil.which("cat", path=p)
+        assert shutil.which("ls", path=p), "other programs must stay reachable"
+        assert shutil.which("cat", path=os.environ["PATH"]), "the original PATH is untouched"
+    finally:
+        shutil.rmtree(farm, ignore_errors=True)
+
+
+@test
+def strip_path_reaches_the_launcher():
+    def go():
+        sc = scen(NOTE, {"op": "fs", "assert": [{"path": "path.txt", "root": "data", "matches": "absent"}]},
+                  launcher="launch.sh", strip_path="cat")
+        ok, detail = run.run_scenario([sys.executable, "-c", "pass"], sc, TOOLS, VALIDATOR)
+        shutil.rmtree(os.path.join(run.RUN_DIR, "T"), ignore_errors=True)
+        assert ok, detail
+    global PLAY_DIR
+    if PLAY_DIR is None:
+        os.makedirs(run.SCRATCH, exist_ok=True)
+        PLAY_DIR = run.RUN_DIR = tempfile.mkdtemp(prefix="selftest-", dir=run.SCRATCH)
+    with_launcher(LAUNCH_BODY, go)
+
+
+STATUS = {"call": "status", "args": {}}
+
+
+@test
+def stub_step_parsed():
+    accepts(dict(STATUS, stub=True), launcher="l.sh")
+    rejects("stub steps need launcher", dict(STATUS, stub=True))
+    for bad in (False, "yes", 1, None):
+        rejects("stub is true", dict(STATUS, stub=bad), launcher="l.sh")
+    rejects("stub is true", {"call": "status", "args": {}, "expect": "error", "stub": True}, launcher="l.sh")
+
+
+@test
+def stub_step_skips_the_result_schema():
+    stub = {"call": "status", "args": {}, "stub": True, "assert": [{"path": "unavailable", "eq": "binary not found"}]}
+    env = {"FAKE_TEXT": '{"unavailable":"binary not found"}'}
+    fails("violates tools.json", STATUS, env=env)  # without the key the status schema applies
+    def go():
+        ok, detail = run.run_scenario([sys.executable, "-c", "pass"], scen(stub, launcher="launch.sh", env=env), TOOLS, VALIDATOR)
+        shutil.rmtree(os.path.join(run.RUN_DIR, "T"), ignore_errors=True)
+        assert ok, detail
+        ok, detail = run.run_scenario([sys.executable, "-c", "pass"], scen(dict(stub, **{"assert": [{"path": "unavailable", "eq": "x"}]}),
+                                      launcher="launch.sh", env=env), TOOLS, VALIDATOR)
+        shutil.rmtree(os.path.join(run.RUN_DIR, "T"), ignore_errors=True)
+        assert not ok, "a wrong stub value must fail"
+    with_launcher(LAUNCH_BODY, go)
 
 
 def main():

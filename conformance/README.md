@@ -42,3 +42,9 @@ Steps (`op` defaults to `call`):
 - `stderr`: `{"op": "stderr", "assert": [{"empty": true|false} | {"contains": text} | {"not_contains": text} | {"matches": regex} | {"not_matches": regex}]}` checks what the server processes have written to standard error so far (the one `server.stderr.log`, shared by every named server); one operator per entry, `${variables}` expand.
 
 The TAP detail of a passing scenario lists the values the assertions observed.
+
+Launcher scenarios (S-73, REQ-73, REQ-77): two scenario keys.
+
+- `launcher`: a relative path under the repository root (plain segments, no `..`, e.g. `plugin/bin/regspike-launch`). The runner starts that program instead of the command after `--`. While the file does not exist (or is not executable) the scenario is not run: TAP reports `ok ... # SKIP pending P1: ...`, the summary adds `# N pending`, and the exit code stays 0. It turns green in P1, when the launcher exists.
+- `strip_path`: a bare binary name (letters, digits, `_`, `.`, `-`; no `/`; needs `launcher`). The server's `PATH` has that binary removed: each `PATH` directory holding it is replaced by a directory of symbolic links to everything else in it, so the other programs the launcher needs still resolve.
+- Step key `stub: true` (a `call` step expecting `ok`, in a scenario with `launcher`): the result must be a JSON object but is not validated against the tool's result schema (the launcher's no-op stub answers `status` with `{"unavailable":"binary not found"}`, which is not a `status` result).

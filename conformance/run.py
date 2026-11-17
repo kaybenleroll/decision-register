@@ -21,6 +21,7 @@ import fnmatch, glob, hashlib, importlib.util, json, os, queue, re, shutil, sign
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SCEN_DIR = os.path.join(HERE, "scenarios")
+LAUNCHER_ROOT = ROOT  # the launcher key is relative to this directory (the selftest points it elsewhere)
 CONTRACT = os.path.join(ROOT, "contract")
 SCRATCH = os.path.join(ROOT, ".scratch", "conformance")
 RUN_DIR = None  # unique per invocation (set in main), so concurrent runs never share directories
@@ -282,9 +283,46 @@ def repeat_rows(st):
     return st["rows"]
 
 
+
+def launcher_path(scen):
+    """Absolute path of the scenario's launcher, or None when the scenario has no launcher key."""
+    rel = scen.get("launcher")
+    return os.path.join(LAUNCHER_ROOT, rel) if rel else None
+
+
+def pending_reason(scen):
+    """Why a scenario cannot run yet (its launcher does not exist), or None. Pending is not a failure."""
+    lp = launcher_path(scen)
+    if lp and not (os.path.isfile(lp) and os.access(lp, os.X_OK)):
+        return "pending P1: launcher %s does not exist" % scen["launcher"]
+    return None
+
+
+def stripped_path(binary, path, farm):
+    """PATH value without `binary`: a directory that holds it is replaced by a directory under `farm` of symbolic
+    links to everything else in it, so the other programs the launcher needs still resolve."""
+    out = []
+    for i, d in enumerate(path.split(os.pathsep)):
+        if d and os.path.exists(os.path.join(d, binary)):
+            sub = os.path.join(farm, str(i))
+            os.makedirs(sub, exist_ok=True)
+            for name in os.listdir(d):
+                if name != binary:
+                    try:
+                        os.symlink(os.path.join(d, name), os.path.join(sub, name))
+                    except OSError:
+                        pass
+            out.append(sub)
+        else:
+            out.append(d)
+    return os.pathsep.join(out)
+
+
 class Run:
     def __init__(self, cmd, scen, tools, validator):
         self.cmd, self.scen, self.tools, self.check = cmd, scen, tools, validator
+        if scen.get("launcher"):
+            self.cmd = [launcher_path(scen)]  # starts instead of the command after `--`
         self.dir = os.path.join(RUN_DIR, scen["id"])
         shutil.rmtree(self.dir, ignore_errors=True)
         self.data = os.path.join(self.dir, "data")
@@ -315,6 +353,8 @@ class Run:
             env[k] = v.replace("$dir", self.dir) if isinstance(v, str) else v
         for k in self.scen.get("unset_env", []):
             env.pop(k, None)
+        if self.scen.get("strip_path"):
+            env["PATH"] = stripped_path(self.scen["strip_path"], env.get("PATH", ""), os.path.join(self.dir, "pathfarm"))
         self.env = env
         # contract/runtime.md: project path = CLAUDE_PROJECT_DIR if set and non-empty, else the working directory
         # as the operating system reports it
@@ -557,10 +597,13 @@ class Run:
             raise AssertionError("%s %s unexpectedly failed (%s): %s" % (name, args, kind, text[:150]))
         # result_text (tools.json): only note_prompt and skill_started may return empty text; check_stop never does
         body = {} if (text == "" and name in ("note_prompt", "skill_started")) else json.loads(text)
-        errs = self.check(body, tool["result"], self.tools["$defs"])
+        errs = [] if st.get("stub") else self.check(body, tool["result"], self.tools["$defs"])
         if errs:
             raise AssertionError("%s result violates tools.json: %s" % (name, "; ".join(errs[:3])))
-        if name == "status" and body["items"] != derived_counts(body):
+        if st.get("stub"):  # the launcher's no-op stub: the result is not a contract result, but must be a JSON object
+            if not isinstance(body, dict):
+                raise AssertionError("%s stub result is not a JSON object: %r" % (name, body))
+        elif name == "status" and body["items"] != derived_counts(body):
             raise AssertionError("status items %s != counts derived from tree %s"
                                  % (body["items"], derived_counts(body)))
         for var, path in st.get("save", {}).items():
@@ -776,7 +819,7 @@ def fill_variables(args, schema, defs):
 
 
 STEP_KEYS = {
-    "call": {"op", "server", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert"},
+    "call": {"op", "server", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert", "stub"},
     "restart": {"op", "server"}, "stop": {"op", "server"}, "start": {"op", "server"}, "kill": {"op", "server"},
     "journal": {"op", "action", "form", "where", "into", "from", "ended", "events", "last", "count", "absent", "total", "prefix", "at", "each"},
     "fs": {"op", "assert"},
@@ -862,6 +905,8 @@ def validate_step(where, st, tools, validator, errs):
             args = fill_variables(args, tool["input"], tools["$defs"])
             for e in validator(args, tool["input"], tools["$defs"]):
                 errs.append("%s: %s args violate tools.json: %s" % (where, name, e))
+        if "stub" in st and not (st["stub"] is True and expect == "ok"):
+            errs.append("%s: stub is true and applies to expect ok only" % where)
         meta = st.get("meta")
         if not (meta is None or isinstance(meta, (bool, dict))):
             errs.append("%s: meta must be true, false or an object" % where)
@@ -1040,14 +1085,30 @@ def track_servers(where, steps, running, errs):
     return running
 
 
+def all_steps(steps):
+    for st in steps:
+        if isinstance(st, dict):
+            yield st
+            if st.get("op") == "repeat":
+                yield from all_steps(st.get("steps", []))
+
+
 def validate(scenarios, tools, validator):
     errs, ids = [], set()
-    top = {"id", "title", "req", "steps", "env", "unset_env"}
+    top = {"id", "title", "req", "steps", "env", "unset_env", "launcher", "strip_path"}
     for s in scenarios:
         f = s["_file"]
         for k in s:
             if k != "_file" and k not in top:
                 errs.append("%s: unknown top-level key %s" % (f, k))
+        lp, sp = s.get("launcher"), s.get("strip_path")
+        if "launcher" in s and not (isinstance(lp, str) and re.fullmatch(r"[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*", lp)
+                                    and ".." not in lp.split("/")):
+            errs.append("%s: launcher must be a relative path of plain segments, without '..'" % f)
+        if "strip_path" in s and not (isinstance(sp, str) and re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", sp)):
+            errs.append("%s: strip_path must be a bare binary name (no '/')" % f)
+        if "strip_path" in s and "launcher" not in s:
+            errs.append("%s: strip_path needs launcher" % f)
         for k in ("id", "title", "req", "steps"):
             if k not in s:
                 errs.append("%s: missing %s" % (f, k))
@@ -1059,6 +1120,8 @@ def validate(scenarios, tools, validator):
         for i, st in enumerate(s.get("steps", [])):
             validate_step("%s step %d" % (f, i + 1), st, tools, validator, errs)
         track_servers(f, s.get("steps", []), {"main"}, errs)
+        if "launcher" not in s and any(st.get("stub") for st in all_steps(s.get("steps", []))):
+            errs.append("%s: stub steps need launcher" % f)
     return errs
 
 
@@ -1115,8 +1178,13 @@ def main(argv):
     RUN_DIR = tempfile.mkdtemp(prefix="run-", dir=SCRATCH)
     print("TAP version 13")
     print("1..%d" % len(scenarios))
-    fails = 0
+    fails = pend = 0
     for n, s in enumerate(scenarios, 1):
+        why = pending_reason(s)
+        if why:
+            pend += 1
+            print("ok %d - %s %s # SKIP %s" % (n, s["id"], s["title"], why))
+            continue
         ok, detail = run_scenario(cmd, s, tools, validator)
         if ok:
             shutil.rmtree(os.path.join(RUN_DIR, s["id"]), ignore_errors=True)
@@ -1124,7 +1192,9 @@ def main(argv):
             fails += 1
         print("%s %d - %s %s%s" % ("ok" if ok else "not ok", n, s["id"], s["title"],
                                    (" # " + detail) if detail else ""))
-    print("# %d/%d passed" % (len(scenarios) - fails, len(scenarios)))
+    print("# %d/%d passed" % (len(scenarios) - fails - pend, len(scenarios)))
+    if pend:
+        print("# %d pending (launcher not yet present; not a failure)" % pend)
     try:
         os.rmdir(RUN_DIR)  # empty when every scenario passed
     except OSError:
