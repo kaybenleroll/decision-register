@@ -1,0 +1,220 @@
+{
+ "id": "S-22c",
+ "title": "a new start touches only the server's own journals: a second server's live journal and an unfinished journal of a dead owner stay where they are while the first server starts and ends interviews of its own, each archived under its own id",
+ "req": [
+  "REQ-22",
+  "REQ-61"
+ ],
+ "steps": [
+  {
+   "op": "start",
+   "server": "b"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-22c",
+    "prompt": "b prompt"
+   },
+   "server": "b"
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "server": "b",
+   "save": {
+    "iid_b": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "qb",
+    "kind": "question",
+    "text": "b item"
+   },
+   "server": "b"
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093015Z-a3f9c2d1.pid",
+   "json": {
+    "pid": "$dead_pid",
+    "start": null,
+    "interview_id": "iv-20261116T093015Z-a3f9c2d1"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-22c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid1": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "mode": "plain"
+   },
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "stood_down"
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-22c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid2": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "mode": "plain"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "resumable",
+     "eq": [
+      {
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "last_event": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid_b}.jsonl"
+    },
+    {
+     "path": "$key/${iid_b}.pid"
+    },
+    {
+     "path": "$key/archive/${iid_b}.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl"
+    },
+    {
+     "path": "$key/archive/iv-20261116T093015Z-a3f9c2d1.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/${iid1}.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/${iid1}.jsonl",
+     "nonempty": true
+    },
+    {
+     "path": "$key/${iid2}.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/${iid2}.jsonl",
+     "nonempty": true
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "server": "b",
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_b"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "resumable",
+     "eq": [
+      {
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "last_event": 1
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
