@@ -1,0 +1,299 @@
+{
+ "id": "S-52j",
+ "title": "a stale pid file is replaced by resume: that of a crashed owner and that of a live pid with a different start time both end up holding the resuming server's pid and start time; status.resumable lists every unfinished journal with no live owner and not the live-owned one",
+ "req": [
+  "REQ-52"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52j",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid_c": "interview_id",
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "open 1"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-52j",
+    "last_assistant_message": "Q1: open 1?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    }
+   ]
+  },
+  {
+   "op": "kill"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "op": "start",
+   "server": "b"
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093016Z-b4a0d3e2.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093016Z-b4a0d3e2",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093016Z-b4a0d3e2.pid",
+   "json": {
+    "pid": "$pid_b",
+    "start": 1,
+    "interview_id": "iv-20261116T093016Z-b4a0d3e2"
+   }
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093016Z-b4a0d3e2.jsonl",
+   "age_seconds": 300
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093017Z-c5b1e4f3.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093017Z-c5b1e4f3",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    }
+   ]
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093017Z-c5b1e4f3.jsonl",
+   "age_seconds": 200
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093018Z-d6c2f5a4.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093018Z-d6c2f5a4",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093018Z-d6c2f5a4.pid",
+   "json": {
+    "pid": "$pid_b",
+    "start": "$start_b",
+    "interview_id": "iv-20261116T093018Z-d6c2f5a4"
+   }
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093018Z-d6c2f5a4.jsonl",
+   "age_seconds": 100
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid_c}.pid",
+     "matches": "\\\"pid\\\"\\s*:\\s*\\d+"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "resumable",
+     "len": 3
+    },
+    {
+     "path": "resumable.0.interview_id",
+     "eq": "$iid_c"
+    },
+    {
+     "path": "resumable.1.interview_id",
+     "eq": "iv-20261116T093017Z-c5b1e4f3"
+    },
+    {
+     "path": "resumable.2.interview_id",
+     "eq": "iv-20261116T093016Z-b4a0d3e2"
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid_c"
+   },
+   "assert": [
+    {
+     "path": "interview_id",
+     "eq": "$iid_c"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid_c}.pid",
+     "mode": "600",
+     "matches": "\\A\\{\\s*\"pid\"\\s*:\\s*${pid}\\s*,\\s*\"start\"\\s*:\\s*(\\d+|null)\\s*,\\s*\"interview_id\"\\s*:\\s*\"${iid_c}\"\\s*\\}\\s*\\n\\Z"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "x"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "iv-20261116T093016Z-b4a0d3e2"
+   },
+   "assert": [
+    {
+     "path": "interview_id",
+     "eq": "iv-20261116T093016Z-b4a0d3e2"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/iv-20261116T093016Z-b4a0d3e2.pid",
+     "mode": "600",
+     "matches": "\\A\\{\\s*\"pid\"\\s*:\\s*${pid}\\s*,\\s*\"start\"\\s*:\\s*(\\d+|null)\\s*,\\s*\"interview_id\"\\s*:\\s*\"iv-20261116T093016Z-b4a0d3e2\"\\s*\\}\\s*\\n\\Z"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "resumable",
+     "eq": [
+      {
+       "interview_id": "iv-20261116T093017Z-c5b1e4f3",
+       "last_event": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "op": "stop",
+   "server": "b"
+  }
+ ]
+}

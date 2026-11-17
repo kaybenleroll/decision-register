@@ -1,0 +1,176 @@
+{
+ "id": "S-27e",
+ "title": "in complete the Stop gate allows every turn (an unlogged question, a further finish attempt) and writes only hook events; only a mutating call returns it to active, after which the gate blocks again",
+ "req": [
+  "REQ-27",
+  "REQ-23",
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-27e",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text one"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27e",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27e",
+    "last_assistant_message": "Which database should I use for the cache layer today?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27e",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27e",
+    "last_assistant_message": "Shall I commit this?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "stop": 1,
+    "complete": 1,
+    "hook": 4
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second item"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27e",
+    "last_assistant_message": "Which database should I use for the cache layer today?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27e",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  }
+ ]
+}

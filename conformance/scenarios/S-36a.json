@@ -1,0 +1,476 @@
+{
+ "id": "S-36a",
+ "title": "reopen makes every Resolved dependant, direct and transitive, Stale (not Open, Parked or independent items); Stale keeps its answer, blocks the finish gate and can be resolved again",
+ "req": [
+  "REQ-36",
+  "REQ-43",
+  "REQ-38"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-36a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "a",
+    "kind": "question",
+    "text": "text-a"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "b",
+    "kind": "question",
+    "text": "text-b",
+    "depends_on": [
+     "a"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "c",
+    "kind": "question",
+    "text": "text-c",
+    "depends_on": [
+     "b"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d",
+    "kind": "question",
+    "text": "text-d",
+    "depends_on": [
+     "a"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "f",
+    "kind": "question",
+    "text": "text-f",
+    "depends_on": [
+     "c"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "g",
+    "kind": "question",
+    "text": "text-g",
+    "depends_on": []
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "h",
+    "kind": "question",
+    "text": "text-h",
+    "depends_on": [
+     "a"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "e",
+    "kind": "question",
+    "text": "text-e",
+    "depends_on": [
+     "a"
+    ]
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "a",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "b",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "c",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "f",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "g",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "h",
+    "reason": "later",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "a",
+    "reason": "new-fact"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Open"
+    },
+    {
+     "path": "stale",
+     "len": 4
+    },
+    {
+     "path": "stale",
+     "contains": "b"
+    },
+    {
+     "path": "stale",
+     "contains": "c"
+    },
+    {
+     "path": "stale",
+     "contains": "d"
+    },
+    {
+     "path": "stale",
+     "contains": "f"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 1,
+      "parked": 1,
+      "stale": 4
+     }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "a"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.0.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "e"
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.7.id",
+     "eq": "g"
+    },
+    {
+     "path": "tree.7.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.6.id",
+     "eq": "h"
+    },
+    {
+     "path": "tree.6.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.6.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.2.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.3.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.4.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.5.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.2.answer",
+     "eq": "an"
+    }
+   ]
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "b",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": [
+    "b",
+    "Stale"
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "a",
+    "answer": "an2",
+    "source": "model",
+    "rationale": "why2"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "e",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "h",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 4,
+      "parked": 0,
+      "stale": 4
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-36a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "text-b"
+    },
+    {
+     "path": "reason",
+     "contains": "text-c"
+    },
+    {
+     "path": "reason",
+     "contains": "text-d"
+    },
+    {
+     "path": "reason",
+     "contains": "text-f"
+    },
+    {
+     "path": "reason",
+     "not_contains": "text-a"
+    },
+    {
+     "path": "reason",
+     "not_contains": "text-g"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-36a",
+    "prompt": "continue"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "b",
+    "answer": "again",
+    "source": "model",
+    "rationale": "re-resolved"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "c",
+    "answer": "again",
+    "source": "model",
+    "rationale": "re-resolved"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d",
+    "answer": "again",
+    "source": "model",
+    "rationale": "re-resolved"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "f",
+    "answer": "again",
+    "source": "model",
+    "rationale": "re-resolved"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 8,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-36a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  }
+ ]
+}

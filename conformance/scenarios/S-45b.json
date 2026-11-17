@@ -1,0 +1,266 @@
+{
+ "id": "S-45b",
+ "title": "the Stop block reason names each open item with its id and text: Open, Stale and model-parked items are listed, user-parked and resolved ones are not; text of exactly 120 characters is given whole, 121 is cut to 120; non-ASCII and quote characters are kept",
+ "req": [
+  "REQ-45",
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-45b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "alpha",
+    "kind": "question",
+    "text": "text-alpha"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "bravo",
+    "kind": "question",
+    "text": "text-bravo"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "charlie",
+    "kind": "question",
+    "text": "text-charlie",
+    "depends_on": [
+     "bravo"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "delta",
+    "kind": "question",
+    "text": "text-delta"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "echo",
+    "kind": "question",
+    "text": "text-echo"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "foxtrot",
+    "kind": "question",
+    "text": "text-foxtrot"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "golf",
+    "kind": "question",
+    "text": "T120-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkE120"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "hotel",
+    "kind": "question",
+    "text": "T121-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmE121X"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "india",
+    "kind": "question",
+    "text": "naïve café \"quoted\" - text-india"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "bravo",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "charlie",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "bravo",
+    "reason": "new-fact"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "delta",
+    "reason": "rs",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-45b",
+    "prompt": "skip echo please"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "echo",
+    "reason": "rs",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "foxtrot",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 5,
+      "resolved": 1,
+      "parked": 2,
+      "stale": 1
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-45b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-45b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "alpha"
+    },
+    {
+     "path": "reason",
+     "contains": "text-alpha"
+    },
+    {
+     "path": "reason",
+     "contains": "bravo"
+    },
+    {
+     "path": "reason",
+     "contains": "text-bravo"
+    },
+    {
+     "path": "reason",
+     "contains": "charlie"
+    },
+    {
+     "path": "reason",
+     "contains": "text-charlie"
+    },
+    {
+     "path": "reason",
+     "contains": "delta"
+    },
+    {
+     "path": "reason",
+     "contains": "text-delta"
+    },
+    {
+     "path": "reason",
+     "contains": "golf"
+    },
+    {
+     "path": "reason",
+     "contains": "T120-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkE120"
+    },
+    {
+     "path": "reason",
+     "contains": "hotel"
+    },
+    {
+     "path": "reason",
+     "contains": "T121-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmE121"
+    },
+    {
+     "path": "reason",
+     "not_contains": "T121-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmE121X"
+    },
+    {
+     "path": "reason",
+     "contains": "india"
+    },
+    {
+     "path": "reason",
+     "contains": "naïve café \"quoted\" - text-india"
+    },
+    {
+     "path": "reason",
+     "not_contains": "echo"
+    },
+    {
+     "path": "reason",
+     "not_contains": "foxtrot"
+    },
+    {
+     "path": "reason",
+     "not_contains": "more"
+    }
+   ]
+  }
+ ]
+}

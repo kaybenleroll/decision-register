@@ -1,0 +1,559 @@
+{
+ "id": "S-45a",
+ "title": "status returns the full tree, every item with id, kind, text, parent, depends_on, status, answer, source, rationale, parked_by and park_reason, ordered Open, Stale, Parked, Resolved and by creation order within a group",
+ "req": [
+  "REQ-45",
+  "REQ-31",
+  "REQ-30"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-45a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "a1",
+    "kind": "question",
+    "text": "text-a1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "x1",
+    "kind": "question",
+    "text": "text-x1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "c1",
+    "kind": "question",
+    "text": "text-c1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "b1",
+    "kind": "subquestion",
+    "text": "text-b1",
+    "parent": "c1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d1",
+    "kind": "question",
+    "text": "text-d1",
+    "depends_on": [
+     "x1"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "e1",
+    "kind": "decision",
+    "text": "text-e1",
+    "parent": "b1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "g1",
+    "kind": "question",
+    "text": "text-g1",
+    "depends_on": [
+     "x1",
+     "a1"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "f1",
+    "kind": "question",
+    "text": "text-f1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "h1",
+    "kind": "question",
+    "text": "text-h1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "a1",
+    "answer": "ans-a1",
+    "source": "model",
+    "rationale": "why-a1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "x1",
+    "answer": "ans-x1",
+    "source": "model",
+    "rationale": "why-x1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d1",
+    "answer": "ans-d1",
+    "source": "model",
+    "rationale": "why-d1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "g1",
+    "answer": "ans-g1",
+    "source": "model",
+    "rationale": "why-g1"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "x1",
+    "reason": "new-fact"
+   },
+   "assert": [
+    {
+     "path": "stale",
+     "len": 2
+    }
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "c1",
+    "reason": "reason-c1",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-45a",
+    "prompt": "f1 is yes"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "f1",
+    "answer": "ans-f1",
+    "source": "user",
+    "rationale": "why-f1"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-45a",
+    "prompt": "h1: not now"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "h1",
+    "reason": "reason-h1",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 2,
+      "parked": 2,
+      "stale": 2
+     }
+    },
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "tool_schema",
+     "eq": 4
+    },
+    {
+     "path": "journal_schema",
+     "eq": 2
+    },
+    {
+     "path": "server_version",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree",
+     "len": 9
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "x1"
+    },
+    {
+     "path": "tree.0.kind",
+     "eq": "question"
+    },
+    {
+     "path": "tree.0.text",
+     "eq": "text-x1"
+    },
+    {
+     "path": "tree.0.parent",
+     "eq": null
+    },
+    {
+     "path": "tree.0.depends_on",
+     "eq": []
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.0.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.0.source",
+     "eq": null
+    },
+    {
+     "path": "tree.0.rationale",
+     "eq": null
+    },
+    {
+     "path": "tree.0.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.0.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "b1"
+    },
+    {
+     "path": "tree.1.kind",
+     "eq": "subquestion"
+    },
+    {
+     "path": "tree.1.text",
+     "eq": "text-b1"
+    },
+    {
+     "path": "tree.1.parent",
+     "eq": "c1"
+    },
+    {
+     "path": "tree.1.depends_on",
+     "eq": []
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.1.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.1.source",
+     "eq": null
+    },
+    {
+     "path": "tree.1.rationale",
+     "eq": null
+    },
+    {
+     "path": "tree.1.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.1.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "e1"
+    },
+    {
+     "path": "tree.2.kind",
+     "eq": "decision"
+    },
+    {
+     "path": "tree.2.text",
+     "eq": "text-e1"
+    },
+    {
+     "path": "tree.2.parent",
+     "eq": "b1"
+    },
+    {
+     "path": "tree.2.depends_on",
+     "eq": []
+    },
+    {
+     "path": "tree.2.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.2.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.2.source",
+     "eq": null
+    },
+    {
+     "path": "tree.2.rationale",
+     "eq": null
+    },
+    {
+     "path": "tree.2.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.2.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.3.id",
+     "eq": "d1"
+    },
+    {
+     "path": "tree.3.kind",
+     "eq": "question"
+    },
+    {
+     "path": "tree.3.text",
+     "eq": "text-d1"
+    },
+    {
+     "path": "tree.3.parent",
+     "eq": null
+    },
+    {
+     "path": "tree.3.depends_on",
+     "eq": [
+      "x1"
+     ]
+    },
+    {
+     "path": "tree.3.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.3.answer",
+     "eq": "ans-d1"
+    },
+    {
+     "path": "tree.3.source",
+     "eq": "model"
+    },
+    {
+     "path": "tree.3.rationale",
+     "eq": "why-d1"
+    },
+    {
+     "path": "tree.3.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.3.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.4.id",
+     "eq": "g1"
+    },
+    {
+     "path": "tree.4.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.4.depends_on",
+     "eq": [
+      "x1",
+      "a1"
+     ]
+    },
+    {
+     "path": "tree.4.answer",
+     "eq": "ans-g1"
+    },
+    {
+     "path": "tree.5.id",
+     "eq": "c1"
+    },
+    {
+     "path": "tree.5.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.5.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.5.park_reason",
+     "eq": "reason-c1"
+    },
+    {
+     "path": "tree.5.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.5.source",
+     "eq": null
+    },
+    {
+     "path": "tree.5.rationale",
+     "eq": null
+    },
+    {
+     "path": "tree.6.id",
+     "eq": "h1"
+    },
+    {
+     "path": "tree.6.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.6.parked_by",
+     "eq": "user"
+    },
+    {
+     "path": "tree.6.park_reason",
+     "eq": "reason-h1"
+    },
+    {
+     "path": "tree.6.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.6.source",
+     "eq": null
+    },
+    {
+     "path": "tree.6.rationale",
+     "eq": null
+    },
+    {
+     "path": "tree.7.id",
+     "eq": "a1"
+    },
+    {
+     "path": "tree.7.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.7.answer",
+     "eq": "ans-a1"
+    },
+    {
+     "path": "tree.7.source",
+     "eq": "model"
+    },
+    {
+     "path": "tree.7.rationale",
+     "eq": "why-a1"
+    },
+    {
+     "path": "tree.7.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.7.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.8.id",
+     "eq": "f1"
+    },
+    {
+     "path": "tree.8.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.8.answer",
+     "eq": "ans-f1"
+    },
+    {
+     "path": "tree.8.source",
+     "eq": "user"
+    },
+    {
+     "path": "tree.8.rationale",
+     "eq": "why-f1"
+    },
+    {
+     "path": "tree.8.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.8.park_reason",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "tree1": "tree"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree",
+     "eq": "$tree1"
+    }
+   ]
+  }
+ ]
+}

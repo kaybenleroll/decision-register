@@ -1,0 +1,145 @@
+{
+ "id": "S-23a",
+ "title": "an allowed finish attempt writes the decision log (user-only mode, pinned header); with nothing open the interview becomes complete and its journal stays in place",
+ "req": [
+  "REQ-23",
+  "REQ-27",
+  "REQ-63"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-23a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text one"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le0": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "decision_log",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-23a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "decision_log",
+     "matches": "^/.*decision-${iid}\\.md$"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "mode": "600",
+     "nonempty": true,
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: ${le}\nstate: complete\nmode: register\nend_kind: none\nimplicit_start: false\n"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/.gitignore",
+     "root": "project",
+     "mode": "600",
+     "matches": "\\A\\*\\n\\Z"
+    },
+    {
+     "path": "$key/${iid}.jsonl"
+    },
+    {
+     "path": "$key/${iid}.pid"
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "start": 1,
+    "complete": 1
+   },
+   "last": {
+    "kind": "complete"
+   }
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  }
+ ]
+}

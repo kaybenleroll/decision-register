@@ -1,0 +1,121 @@
+{
+ "id": "S-20a",
+ "title": "typed-start route: skill_started with the exact listed name grill-me starts a pending interview (hook route, skill and session recorded, the invoking prompt counted) and writes only the start event",
+ "req": [
+  "REQ-20",
+  "REQ-24"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-20a",
+    "prompt": "/grill-me"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-20a",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "interview_id",
+     "matches": "^iv-\\d{8}T\\d{6}Z-[0-9a-f]{8}$"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "eq": []
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 1,
+      "skill_started": 1,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    },
+    {
+     "path": "last_event",
+     "eq": 1
+    },
+    {
+     "path": "version_mismatch",
+     "eq": null
+    },
+    {
+     "path": "decision_log",
+     "eq": null
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-20a",
+    "last_assistant_message": "chat"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "total": 2,
+   "count": {
+    "start": 1,
+    "hook": 1
+   },
+   "at": {
+    "1": {
+     "kind": "start",
+     "route": "hook",
+     "skill": "grill-me",
+     "session_id": "sess-20a",
+     "implicit": false,
+     "prompt_count": 1,
+     "interview_id": "$iid"
+    }
+   }
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  }
+ ]
+}

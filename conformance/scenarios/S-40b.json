@@ -1,0 +1,220 @@
+{
+ "id": "S-40b",
+ "title": "model-facing tools accept calls with _meta (the model marker, an unrelated _meta, or none): begin_interview, log_item, resolve, park, reopen, status, end_interview; resume and discard fail on their own rule, not on _meta",
+ "req": [
+  "REQ-40"
+ ],
+ "steps": [
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "meta": true,
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first"
+   },
+   "meta": true
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second"
+   },
+   "meta": false
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q3",
+    "kind": "question",
+    "text": "third"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q4",
+    "kind": "question",
+    "text": "fourth"
+   },
+   "meta": {
+    "progressToken": "p-1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "meta": true,
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q2",
+    "reason": "rs",
+    "parked_by": "model"
+   },
+   "meta": false,
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "q1",
+    "reason": "new-fact"
+   },
+   "meta": true,
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Open"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "meta": true,
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 0,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "meta": false,
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 0,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "meta": true,
+   "expect": "error",
+   "mention": "wrong state: active",
+   "not_mention": "hook-facing"
+  },
+  {
+   "call": "discard",
+   "args": {},
+   "meta": true,
+   "expect": "error",
+   "mention": "wrong state: active",
+   "not_mention": "hook-facing"
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "meta": true,
+   "expect": "error",
+   "mention": "q1",
+   "not_mention": "hook-facing"
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q3",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q4",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "meta": true,
+   "assert": [
+    {
+     "path": "state",
+     "eq": "ended"
+    },
+    {
+     "path": "end_kind",
+     "eq": "normal"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    }
+   ]
+  }
+ ]
+}

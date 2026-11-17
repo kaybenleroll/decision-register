@@ -1,0 +1,166 @@
+{
+ "id": "S-23g",
+ "title": "status does not return a complete interview to active (state and last event unchanged); end_interview of a complete interview ends it as ended_after_completion and a later status reports none",
+ "req": [
+  "REQ-23",
+  "REQ-27"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-23g",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-q1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-23g",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ],
+   "save": {
+    "le": "last_event"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "decision_log",
+     "matches": "\\S"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "ended"
+    },
+    {
+     "path": "end_kind",
+     "eq": "ended_after_completion"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "decision_log",
+     "matches": "\\S"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    }
+   ]
+  }
+ ]
+}

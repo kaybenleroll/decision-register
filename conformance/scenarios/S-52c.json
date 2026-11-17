@@ -1,0 +1,297 @@
+{
+ "id": "S-52c",
+ "title": "resume without an id takes the only unfinished journal; with several, resume and discard list them and require an id; resume claims the one named; discard archives its journal without starting an interview",
+ "req": [
+  "REQ-52"
+ ],
+ "steps": [
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    }
+   ]
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+   "age_seconds": 300
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "iv-20261116T093015Z-a3f9c2d1"
+    },
+    {
+     "path": "last_event",
+     "eq": 2
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "items.open",
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "x"
+   }
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/archive/iv-20261116T093015Z-a3f9c2d1.jsonl",
+     "nonempty": true
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093016Z-b4a0d3e2.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093016Z-b4a0d3e2",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    }
+   ]
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093016Z-b4a0d3e2.jsonl",
+   "age_seconds": 200
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093017Z-c5b1e4f3.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093017Z-c5b1e4f3",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    }
+   ]
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093017Z-c5b1e4f3.jsonl",
+   "age_seconds": 100
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "expect": "error",
+   "mention": [
+    "several unfinished journals",
+    "iv-20261116T093016Z-b4a0d3e2",
+    "iv-20261116T093017Z-c5b1e4f3"
+   ]
+  },
+  {
+   "call": "discard",
+   "args": {},
+   "expect": "error",
+   "mention": [
+    "several unfinished journals",
+    "iv-20261116T093016Z-b4a0d3e2",
+    "iv-20261116T093017Z-c5b1e4f3"
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "resumable",
+     "len": 2
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "iv-20261116T093016Z-b4a0d3e2"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "iv-20261116T093016Z-b4a0d3e2"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "resumable",
+     "eq": [
+      {
+       "interview_id": "iv-20261116T093017Z-c5b1e4f3",
+       "last_event": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "x"
+   }
+  },
+  {
+   "call": "discard",
+   "args": {
+    "id": "iv-20261116T093017Z-c5b1e4f3"
+   },
+   "assert": [
+    {
+     "path": "interview_id",
+     "eq": "iv-20261116T093017Z-c5b1e4f3"
+    },
+    {
+     "path": "archived",
+     "eq": true
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/iv-20261116T093017Z-c5b1e4f3.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/iv-20261116T093017Z-c5b1e4f3.pid",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/iv-20261116T093017Z-c5b1e4f3.jsonl",
+     "nonempty": true
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "expect": "error",
+   "mention": "no unfinished journal"
+  },
+  {
+   "call": "discard",
+   "args": {},
+   "expect": "error",
+   "mention": "no unfinished journal"
+  }
+ ]
+}

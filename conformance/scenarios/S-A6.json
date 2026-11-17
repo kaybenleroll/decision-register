@@ -18,7 +18,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 3,
+    "tool_schema": 4,
     "skill": "grill-me",
     "mode": "register"
    },
@@ -51,6 +51,15 @@
     "id": "sq1",
     "kind": "subquestion",
     "text": "tsub",
+    "parent": "q2"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "sq2",
+    "kind": "subquestion",
+    "text": "tsub2",
     "parent": "q2"
    }
   },
@@ -194,6 +203,14 @@
     },
     {
      "kind": "item",
+     "id": "sq2",
+     "item_kind": "subquestion",
+     "text": "tsub2",
+     "parent": "q2",
+     "depends_on": []
+    },
+    {
+     "kind": "item",
      "id": "d1",
      "item_kind": "decision",
      "text": "td1"
@@ -259,7 +276,7 @@
    ],
    "count": {
     "start": 1,
-    "item": 5,
+    "item": 6,
     "resolve": 4,
     "reopen": 1,
     "park": 1,

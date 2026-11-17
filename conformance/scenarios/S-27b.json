@@ -1,0 +1,193 @@
+{
+ "id": "S-27b",
+ "title": "a hook-started interview is pending and allows every turn; status does not engage it; the second Stop check with no register call stands it down (gate off, mode not engaged, log note that the skill did not engage, journal archived)",
+ "req": [
+  "REQ-27",
+  "REQ-62"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-27b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-27b",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27b",
+    "last_assistant_message": "Which option do you want?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 1,
+      "skill_started": 1,
+      "check_stop": 1,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27b",
+    "last_assistant_message": "Which option do you want?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: [^\\n]+\nstate: ended\nmode: not engaged\nend_kind: stood_down\nimplicit_start: false\n",
+     "mode": "600"
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?i)skill did not engage",
+     "mode": "600"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid}.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/${iid}.pid",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "nonempty": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": true
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "start": 1,
+    "hook": 2,
+    "end": 1
+   },
+   "last": {
+    "kind": "end",
+    "end_kind": "stood_down",
+    "mode": "not_engaged"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27b",
+    "last_assistant_message": "Which option do you want, and why is it better than the other one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  }
+ ]
+}

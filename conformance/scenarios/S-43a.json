@@ -1,0 +1,446 @@
+{
+ "id": "S-43a",
+ "title": "a finish attempt (no question mark) is blocked while any item is Open, Stale or model-parked, or a resolved parent has fewer than two children, with the reason naming those items and not a user-parked or resolved one; it is allowed when none is, and the interview becomes complete",
+ "req": [
+  "REQ-43",
+  "REQ-35",
+  "REQ-45"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "alpha",
+    "kind": "question",
+    "text": "text-alpha"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "alpha"
+    },
+    {
+     "path": "reason",
+     "contains": "text-alpha"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "bravo",
+    "kind": "question",
+    "text": "text-bravo"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "charlie",
+    "kind": "question",
+    "text": "text-charlie",
+    "depends_on": [
+     "bravo"
+    ]
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "alpha",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "bravo",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "charlie",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "bravo",
+    "reason": "new-fact"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 1
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "bravo"
+    },
+    {
+     "path": "reason",
+     "contains": "charlie"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "bravo",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 2,
+      "parked": 0,
+      "stale": 1
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "charlie"
+    },
+    {
+     "path": "reason",
+     "not_contains": "bravo"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "charlie",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "delta",
+    "kind": "question",
+    "text": "text-delta"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "delta",
+    "reason": "rs",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43a",
+    "prompt": "skip echo please"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "echo",
+    "kind": "question",
+    "text": "text-echo"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "echo",
+    "reason": "rs",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 3,
+      "parked": 2,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "delta"
+    },
+    {
+     "path": "reason",
+     "not_contains": "echo"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "delta",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "golf",
+    "kind": "question",
+    "text": "text-golf"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "golf",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "hotel",
+    "kind": "subquestion",
+    "text": "text-hotel",
+    "parent": "golf"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "hotel",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 6,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "golf"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "india",
+    "kind": "subquestion",
+    "text": "text-india",
+    "parent": "golf"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "india",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 7,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 7,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}

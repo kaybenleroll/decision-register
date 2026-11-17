@@ -1,0 +1,482 @@
+{
+ "id": "S-42a",
+ "title": "block caps per interview: 2 blocks per user prompt (finish and unlogged together), 8 finish blocks, 12 unlogged-question blocks; past a cap the gate fails open (allow, decision log written, interview stays active with items open) and a new prompt resets only the per-prompt count; a new interview starts every counter at zero",
+ "req": [
+  "REQ-42",
+  "REQ-43",
+  "REQ-23"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-42a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "alpha beta gamma"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-42a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-42a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-42a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "decision_log",
+     "matches": "\\S"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "finish",
+     "blocks": {
+      "prompt": 1,
+      "finish": 1,
+      "unlogged": 0
+     }
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "finish",
+     "blocks": {
+      "prompt": 2,
+      "finish": 2,
+      "unlogged": 0
+     }
+    },
+    {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "finish",
+     "blocks": {
+      "prompt": 2,
+      "finish": 2,
+      "unlogged": 0
+     }
+    }
+   ],
+   "absent": [
+    "complete"
+   ]
+  },
+  {
+   "op": "repeat",
+   "count": 3,
+   "var": "i",
+   "steps": [
+    {
+     "call": "note_prompt",
+     "args": {
+      "session_id": "sess-42a",
+      "prompt": "my answer is below"
+     }
+    },
+    {
+     "call": "check_stop",
+     "args": {
+      "session_id": "sess-42a",
+      "last_assistant_message": "all done"
+     },
+     "assert": [
+      {
+       "decision_block": true
+      },
+      {
+       "path": "reason",
+       "contains": "q1"
+      }
+     ]
+    },
+    {
+     "call": "check_stop",
+     "args": {
+      "session_id": "sess-42a",
+      "last_assistant_message": "all done"
+     },
+     "assert": [
+      {
+       "decision_block": true
+      },
+      {
+       "path": "reason",
+       "contains": "q1"
+      }
+     ]
+    },
+    {
+     "call": "check_stop",
+     "args": {
+      "session_id": "sess-42a",
+      "last_assistant_message": "all done"
+     },
+     "assert": [
+      {
+       "decision_block": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-42a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-42a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "-1": {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "finish",
+     "blocks": {
+      "prompt": 0,
+      "finish": 8,
+      "unlogged": 0
+     }
+    }
+   },
+   "count": {
+    "stop": 13
+   }
+  },
+  {
+   "op": "repeat",
+   "count": 6,
+   "var": "i",
+   "steps": [
+    {
+     "call": "note_prompt",
+     "args": {
+      "session_id": "sess-42a",
+      "prompt": "my answer is below"
+     }
+    },
+    {
+     "call": "check_stop",
+     "args": {
+      "session_id": "sess-42a",
+      "last_assistant_message": "Why does the weather seem odd today?"
+     },
+     "assert": [
+      {
+       "decision_block": true
+      }
+     ]
+    },
+    {
+     "call": "check_stop",
+     "args": {
+      "session_id": "sess-42a",
+      "last_assistant_message": "Why does the weather seem odd today?"
+     },
+     "assert": [
+      {
+       "decision_block": true
+      }
+     ]
+    },
+    {
+     "call": "check_stop",
+     "args": {
+      "session_id": "sess-42a",
+      "last_assistant_message": "Why does the weather seem odd today?"
+     },
+     "assert": [
+      {
+       "decision_block": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-42a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-42a",
+    "last_assistant_message": "Why does the weather seem odd today?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "-1": {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "question",
+     "blocks": {
+      "prompt": 0,
+      "finish": 8,
+      "unlogged": 12
+     }
+    }
+   },
+   "count": {
+    "stop": 32
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "cap test"
+   },
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "ended_incomplete_by_model"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-42a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "alpha beta gamma"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-42a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-42a",
+    "last_assistant_message": "Why does the weather seem odd today?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-42a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "into": "b"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "from": "b",
+   "events": [
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "finish",
+     "blocks": {
+      "prompt": 1,
+      "finish": 1,
+      "unlogged": 0
+     }
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "question",
+     "blocks": {
+      "prompt": 2,
+      "finish": 1,
+      "unlogged": 1
+     }
+    },
+    {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "finish",
+     "blocks": {
+      "prompt": 2,
+      "finish": 1,
+      "unlogged": 1
+     }
+    }
+   ],
+   "count": {
+    "stop": 3
+   }
+  }
+ ]
+}

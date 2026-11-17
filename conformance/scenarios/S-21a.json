@@ -1,0 +1,117 @@
+{
+ "id": "S-21a",
+ "title": "begin_interview with mode register and no session id starts an active interview bound to last_seen_session_id; a second call returns the existing id",
+ "req": [
+  "REQ-21",
+  "REQ-22",
+  "REQ-27"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-21a",
+    "prompt": "kickoff"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "any-skill-name",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "existing",
+     "eq": false
+    },
+    {
+     "path": "interview_id",
+     "matches": "^iv-\\d{8}T\\d{6}Z-[0-9a-f]{8}$"
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "existing",
+     "eq": true
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "last_event",
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-21a",
+    "last_assistant_message": "chat"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "start": 1
+   },
+   "at": {
+    "1": {
+     "kind": "start",
+     "route": "begin_interview",
+     "skill": "any-skill-name",
+     "session_id": "sess-21a",
+     "implicit": false,
+     "prompt_count": 1,
+     "interview_id": "$iid"
+    }
+   }
+  }
+ ]
+}

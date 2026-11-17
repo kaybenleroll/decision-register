@@ -1,0 +1,208 @@
+{
+ "id": "S-26f",
+ "title": "a session change on a complete interview ends it as ended after completion and the log is not downgraded; on a pending interview it stands it down (mode not engaged)",
+ "req": [
+  "REQ-26",
+  "REQ-27",
+  "REQ-23"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-26f",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-26f",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-26f-b",
+    "last_assistant_message": "chat"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: [^\\n]+\nstate: ended\nmode: register\nend_kind: ended_after_completion\nimplicit_start: false\n",
+     "mode": "600"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": true
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "last": {
+    "kind": "end",
+    "end_kind": "ended_after_completion",
+    "mode": "register"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-26f-b",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-26f-c",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: [^\\n]+\nstate: ended\nmode: not engaged\nend_kind: stood_down\nimplicit_start: [^\\n]+\n"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "nonempty": true
+    },
+    {
+     "path": "$key/${iid}.jsonl",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": true
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "last": {
+    "kind": "end",
+    "end_kind": "stood_down",
+    "mode": "not_engaged"
+   }
+  }
+ ]
+}

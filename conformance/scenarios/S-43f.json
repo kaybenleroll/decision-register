@@ -1,0 +1,401 @@
+{
+ "id": "S-43f",
+ "title": "classifier parity with the prototype: a question concerns an open or stale item if it cites the item's id label, otherwise only if it shares at least three content words with the item's text (two do not); one labelled non-blank line asking for an open or stale item is a question turn, the same text with a second line (or a second label line) is a finish attempt, a resolved item's label does not qualify, and shared stop words (the, of) do not count towards the three",
+ "req": [
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43f",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "storage engine choice"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "retention period policy"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "backup schedule frequency",
+    "depends_on": [
+     "Q2"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "encryption key rotation"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "the plan of the migration"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q3",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q4",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "Q2",
+    "reason": "new-fact"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 1
+     }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "Q1"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "Q2"
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "Q5"
+    },
+    {
+     "path": "tree.3.id",
+     "eq": "Q3"
+    },
+    {
+     "path": "tree.3.status",
+     "eq": "Stale"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "Q1: ok?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "Which storage engine choice is fastest?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "Which backup schedule frequency do you want?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43f",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "Which storage engine is fastest?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "Which backup schedule is best?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43f",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "Is the plan of a rollback ok?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "Q1: please decide the storage engine"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "\n\nQ3: please decide the backup schedule\n\n"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "Q1: please decide the storage engine\nThank you."
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43f",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "Q1: please decide the storage engine\nQ3: and the backup schedule"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43f",
+    "last_assistant_message": "Q4: please confirm the key rotation"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 1
+     }
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "question",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "question",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "question",
+     "presented": [
+      "Q3"
+     ]
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "question"
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "question"
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "question"
+    },
+    {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "question",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "question",
+     "presented": [
+      "Q3"
+     ]
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "finish"
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "finish"
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "finish"
+    }
+   ],
+   "count": {
+    "stop": 11
+   }
+  }
+ ]
+}

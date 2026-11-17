@@ -1,0 +1,299 @@
+{
+ "id": "S-32c",
+ "title": "per-prompt budget max(1, p): after turns presenting p distinct items (a repeated item counts once) and one prompt, p source user answers (resolve or park) are accepted and the p+1th is rejected naming the counts; a prompt after a turn presenting none (empty list) allows 1; the presented set starts again at each prompt",
+ "req": [
+  "REQ-32",
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32c",
+    "prompt": "kickoff"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "item one"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "item two"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "item three"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "item four"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "item five"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "item six"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "item seven"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "item eight"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 8,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.7.id",
+     "eq": "Q8"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-32c",
+    "last_assistant_message": "Q1: a?\nQ2: b?\nQ3: c?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-32c",
+    "last_assistant_message": "Q3: again?\nQ4: d?\nQ5: e?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32c",
+    "prompt": "answers to all five"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q2",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q3",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q4",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "Q5",
+    "reason": "rs",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q6",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "user-answer budget spent:",
+   "matches": "budget spent:\\D*5\\D+5"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 4,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-32c",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32c",
+    "prompt": "one more"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q6",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q7",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "user-answer budget spent:",
+   "matches": "budget spent:\\D*1\\D+1"
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-32c",
+    "last_assistant_message": "Q7: seven?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32c",
+    "prompt": "seven"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q7",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "Q8",
+    "reason": "rs",
+    "parked_by": "user"
+   },
+   "expect": "error",
+   "mention": "user-answer budget spent:",
+   "matches": "budget spent:\\D*1\\D+1"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 6,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}

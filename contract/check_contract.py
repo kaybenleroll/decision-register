@@ -260,8 +260,8 @@ def main():
     d = json.load(open(os.path.join(HERE, "tools.json")))
     defs = d["$defs"]
     fails, n_good, n_bad = [], 0, 0
-    if d["tool_schema"] != 3:
-        fails.append("tool_schema is %r, expected 3" % d["tool_schema"])
+    if d["tool_schema"] != 4:
+        fails.append("tool_schema is %r, expected 4" % d["tool_schema"])
     expected = {"begin_interview", "log_item", "resolve", "park", "reopen", "status", "resume",
                 "discard", "end_interview", "note_prompt", "skill_started", "check_stop"}
     if set(d["tools"]) != expected:

@@ -18,7 +18,61 @@ an example that violates its schema, a missing state_matrix cell or an errors ro
 without a valid precedence number.
 
 Log (newest first)
+
+(no bump, 2026-11-17)  contract/classifier.md, label and inline-code details decided
+by the user: a line-start list marker must be followed by a space or tab (`-Q1.` is
+not a label); numbered markers take any number of digits (`10. Q1.`); a closing
+`*`/backtick wrapper is allowed after the label on line-start forms (`**Q1**.`);
+only single-backtick inline code is stripped before the `?` test (a `?` in a
+double-backtick span counts); the `reason` of an unlogged block stays unspecified.
+Wording only, so tool_schema stays 4.
+
+(no bump, 2026-11-17)  contract/classifier.md: the finish-attempt classifier rules
+(label forms, stripping, finish attempt, concerned items, content words, the
+88-word stop list, empty-message rule) and the note that `unknown` is covered by
+implementation unit tests only. Restates build plan 5.1 and adds the decisions of
+2026-11-17; no tool name, parameter, result shape or journal event shape changes,
+so tool_schema stays 4.
 ------------------
+
+tool_schema 4  (decision round of 2026-11-17)
+Entries are appended as the decisions land; all belong to this one bump.
+- Version bump only in this commit: tools.json, runtime.md heading and
+  statement, check_contract.py, the selftest and every scenario's
+  begin_interview now carry tool_schema 4. journal_schema stays 2.
+- resolve rule: the model-source rejection applies to a parent that has children
+  but fewer than N (REQ-35), not to a parent with zero children, which is an
+  ordinary item (user decision 2026-11-17). Wording fix in the resolve error
+  row and the kind-rules summary; the behaviour was already so in S-35c.
+- check_stop overflow wording pinned (REQ-45): after the first 10 open items the
+  reason says `N more` (N = open items not listed); nothing when 10 or fewer.
+  S-45c already pinned it.
+- Finish gate: a parent resolved by the user (source user) is exempt from the
+  under-size flag, as a user-parked parent already was (REQ-35). A parent
+  resolved by the model and left with children but fewer than N stays flagged.
+- note_prompt ignores harness-injected agent-message prompts (user decision
+  2026-11-17). A prompt whose text begins, at character 0 with no trimming, with
+  the exact characters `<agent-message ` (V10 form `<agent-message from="<id>">`)
+  is a complete no-op returning {}: no prompt count, prompt_seen, budget or
+  user-prompt-since refresh, hook_health count, last_seen_session_id update or
+  journal event. Behaviour change, no new field or event, so journal_schema
+  stays 2.
+- Budget wording (user decision 2026-11-17): the per-prompt budget governs and
+  there is no ordering rule between a prompt and model actions or Stop calls
+  (REQ-32 amended). "Budget point" is defined (conventions.budget_point): one
+  unit of the per-prompt allowance max(1, p), flat 4 when the classifier returned
+  unknown. Error rows reworded to use it; messages and behaviour unchanged.
+- Six confirmed hook behaviours written down (conventions.hook_rules): block
+  caps count blocks only; the per-prompt cap of 2 is shared by finish and
+  unlogged blocks; a fail-open allow leaves the interview active and writes the
+  log; stop events only while active; quoted lines stripped before the ?
+  test; hook_health.note_prompt is 1 after a start preceded by inactive prompts.
+  Text only, no schema change.
+- Hook output contract (REQ-41, V8 verified 2026-11-17): hook-facing tools return
+  only empty text or the exact documented JSON shape (note_prompt, skill_started:
+  empty or {}; check_stop: {} or the decision object), because the harness acts
+  on any returned text that parses as JSON with decision or hookSpecificOutput
+  keys.
 
 tool_schema 3  (review fixes after the three independent reviews, 2026-11-16)
 Entries are appended as the fixes land; all belong to this one bump.

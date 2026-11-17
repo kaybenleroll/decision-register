@@ -1,0 +1,256 @@
+{
+ "id": "S-40a",
+ "title": "note_prompt, skill_started and check_stop reject a call carrying _meta claudecode/toolUseId (isError, naming the tool and 'hook-facing') with no effect: no state, counter, hook-health or journal change; the same calls without it are accepted and counted",
+ "req": [
+  "REQ-40"
+ ],
+ "steps": [
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40a",
+    "prompt": "my answer is below"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": [
+    "note_prompt",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-40a",
+    "skill": "grill-me"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": [
+    "skill_started",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-40a",
+    "last_assistant_message": "all done"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": [
+    "check_stop",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "last_event",
+     "eq": 0
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40a",
+    "prompt": "my answer is below"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": [
+    "note_prompt",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-40a",
+    "skill": "grill-me"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": [
+    "skill_started",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-40a",
+    "last_assistant_message": "all done"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": [
+    "check_stop",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "absent": [
+    "hook",
+    "prompt",
+    "stop"
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-40a",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-40a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 1,
+      "skill_started": 1,
+      "check_stop": 1,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "hook": 3,
+    "prompt": 1,
+    "stop": 1
+   }
+  }
+ ]
+}

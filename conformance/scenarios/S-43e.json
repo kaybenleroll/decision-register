@@ -1,0 +1,185 @@
+{
+ "id": "S-43e",
+ "title": "the classifier names the items a turn presented: the Open or Stale items it cites or overlaps, once each, in creation order, as a list in the stop event (a resolved item is not named); a question turn naming none gives the empty list, not null",
+ "req": [
+  "REQ-43",
+  "REQ-32"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43e",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "storage engine choice"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "retention period policy"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "backup schedule frequency"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "encryption key rotation"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q4",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43e",
+    "last_assistant_message": "Q1: first?\nQ3: third?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43e",
+    "last_assistant_message": "Which retention period policy applies?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43e",
+    "last_assistant_message": "Q1: again?\nQ1: and again?\nQ2: second?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43e",
+    "last_assistant_message": "Q1: first?\nQ4: the resolved one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43e",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43e",
+    "last_assistant_message": "Why is the sky blue today?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1",
+      "Q3"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q2"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1",
+      "Q2"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    }
+   ],
+   "count": {
+    "stop": 5
+   }
+  }
+ ]
+}

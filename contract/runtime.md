@@ -1,6 +1,6 @@
-# Run-time contract (tool_schema 3)
+# Run-time contract (tool_schema 4)
 
-Authority: REQ-61, REQ-77, REQ-80, REQ-27 rule 1, REQ-40. `tool_schema` is **3** (tools.json). Any change bumps it (CHANGES).
+Authority: REQ-61, REQ-77, REQ-80, REQ-27 rule 1, REQ-40. `tool_schema` is **4** (tools.json). Any change bumps it (CHANGES).
 
 ## Process start
 
@@ -38,12 +38,13 @@ Both implementations must produce byte-identical paths; the suite computes the s
 
 - A model-style call is a `tools/call` whose `params._meta` object has the key `claudecode/toolUseId` (any value, including null or empty: presence of the key is the test). Any other call is hook-style: no `_meta`, or a `_meta` without that key (for example one holding only `progressToken`). The three hook-facing tools reject the former (REQ-40); model-facing tools accept both.
 - A hook-style call that carries a session id passes it as the `session_id` argument of the hook-facing tool (`note_prompt`, `check_stop`, `skill_started`). Model-facing tools take no session id.
-- Hook-facing results: `note_prompt` and `skill_started` return empty text or the text `{}`; `check_stop` always returns JSON text, either `{}` or `{"decision":"block","reason":...}` (never empty text).
+- Hook-facing results: `note_prompt` and `skill_started` return empty text or the text `{}`; `check_stop` always returns JSON text, either `{}` or `{"decision":"block","reason":...}` (never empty text). The harness acts on any returned text that parses as JSON with `decision` or `hookSpecificOutput` keys (V8, 2026-11-17), so no hook-facing tool returns anything else: no prose, no other JSON.
+- Agent-message prompts (REQ-41): a `note_prompt` whose `prompt` begins, at character 0 with no trimming, with the exact characters `<agent-message ` is a harness-injected subagent hand-back (V10 form: `<agent-message from="<agent id>">`, a newline, `[Subagent hand-back]`), not a user prompt. After the `_meta` check it is a complete no-op returning `{}`: no prompt count, no `prompt_seen`, no refresh of the answer or park budgets or of the "user prompt since" rule, no `hook_health` count, no `last_seen_session_id` update and no journal event. Any other prompt, including one that merely contains `<agent-message` later in its text, counts as before.
 
 ## Compatibility with spike 3 (`docs/evidence/spike3/acceptance.py`)
 
 - Tool names kept: `begin_interview`, `log_item`, `resolve`, `park`, `reopen`, `status`, `resume`, `check_stop`, `note_prompt` (checked by `check_contract.py`).
-- Script changes C2 must make, listed here so they are not discovered later: (1) `begin_interview(interview_id=...)` becomes `begin_interview(tool_schema=3, skill="grill-me", mode="register")` (the id is server-assigned and returned); (2) `JOURNAL_DIR` is replaced by `CLAUDE_PLUGIN_DATA` and the journal path by the layout above; (3) `note_prompt` and `check_stop` calls gain `session_id` and are sent without `_meta`; (4) `resume` takes `id`, not `interview_id`; (5) `status` keeps the top-level `items` counts and `journal_schema` the script reads, and gains the other fields in tools.json; the `items` counts must equal the counts derived from `tree` by status, and every C2 scenario that reads `status` asserts it. `log_item`, `resolve`, `park` and `reopen` keep their argument names.
+- Script changes C2 must make, listed here so they are not discovered later: (1) `begin_interview(interview_id=...)` becomes `begin_interview(tool_schema=4, skill="grill-me", mode="register")` (the id is server-assigned and returned); (2) `JOURNAL_DIR` is replaced by `CLAUDE_PLUGIN_DATA` and the journal path by the layout above; (3) `note_prompt` and `check_stop` calls gain `session_id` and are sent without `_meta`; (4) `resume` takes `id`, not `interview_id`; (5) `status` keeps the top-level `items` counts and `journal_schema` the script reads, and gains the other fields in tools.json; the `items` counts must equal the counts derived from `tree` by status, and every C2 scenario that reads `status` asserts it. `log_item`, `resolve`, `park` and `reopen` keep their argument names.
 
 ## Decision log (REQ-23, REQ-62, REQ-63)
 

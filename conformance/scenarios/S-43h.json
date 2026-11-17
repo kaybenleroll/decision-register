@@ -1,0 +1,979 @@
+{
+ "id": "S-43h",
+ "title": "label forms: Q<n> followed by a colon is a label anywhere in a line (bare or inside up to two asterisks or backticks), and Q<n> followed by a full stop or closing bracket only at the start of a line (after indentation, a list marker or a wrapper); Q<n> with other punctuation or none, Q<n>. or Q<n>) mid-line, and Q<n> glued to a letter, digit or underscore are not labels",
+ "req": [
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "storage engine choice"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "retention period policy"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "Q1. which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "Q1) which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "- Q1) which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "1. Q1. which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "  \t* Q2: which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "**Q1.** which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "`Q2)` which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "see Q1: which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "see **Q2:** which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "see **Q1**: which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "see `Q2:` which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "see Q1. which one?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "see Q2) which one?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "Q1 which one?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "Q1? which one?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "Q1, which one?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "Q1-2: which one?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "xQ1: which one?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "_Q1: which one?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "Q1: and Q2. which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "Q1. pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "Q1) pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "- Q1) pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "1. Q1. pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "  \t* Q2: pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "**Q1.** pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "`Q2)` pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "+ Q1. pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "* Q1. pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "1) Q1. pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "  Q1. pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "see `Q1`: pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "first line\nQ1. pick\nwhat now?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "9Q1: pick, what now?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43h",
+    "last_assistant_message": "see Q1***: pick, what now?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q2"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q2"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q2"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q2"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q2"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q2"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    }
+   ],
+   "count": {
+    "stop": 35
+   }
+  }
+ ]
+}

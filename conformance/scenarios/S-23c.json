@@ -1,0 +1,212 @@
+{
+ "id": "S-23c",
+ "title": "end_interview with items open is refused naming them; with abandon and a reason it is accepted as ended_incomplete_by_model, the journal is archived and the log says it ended incomplete by the model",
+ "req": [
+  "REQ-23",
+  "REQ-50"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-23c",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text one"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "text two"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "expect": "error",
+   "mention": "q1"
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true
+   },
+   "expect": "error",
+   "mention": "invalid arguments"
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "reason": "why"
+   },
+   "expect": "error",
+   "mention": "invalid arguments"
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "   "
+   },
+   "expect": "error",
+   "mention": "invalid arguments"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid}.jsonl"
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "user left"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "ended"
+    },
+    {
+     "path": "end_kind",
+     "eq": "ended_incomplete_by_model"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "decision_log",
+     "matches": "decision-${iid}\\.md$"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid}.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/${iid}.pid",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "nonempty": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": true
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "last": {
+    "kind": "end",
+    "end_kind": "ended_incomplete_by_model",
+    "mode": "register",
+    "reason": "user left"
+   }
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: [^\\n]+\nstate: ended\nmode: register\nend_kind: ended_incomplete_by_model\nimplicit_start: false\n",
+     "mode": "600"
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?i)ended incomplete by the model",
+     "mode": "600"
+    }
+   ]
+  }
+ ]
+}

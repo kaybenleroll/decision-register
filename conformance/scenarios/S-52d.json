@@ -1,0 +1,218 @@
+{
+ "id": "S-52d",
+ "title": "resume reconstructs the register (tree, counts), the hook counts and the finish-gate caps from the journal and reports a last event number at least that of the last Stop",
+ "req": [
+  "REQ-52",
+  "REQ-60"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52d",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "second"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52d",
+    "prompt": "another"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-52d",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le1": "last_event",
+    "iid_c": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "queued after the last stop"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le2": "last_event"
+   },
+   "assert": [
+    {
+     "path": "last_event",
+     "ne": "$le1"
+    }
+   ]
+  },
+  {
+   "op": "kill"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52d",
+    "prompt": "after the restart"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_c"
+    },
+    {
+     "path": "last_event",
+     "ge": 8
+    },
+    {
+     "path": "items.resolved",
+     "eq": 1
+    },
+    {
+     "path": "items.open",
+     "ge": 1
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_c"
+    },
+    {
+     "path": "items.resolved",
+     "eq": 1
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 2,
+      "skill_started": 0,
+      "check_stop": 1,
+      "prompt_seen": false
+     }
+    },
+    {
+     "path": "version_mismatch",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-52d",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-52d",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "resume": 1
+   },
+   "events": [
+    {
+     "kind": "resume",
+     "session_id": "sess-52d"
+    }
+   ],
+   "last": {
+    "kind": "stop",
+    "decision": "allow",
+    "blocks": {
+     "prompt": 2,
+     "finish": 2,
+     "unlogged": 0
+    }
+   }
+  }
+ ]
+}

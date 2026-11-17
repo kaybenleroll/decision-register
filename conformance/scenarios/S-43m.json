@@ -1,0 +1,133 @@
+{
+ "id": "S-43m",
+ "title": "the 88 stop words (and the single letters a and i) are not content words: an item and a question that share all of them plus two other words share only two content words and the question concerns nothing, and the same words around three shared content words do not stop the item being concerned",
+ "req": [
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43m",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "about all also an and any are as at be been but by can could did do does done each for from get got had has have he her how if in into is it just let may me might more most must my no not of on or other our out over shall she should so some such than that the their them then there they this to too up us very was we were what when where which who whom why will with would you your a i alpha beta"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "alpha beta gamma"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43m",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43m",
+    "last_assistant_message": "about all also an and any are as at be been but by can could did do does done each for from get got had has have he her how if in into is it just let may me might more most must my no not of on or other our out over shall she should so some such than that the their them then there they this to too up us very was we were what when where which who whom why will with would you your a i alpha beta?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43m",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43m",
+    "last_assistant_message": "alpha beta gamma?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43m",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43m",
+    "last_assistant_message": "about all also an and any are as at be been but by can could did do does done each for from get got had has have he her how if in into is it just let may me might more most must my no not of on or other our out over shall she should so some such than that the their them then there they this to too up us very was we were what when where which who whom why will with would you your a i alpha beta gamma?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q2"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q2"
+     ]
+    }
+   ],
+   "count": {
+    "stop": 3
+   }
+  }
+ ]
+}

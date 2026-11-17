@@ -1,0 +1,186 @@
+{
+ "id": "S-50a",
+ "title": "a registered tool failure is an isError result, not a JSON-RPC error, and does not abort the server: later calls work and the interview and its journal are intact (fail open)",
+ "req": [
+  "REQ-50",
+  "REQ-40"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-50a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "nope",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "expect": "error"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question"
+   },
+   "expect": "error"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "x",
+    "unknown_arg": 1
+   },
+   "expect": "error"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-50a",
+    "prompt": "p"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": "hook-facing"
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true
+   },
+   "expect": "error",
+   "mention": "invalid arguments"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "duplicate"
+   },
+   "expect": "error"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-50a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 2,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "item": 2,
+    "resolve": 2
+   }
+  }
+ ]
+}

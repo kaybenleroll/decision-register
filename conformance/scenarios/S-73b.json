@@ -1,0 +1,45 @@
+{
+ "id": "S-73b",
+ "title": "the launcher's binary-missing message differs from the version-mismatch error text: it never mentions tool_schema or mismatch and the stub's status has no tool_schema or version_mismatch (pending P1: needs plugin/bin/regspike-launch)",
+ "req": [
+  "REQ-73",
+  "REQ-77"
+ ],
+ "launcher": "plugin/bin/regspike-launch",
+ "strip_path": "regspike-rs",
+ "unset_env": [
+  "REGSPIKE_IMPL"
+ ],
+ "steps": [
+  {
+   "call": "status",
+   "args": {},
+   "stub": true,
+   "assert": [
+    {
+     "path": "unavailable",
+     "matches": "\\Abinary not found\\Z"
+    },
+    {
+     "path": "tool_schema",
+     "absent": true
+    },
+    {
+     "path": "version_mismatch",
+     "absent": true
+    }
+   ]
+  },
+  {
+   "op": "stderr",
+   "assert": [
+    {
+     "contains": "binary not found"
+    },
+    {
+     "not_matches": "(?i)mismatch|tool_schema"
+    }
+   ]
+  }
+ ]
+}

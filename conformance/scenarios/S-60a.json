@@ -1,0 +1,184 @@
+{
+ "id": "S-60a",
+ "title": "every journal event carries v 2, an RFC 3339 ts and a gapless seq; the queue is flushed at each check_stop (the file holds every event so far, last seq equal to status.last_event) and at the end of the interview",
+ "req": [
+  "REQ-60"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-60a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "a"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "b"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-60a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "total": 6,
+   "count": {
+    "start": 1,
+    "item": 2,
+    "resolve": 1,
+    "hook": 1,
+    "stop": 1,
+    "end": 0
+   },
+   "each": {
+    "*": {
+     "v": 2
+    }
+   },
+   "last": {
+    "kind": "stop",
+    "decision": "block"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "last_event",
+     "eq": "$n"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-60a",
+    "prompt": "more"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-60a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "total": 12,
+   "count": {
+    "prompt": 1,
+    "complete": 1
+   },
+   "last": {
+    "kind": "complete"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "last_event",
+     "eq": "$n"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {}
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": true
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "total": 13,
+   "each": {
+    "*": {
+     "v": 2
+    }
+   },
+   "last": {
+    "kind": "end"
+   }
+  }
+ ]
+}

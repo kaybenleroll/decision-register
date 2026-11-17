@@ -21,6 +21,7 @@ import fnmatch, glob, hashlib, importlib.util, json, os, queue, re, shutil, sign
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SCEN_DIR = os.path.join(HERE, "scenarios")
+LAUNCHER_ROOT = ROOT  # the launcher key is relative to this directory (the selftest points it elsewhere)
 CONTRACT = os.path.join(ROOT, "contract")
 SCRATCH = os.path.join(ROOT, ".scratch", "conformance")
 RUN_DIR = None  # unique per invocation (set in main), so concurrent runs never share directories
@@ -264,9 +265,64 @@ def check_assert(name, a, body, vars_):
     return "%s=%s" % (where, json.dumps(val)[:60])
 
 
+def proc_start(pid):
+    """Start time of a process in clock ticks since boot (field 22 of /proc/<pid>/stat), None where unreadable
+    (contract/runtime.md, Pid file and claim)."""
+    try:
+        with open("/proc/%d/stat" % pid) as f:
+            return int(f.read().rsplit(")", 1)[1].split()[19])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def repeat_rows(st):
+    """The variable bindings of each pass of a `repeat` step: `count` passes with `var` = 1..count, or one pass
+    per object of `rows` (each key becomes a variable)."""
+    if "count" in st:
+        return [{st["var"]: i} for i in range(1, st["count"] + 1)]
+    return st["rows"]
+
+
+
+def launcher_path(scen):
+    """Absolute path of the scenario's launcher, or None when the scenario has no launcher key."""
+    rel = scen.get("launcher")
+    return os.path.join(LAUNCHER_ROOT, rel) if rel else None
+
+
+def pending_reason(scen):
+    """Why a scenario cannot run yet (its launcher does not exist), or None. Pending is not a failure."""
+    lp = launcher_path(scen)
+    if lp and not (os.path.isfile(lp) and os.access(lp, os.X_OK)):
+        return "pending P1: launcher %s does not exist" % scen["launcher"]
+    return None
+
+
+def stripped_path(binary, path, farm):
+    """PATH value without `binary`: a directory that holds it is replaced by a directory under `farm` of symbolic
+    links to everything else in it, so the other programs the launcher needs still resolve."""
+    out = []
+    for i, d in enumerate(path.split(os.pathsep)):
+        if d and os.path.exists(os.path.join(d, binary)):
+            sub = os.path.join(farm, str(i))
+            os.makedirs(sub, exist_ok=True)
+            for name in os.listdir(d):
+                if name != binary:
+                    try:
+                        os.symlink(os.path.join(d, name), os.path.join(sub, name))
+                    except OSError:
+                        pass
+            out.append(sub)
+        else:
+            out.append(d)
+    return os.pathsep.join(out)
+
+
 class Run:
     def __init__(self, cmd, scen, tools, validator):
         self.cmd, self.scen, self.tools, self.check = cmd, scen, tools, validator
+        if scen.get("launcher"):
+            self.cmd = [launcher_path(scen)]  # starts instead of the command after `--`
         self.dir = os.path.join(RUN_DIR, scen["id"])
         shutil.rmtree(self.dir, ignore_errors=True)
         self.data = os.path.join(self.dir, "data")
@@ -276,12 +332,19 @@ class Run:
             os.makedirs(d)
         self.vars = {"dir": self.dir, "data": self.data, "proj": self.proj, "cwd": os.path.realpath(self.cwd)}
         self.lines = None
-        self.srv = None
+        self.servers = {}  # running server processes by name; the scenario's own server is "main"
         self.env = None
         self.jl = {}  # loaded journals by name
         self.obs = []  # observed values behind each passed assertion, for the TAP detail
 
-    def start(self):
+    def server(self, name="main"):
+        if name not in self.servers:
+            raise AssertionError("server %r is not running" % name)
+        return self.servers[name]
+
+    def start(self, name="main"):
+        if name in self.servers:
+            raise AssertionError("server %r is already running" % name)
         env = dict(os.environ, CLAUDE_PLUGIN_DATA=self.data, CLAUDE_PROJECT_DIR=self.proj)
         # the contract's optional variables are set only by the scenarios that test them (runtime.md)
         for k in ("CLAUDE_CODE_SESSION_ID", "REGSPIKE_CLOCK_OFFSET_SECONDS"):
@@ -290,20 +353,33 @@ class Run:
             env[k] = v.replace("$dir", self.dir) if isinstance(v, str) else v
         for k in self.scen.get("unset_env", []):
             env.pop(k, None)
+        if self.scen.get("strip_path"):
+            env["PATH"] = stripped_path(self.scen["strip_path"], env.get("PATH", ""), os.path.join(self.dir, "pathfarm"))
         self.env = env
         # contract/runtime.md: project path = CLAUDE_PROJECT_DIR if set and non-empty, else the working directory
         # as the operating system reports it
         self.vars["key"] = project_key(env.get("CLAUDE_PROJECT_DIR") or os.path.realpath(self.cwd))
-        self.srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"), self.cwd)
-        self.srv.initialize()
-        self.vars["pid"] = self.srv.p.pid
+        srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"), self.cwd)  # all servers share the log
+        self.servers[name] = srv
+        srv.initialize()
+        suffix = "" if name == "main" else "_" + name
+        self.vars["pid" + suffix] = srv.p.pid
+        self.vars["start" + suffix] = proc_start(srv.p.pid)
 
-    def stop_server(self):
-        """Close the running server and require a graceful exit on stdin EOF."""
-        srv, self.srv = self.srv, None
-        if srv and not srv.close():
-            raise AssertionError("server did not exit within %d s of stdin EOF (runtime.md: exits on stdin EOF)"
-                                 % EXIT_WAIT)
+    def stop_server(self, name="main"):
+        """Close the named server and require a graceful exit on stdin EOF."""
+        srv = self.server(name)
+        del self.servers[name]
+        if not srv.close():
+            raise AssertionError("server %s did not exit within %d s of stdin EOF (runtime.md: exits on stdin EOF)"
+                                 % (name, EXIT_WAIT))
+
+    def kill_server(self, name="main"):
+        """SIGKILL the named server's process group: no flush, no clean-up, pid file and journal as they were."""
+        srv = self.server(name)
+        del self.servers[name]
+        srv.kill()
+        srv.errf.close()
 
     def journal_path(self, where="active"):
         """Journal path per contract/runtime.md: <data>/<project key>/<id>.jsonl (active) or
@@ -319,9 +395,10 @@ class Run:
             return self.env["CLAUDE_PLUGIN_DATA"]
         return os.path.join(self.env.get("TMPDIR", "/tmp"), FALLBACK_DIR)
 
-    def do_tools_list(self):
+    def do_tools_list(self, st):
         """REQ-71: the initialize reply and the tool list (names, input schemas) match contract/tools.json."""
-        init = self.srv.init
+        srv = self.server(st.get("server", "main"))
+        init = srv.init
         assert isinstance(init, dict), "initialize returned no result"
         assert init.get("protocolVersion") == "2024-11-05", "initialize protocolVersion is %r" % init.get("protocolVersion")
         assert isinstance(init.get("capabilities", {}).get("tools"), dict), "initialize lacks capabilities.tools"
@@ -330,7 +407,7 @@ class Run:
             "initialize serverInfo needs a name and a version"
         tools, cursor = [], None
         while True:
-            m = self.srv.rpc("tools/list", {} if cursor is None else {"cursor": cursor})
+            m = srv.rpc("tools/list", {} if cursor is None else {"cursor": cursor})
             assert "result" in m, "tools/list failed: %s" % json.dumps(m.get("error"))
             tools += m["result"].get("tools", [])
             cursor = m["result"].get("nextCursor")
@@ -354,14 +431,89 @@ class Run:
                 raise AssertionError("tools/list inputSchema of %s differs from tools.json: %s" % (n, json.dumps(got, sort_keys=True)[:200]))
         self.obs.append("%d tools, input schemas equal tools.json" % len(tools))
 
-    def do_fs(self, st):
-        root = self.root()
+    def project_root(self):
+        """The project path of contract/runtime.md: CLAUDE_PROJECT_DIR if set and non-empty, else the working directory."""
+        return self.env.get("CLAUDE_PROJECT_DIR") or os.path.realpath(self.cwd)
+
+    def fs_path(self, a):
+        """Absolute path of an fs or seed entry: `path` (with $key, $iid and ${variables} expanded) below its `root`."""
+        root = self.project_root() if a.get("root") == "project" else self.root()
+        rel = a["path"].replace("$key", self.vars["key"]).replace("$iid", str(self.vars.get("iid", "$iid")))
+        rel = subst(rel, self.vars)
+        return os.path.join(root, rel) if rel else root
+
+    def do_seed(self, st):
+        """Create a file or directory below the data or project root, replacing any file there, as a crashed or
+        earlier server might have left it: `content` (text), `lines` (objects dumped as JSON lines, strings verbatim),
+        `json` (one JSON line, e.g. a pid file) or `mkdir`. Parent directories get mode 0700, files 0600 unless `mode`.
+        `$dead_pid` (the pid of a process that has exited) is available to the content."""
+        if "dead_pid" in json.dumps(st) and "dead_pid" not in self.vars:
+            done = subprocess.Popen([sys.executable, "-c", "pass"])
+            done.wait()
+            self.vars["dead_pid"] = done.pid
+        p = self.fs_path(st)
+        mode = int(st.get("mode", "700" if st.get("mkdir") else "600"), 8)
+        os.makedirs(os.path.dirname(p), mode=0o700, exist_ok=True)
+        if st.get("mkdir"):
+            os.makedirs(p, mode=mode, exist_ok=True)
+            os.chmod(p, mode)
+            self.obs.append("seeded directory %s" % st["path"])
+            return
+        if "json" in st:
+            text = json.dumps(subst(st["json"], self.vars)) + "\n"
+        elif "lines" in st:
+            text = "".join((l if isinstance(l, str) else json.dumps(l)) + "\n" for l in subst(st["lines"], self.vars))
+        else:
+            text = subst(st["content"], self.vars)
+        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.chmod(p, mode)
+        self.obs.append("seeded %s (%d bytes)" % (st["path"], len(text)))
+
+    def do_utime(self, st):
+        """Set the access and modification times of an existing file or directory to `age_seconds` ago, so that
+        the age rules of contract/runtime.md (pruning after 30 days, stale files after an hour) can be exercised."""
+        p = self.fs_path(st)
+        if not os.path.exists(p):
+            raise AssertionError("utime: %s does not exist" % p)
+        t = time.time() - st["age_seconds"]
+        os.utime(p, (t, t))
+        self.obs.append("%s aged %s s" % (st["path"], st["age_seconds"]))
+
+    def do_stderr(self, st):
+        """Assertions on what the server processes wrote to standard error so far (server.stderr.log, shared by
+        every named server): `empty`, `contains`, `not_contains`, `matches`, `not_matches`."""
+        with open(os.path.join(self.dir, "server.stderr.log"), encoding="utf-8", errors="replace") as f:
+            text = f.read()
         for a in st["assert"]:
-            rel = a["path"].replace("$key", self.vars["key"]).replace("$iid", self.vars["iid"])
-            p = os.path.join(root, rel) if rel else root
+            op = [k for k in a][0]
+            want = subst(a[op], self.vars)
+            if op == "empty" and bool(text) == want:
+                raise AssertionError("stderr %s: %r" % ("is not empty" if want else "is empty", text[:150]))
+            if op == "contains" and want not in text:
+                raise AssertionError("stderr lacks %r: %r" % (want, text[:150]))
+            if op == "not_contains" and want in text:
+                raise AssertionError("stderr should not contain %r: %r" % (want, text[:150]))
+            if op == "matches" and not re.search(want, text):
+                raise AssertionError("stderr does not match /%s/: %r" % (want, text[:150]))
+            if op == "not_matches" and re.search(want, text):
+                raise AssertionError("stderr should not match /%s/: %r" % (want, text[:150]))
+            self.obs.append("stderr %s %s (%d bytes)" % (op, json.dumps(want)[:40], len(text)))
+
+    def do_fs(self, st):
+        for a in st["assert"]:
+            p = self.fs_path(a)
             want = a.get("exists", True)
             if os.path.exists(p) != want:
                 raise AssertionError("%s %s" % (p, "missing" if want else "should not exist"))
+            if want and ("age_ge" in a or "age_le" in a):
+                age = time.time() - os.stat(p).st_mtime
+                if "age_ge" in a and age < a["age_ge"]:
+                    raise AssertionError("%s was modified %.1f s ago, expected at least %s s" % (p, age, a["age_ge"]))
+                if "age_le" in a and age > a["age_le"]:
+                    raise AssertionError("%s was modified %.1f s ago, expected at most %s s" % (p, age, a["age_le"]))
+                self.obs.append("%s modified %.0f s ago" % (a["path"] or "<root>", age))
             if want and "mode" in a:
                 got = "%o" % (os.stat(p).st_mode & 0o777)
                 if got != a["mode"]:
@@ -383,19 +535,33 @@ class Run:
         op = st.get("op", "call")
         if op == "call":
             return self.do_call(st)
+        name = st.get("server", "main")
         if op == "restart":
-            self.stop_server()
-            self.start()
+            self.stop_server(name)
+            self.start(name)
         elif op == "stop":
-            self.stop_server()
+            self.stop_server(name)
         elif op == "start":
-            self.start()
+            self.start(name)
+        elif op == "kill":
+            self.kill_server(name)
         elif op == "journal":
             self.do_journal(st)
         elif op == "fs":
             self.do_fs(st)
+        elif op == "seed":
+            self.do_seed(st)
+        elif op == "stderr":
+            self.do_stderr(st)
+        elif op == "utime":
+            self.do_utime(st)
         elif op == "tools_list":
-            self.do_tools_list()
+            self.do_tools_list(st)
+        elif op == "repeat":
+            for row in repeat_rows(st):
+                self.vars.update(row)
+                for sub in st["steps"]:
+                    self.step(sub)
         else:
             raise AssertionError("unknown op %r" % op)
 
@@ -410,7 +576,8 @@ class Run:
             meta = MODEL_META
         elif meta is False:
             meta = None
-        kind, text = self.srv.call(name, args, meta)
+        # a dict is sent as the `_meta` object itself
+        kind, text = self.server(st.get("server", "main")).call(name, args, meta)
         expect = st.get("expect", "ok")
         if expect in ("error", "protocol_error"):
             want = "tool_error" if expect == "error" else "protocol_error"
@@ -428,11 +595,15 @@ class Run:
             return
         if kind != "ok":
             raise AssertionError("%s %s unexpectedly failed (%s): %s" % (name, args, kind, text[:150]))
-        body = {} if (text.strip() == "" and tool["audience"] == "hook") else json.loads(text)
-        errs = self.check(body, tool["result"], self.tools["$defs"])
+        # result_text (tools.json): only note_prompt and skill_started may return empty text; check_stop never does
+        body = {} if (text == "" and name in ("note_prompt", "skill_started")) else json.loads(text)
+        errs = [] if st.get("stub") else self.check(body, tool["result"], self.tools["$defs"])
         if errs:
             raise AssertionError("%s result violates tools.json: %s" % (name, "; ".join(errs[:3])))
-        if name == "status" and body["items"] != derived_counts(body):
+        if st.get("stub"):  # the launcher's no-op stub: the result is not a contract result, but must be a JSON object
+            if not isinstance(body, dict):
+                raise AssertionError("%s stub result is not a JSON object: %r" % (name, body))
+        elif name == "status" and body["items"] != derived_counts(body):
             raise AssertionError("status items %s != counts derived from tree %s"
                                  % (body["items"], derived_counts(body)))
         for var, path in st.get("save", {}).items():
@@ -525,7 +696,9 @@ class Run:
     def assert_events(self, st):
         """Assertions on a loaded journal: `events` (partial objects matching distinct events in order),
         `last` (the final event), `count` ({kind: n}), `absent` (kinds that must not occur), `total` (line count),
-        `prefix` (the lines of another loaded journal are the first lines of this one)."""
+        `prefix` (the lines of another loaded journal are the first lines of this one), `at` ({position: partial object};
+        positions count from 1, negative ones from the end) and `each` ({kind or "*": partial object} that every event
+        of that kind, at least one, must match)."""
         name = st.get("from", "main")
         lines = self.journal_lines(name)
         evs = [json.loads(l) for l in lines]
@@ -551,6 +724,20 @@ class Run:
         for kind in st.get("absent", []):
             if any(e["kind"] == kind for e in evs):
                 raise AssertionError("journal %s has a %s event" % (name, kind))
+        for key, part in st.get("at", {}).items():
+            n = int(key)
+            if not 1 <= abs(n) <= len(evs):
+                raise AssertionError("journal %s has %d events, none at position %s" % (name, len(evs), key))
+            e = evs[n - 1 if n > 0 else n]
+            if not match(e, part):
+                raise AssertionError("journal %s event %s is %s, expected %s" % (name, key, json.dumps(e)[:150], json.dumps(subst(part, self.vars))))
+        for kind, part in st.get("each", {}).items():
+            of = [e for e in evs if kind == "*" or e["kind"] == kind]
+            if not of:
+                raise AssertionError("journal %s has no %s event to check" % (name, kind))
+            for e in of:
+                if not match(e, part):
+                    raise AssertionError("journal %s %s event %s does not match %s" % (name, kind, json.dumps(e)[:150], json.dumps(subst(part, self.vars))))
         if "prefix" in st:
             pre = self.journal_lines(st["prefix"])
             if lines[:len(pre)] != pre:
@@ -558,14 +745,15 @@ class Run:
         self.obs.append("journal %s: %d events, checks passed" % (name, len(evs)))
 
     def close(self):
-        """End of scenario: the running server must also exit on stdin EOF."""
-        self.stop_server()
+        """End of scenario: every running server must also exit on stdin EOF."""
+        for name in list(self.servers):
+            self.stop_server(name)
 
     def abort(self):
-        if self.srv:
-            self.srv.kill()
-            self.srv.errf.close()
-            self.srv = None
+        for srv in self.servers.values():
+            srv.kill()
+            srv.errf.close()
+        self.servers = {}
 
 
 def run_scenario(cmd, scen, tools, validator):
@@ -631,13 +819,20 @@ def fill_variables(args, schema, defs):
 
 
 STEP_KEYS = {
-    "call": {"op", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert"},
-    "restart": {"op"}, "stop": {"op"}, "start": {"op"},
-    "journal": {"op", "action", "form", "where", "into", "from", "ended", "events", "last", "count", "absent", "total", "prefix"},
+    "call": {"op", "server", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert", "stub"},
+    "restart": {"op", "server"}, "stop": {"op", "server"}, "start": {"op", "server"}, "kill": {"op", "server"},
+    "journal": {"op", "action", "form", "where", "into", "from", "ended", "events", "last", "count", "absent", "total", "prefix", "at", "each"},
     "fs": {"op", "assert"},
-    "tools_list": {"op"},
+    "tools_list": {"op", "server"},
+    "repeat": {"op", "count", "var", "rows", "steps"},
+    "stderr": {"op", "assert"},
+    "utime": {"op", "path", "root", "age_seconds"},
+    "seed": {"op", "path", "root", "content", "lines", "json", "mkdir", "mode"},
 }
-FS_KEYS = {"path", "exists", "mode", "matches", "nonempty"}
+MAX_REPEAT = 200
+FS_KEYS = {"path", "root", "exists", "mode", "matches", "nonempty", "age_ge", "age_le"}
+FS_ROOTS = ("data", "project")
+STDERR_OPS = ("empty", "contains", "not_contains", "matches", "not_matches")
 EXPECTS = ("ok", "error", "protocol_error")
 
 
@@ -669,14 +864,251 @@ def validate_assert(where, a, errs):
             errs.append("%s: bad regex: %s" % (where, e))
 
 
+def is_seconds(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
+
+
+def check_path(where, a, errs):
+    """An fs or seed path is relative to its root and stays inside it; the root is known."""
+    if "path" in a and (not isinstance(a["path"], str) or a["path"].startswith("/") or ".." in a["path"].split("/")):
+        errs.append("%s: fs path is relative to its root and stays inside it" % where)
+    if a.get("root", "data") not in FS_ROOTS:
+        errs.append("%s: fs root is one of %s" % (where, ", ".join(FS_ROOTS)))
+
+
+def validate_step(where, st, tools, validator, errs):
+    op = st.get("op", "call")
+    allowed = STEP_KEYS.get(op)
+    if allowed is None:
+        errs.append("%s: unknown op %r" % (where, op))
+        return
+    for k in st:
+        if allowed is not None and k not in allowed:
+            errs.append("%s: unknown key %r for op %s" % (where, k, op))
+    if "server" in st and not (isinstance(st["server"], str) and re.match(r"^[a-z][a-z0-9_]*$", st["server"])):
+        errs.append("%s: server is a lower-case name" % where)
+    if op == "repeat":
+        validate_repeat(where, st, tools, validator, errs)
+        return
+    if op == "call":
+        name = st.get("call")
+        expect = st.get("expect", "ok")
+        if expect not in EXPECTS:
+            errs.append("%s: bad expect %r" % (where, expect))
+        if name not in tools["tools"]:
+            if not (expect == "protocol_error" and isinstance(name, str)):
+                errs.append("%s: unknown tool %r" % (where, name))
+            return
+        tool = tools["tools"][name]
+        args = st.get("args", {})
+        if expect == "ok":
+            args = fill_variables(args, tool["input"], tools["$defs"])
+            for e in validator(args, tool["input"], tools["$defs"]):
+                errs.append("%s: %s args violate tools.json: %s" % (where, name, e))
+        if "stub" in st and not (st["stub"] is True and expect == "ok"):
+            errs.append("%s: stub is true and applies to expect ok only" % where)
+        meta = st.get("meta")
+        if not (meta is None or isinstance(meta, (bool, dict))):
+            errs.append("%s: meta must be true, false or an object" % where)
+        elif isinstance(meta, dict):
+            for k, v in meta.items():
+                if not isinstance(v, (str, int, float, bool, type(None))):
+                    errs.append("%s: meta value of %r must be a scalar" % (where, k))
+        marked = meta is True or (isinstance(meta, dict) and "claudecode/toolUseId" in meta)
+        if tool["audience"] == "hook" and marked and expect == "ok":
+            errs.append("%s: hook-facing %s sent with _meta must expect error" % (where, name))
+        if expect == "ok":
+            for k in ("mention", "not_mention", "matches"):
+                if k in st:
+                    errs.append("%s: %s only applies to expect error or protocol_error" % (where, k))
+        else:
+            for k in ("save", "assert"):
+                if k in st:
+                    errs.append("%s: %s only applies to expect ok" % (where, k))
+            for rx in as_list(st.get("matches")):
+                try:
+                    re.compile(re.sub(r"\$\{\w+\}", "0", rx))
+                except re.error as e:
+                    errs.append("%s: bad regex: %s" % (where, e))
+        for j, a in enumerate(st.get("assert", [])):
+            validate_assert("%s assert %d" % (where, j + 1), a, errs)
+    elif op == "journal":
+        action = st.get("action")
+        if action not in ("load", "check_events", "assert_events", "write"):
+            errs.append("%s: bad journal action" % where)
+        per_action = {"load": {"where", "into"}, "check_events": {"from", "ended"}, "write": {"form", "from"},
+                      "assert_events": {"from", "events", "last", "count", "absent", "total", "prefix", "at", "each"}}
+        for k in st:
+            if k not in ("op", "action") and k not in per_action.get(action, set()):
+                errs.append("%s: key %r does not apply to journal %s" % (where, k, action))
+        if action == "write" and st.get("form") not in ("orig", "v1_all", "v1_but_last", "orig_plus_v3"):
+            errs.append("%s: journal write needs a known form" % where)
+        if action == "assert_events" and not any(k in st for k in ("events", "last", "count", "absent", "total", "prefix", "at", "each")):
+            errs.append("%s: assert_events asserts nothing" % where)
+        if action == "assert_events":
+            kinds = tools["journal"]["kinds"]
+            for key, label in (("at", "position"), ("each", "kind")):
+                if key not in st:
+                    continue
+                if not isinstance(st[key], dict) or not st[key]:
+                    errs.append("%s: %s is a non-empty object keyed by %s" % (where, key, label))
+                    continue
+                for k, part in st[key].items():
+                    if key == "at" and not re.match(r"^-?[1-9]\d*$", k):
+                        errs.append("%s: at position %r is a non-zero integer" % (where, k))
+                    if key == "each" and k != "*" and k not in kinds:
+                        errs.append("%s: each names unknown journal kind %r" % (where, k))
+                    if not isinstance(part, dict) or not part:
+                        errs.append("%s: %s %r needs a non-empty object of fields to match" % (where, key, k))
+        if st.get("where", "active") not in ("active", "archive"):
+            errs.append("%s: where is active or archive" % where)
+    elif op == "fs":
+        if not st.get("assert"):
+            errs.append("%s: fs step needs assert" % where)
+        for a in st.get("assert", []):
+            for k in a:
+                if k not in FS_KEYS:
+                    errs.append("%s: unknown fs assert key %r" % (where, k))
+            if "path" not in a:
+                errs.append("%s: fs assert needs path" % where)
+            check_path(where, a, errs)
+            for k in ("age_ge", "age_le"):
+                if k in a and not is_seconds(a[k]):
+                    errs.append("%s: fs %s is a number of seconds, zero or more" % (where, k))
+            if a.get("exists", True) is not True and ("age_ge" in a or "age_le" in a):
+                errs.append("%s: fs age applies to a file that exists" % where)
+    elif op == "utime":
+        check_path(where, st, errs)
+        if not st.get("path"):
+            errs.append("%s: utime needs a path" % where)
+        if not is_seconds(st.get("age_seconds")):
+            errs.append("%s: utime needs age_seconds, a number of seconds, zero or more" % where)
+    elif op == "stderr":
+        if not isinstance(st.get("assert"), list) or not st["assert"]:
+            errs.append("%s: stderr step needs a non-empty assert list" % where)
+        for a in st.get("assert", []) if isinstance(st.get("assert"), list) else []:
+            if not isinstance(a, dict) or len(a) != 1 or next(iter(a)) not in STDERR_OPS:
+                errs.append("%s: a stderr assert entry has exactly one operator (%s)" % (where, ", ".join(STDERR_OPS)))
+                continue
+            op_, val = next(iter(a.items()))
+            if op_ == "empty":
+                if not isinstance(val, bool):
+                    errs.append("%s: stderr empty needs a boolean" % where)
+            elif not isinstance(val, str):
+                errs.append("%s: stderr %s needs a string" % (where, op_))
+            elif op_ in ("matches", "not_matches"):
+                try:
+                    re.compile(re.sub(r"\$\{\w+\}", "0", val))
+                except re.error as e:
+                    errs.append("%s: bad regex: %s" % (where, e))
+    elif op == "seed":
+        check_path(where, st, errs)
+        if "path" not in st or st.get("path") == "":
+            errs.append("%s: seed needs a path" % where)
+        given = [k for k in ("content", "lines", "json", "mkdir") if k in st]
+        if len(given) != 1:
+            errs.append("%s: seed needs exactly one of content, lines, json and mkdir" % where)
+        elif given[0] == "content" and not isinstance(st["content"], str):
+            errs.append("%s: seed content is a string" % where)
+        elif given[0] == "lines" and not (isinstance(st["lines"], list) and all(isinstance(l, (str, dict)) for l in st["lines"])):
+            errs.append("%s: seed lines is a list of objects and strings" % where)
+        elif given[0] == "json" and not isinstance(st["json"], dict):
+            errs.append("%s: seed json is an object" % where)
+        elif given[0] == "mkdir" and st["mkdir"] is not True:
+            errs.append("%s: seed mkdir is true" % where)
+        if "mode" in st and not (isinstance(st["mode"], str) and re.match(r"^[0-7]{3,4}$", st["mode"])):
+            errs.append("%s: seed mode is an octal string such as 600" % where)
+
+
+def validate_repeat(where, st, tools, validator, errs):
+    """A repeat step has exactly one of `count` (with `var`) or `rows`, and non-empty `steps` that are not
+    themselves repeats. Each pass is validated as the concrete steps it expands to."""
+    has = [k for k in ("count", "rows") if k in st]
+    if len(has) != 1:
+        errs.append("%s: repeat needs exactly one of count and rows" % where)
+        return
+    if has[0] == "count":
+        n = st["count"]
+        if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= MAX_REPEAT:
+            errs.append("%s: repeat count is an integer from 1 to %d" % (where, MAX_REPEAT))
+            return
+        if not isinstance(st.get("var"), str) or not re.match(r"^[A-Za-z_]\w*$", st["var"]):
+            errs.append("%s: repeat count needs var, a variable name" % where)
+            return
+        passes = [{st["var"]: 1}, {st["var"]: n}]  # the first and the last pass
+    else:
+        rows = st["rows"]
+        if "var" in st:
+            errs.append("%s: var applies to count, not rows" % where)
+        if not isinstance(rows, list) or not rows or len(rows) > MAX_REPEAT or \
+                not all(isinstance(r, dict) and r and all(re.match(r"^[A-Za-z_]\w*$", k) for k in r) for r in rows):
+            errs.append("%s: repeat rows is a non-empty list of objects keyed by variable names (at most %d)" % (where, MAX_REPEAT))
+            return
+        passes = rows
+    steps = st.get("steps")
+    if not isinstance(steps, list) or not steps or not all(isinstance(x, dict) for x in steps):
+        errs.append("%s: repeat needs a non-empty steps list of objects" % where)
+        return
+    for j, sub in enumerate(steps):
+        if sub.get("op") == "repeat":
+            errs.append("%s step %d: repeats do not nest" % (where, j + 1))
+            return
+    for n, row in enumerate(passes):
+        for j, sub in enumerate(steps):
+            validate_step("%s pass %d step %d" % (where, n + 1, j + 1), subst(sub, row), tools, validator, errs)
+
+
+def track_servers(where, steps, running, errs):
+    """Follow which servers run, from the one the driver starts ("main"): start needs a stopped name; stop, kill,
+    restart, tools_list and a call need a running one. A repeat must leave the running set as it found it.
+    Returns the running set after the steps."""
+    running = set(running)
+    for i, st in enumerate(steps):
+        if not isinstance(st, dict):
+            continue
+        op, name = st.get("op", "call"), st.get("server", "main")
+        if not isinstance(name, str):
+            continue
+        at = "%s step %d" % (where, i + 1)
+        if op == "start":
+            if name in running:
+                errs.append("%s: server %s is already running" % (at, name))
+            running.add(name)
+        elif op in ("stop", "kill", "restart", "tools_list", "call"):
+            if name not in running:
+                errs.append("%s: server %s is not running" % (at, name))
+            elif op in ("stop", "kill"):
+                running.discard(name)
+        elif op == "repeat" and isinstance(st.get("steps"), list):
+            if track_servers(at, st["steps"], running, errs) != running:
+                errs.append("%s: a repeat must leave the same servers running" % at)
+    return running
+
+
+def all_steps(steps):
+    for st in steps:
+        if isinstance(st, dict):
+            yield st
+            if st.get("op") == "repeat":
+                yield from all_steps(st.get("steps", []))
+
+
 def validate(scenarios, tools, validator):
     errs, ids = [], set()
-    top = {"id", "title", "req", "steps", "env", "unset_env"}
+    top = {"id", "title", "req", "steps", "env", "unset_env", "launcher", "strip_path"}
     for s in scenarios:
         f = s["_file"]
         for k in s:
             if k != "_file" and k not in top:
                 errs.append("%s: unknown top-level key %s" % (f, k))
+        lp, sp = s.get("launcher"), s.get("strip_path")
+        if "launcher" in s and not (isinstance(lp, str) and re.fullmatch(r"[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*", lp)
+                                    and ".." not in lp.split("/")):
+            errs.append("%s: launcher must be a relative path of plain segments, without '..'" % f)
+        if "strip_path" in s and not (isinstance(sp, str) and re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", sp)):
+            errs.append("%s: strip_path must be a bare binary name (no '/')" % f)
+        if "strip_path" in s and "launcher" not in s:
+            errs.append("%s: strip_path needs launcher" % f)
         for k in ("id", "title", "req", "steps"):
             if k not in s:
                 errs.append("%s: missing %s" % (f, k))
@@ -686,71 +1118,10 @@ def validate(scenarios, tools, validator):
         if s.get("id") and f != s["id"] + ".json":
             errs.append("%s: file name must be <id>.json" % f)
         for i, st in enumerate(s.get("steps", [])):
-            where = "%s step %d" % (f, i + 1)
-            op = st.get("op", "call")
-            allowed = STEP_KEYS.get(op)
-            if allowed is None:
-                errs.append("%s: unknown op %r" % (where, op))
-                continue
-            for k in st:
-                if allowed is not None and k not in allowed:
-                    errs.append("%s: unknown key %r for op %s" % (where, k, op))
-            if op == "call":
-                name = st.get("call")
-                expect = st.get("expect", "ok")
-                if expect not in EXPECTS:
-                    errs.append("%s: bad expect %r" % (where, expect))
-                if name not in tools["tools"]:
-                    if not (expect == "protocol_error" and isinstance(name, str)):
-                        errs.append("%s: unknown tool %r" % (where, name))
-                    continue
-                tool = tools["tools"][name]
-                args = st.get("args", {})
-                if expect == "ok":
-                    args = fill_variables(args, tool["input"], tools["$defs"])
-                    for e in validator(args, tool["input"], tools["$defs"]):
-                        errs.append("%s: %s args violate tools.json: %s" % (where, name, e))
-                if tool["audience"] == "hook" and st.get("meta") not in (None, False) and expect == "ok":
-                    errs.append("%s: hook-facing %s sent with _meta must expect error" % (where, name))
-                if expect == "ok":
-                    for k in ("mention", "not_mention", "matches"):
-                        if k in st:
-                            errs.append("%s: %s only applies to expect error or protocol_error" % (where, k))
-                else:
-                    for k in ("save", "assert"):
-                        if k in st:
-                            errs.append("%s: %s only applies to expect ok" % (where, k))
-                    for rx in as_list(st.get("matches")):
-                        try:
-                            re.compile(re.sub(r"\$\{\w+\}", "0", rx))
-                        except re.error as e:
-                            errs.append("%s: bad regex: %s" % (where, e))
-                for j, a in enumerate(st.get("assert", [])):
-                    validate_assert("%s assert %d" % (where, j + 1), a, errs)
-            elif op == "journal":
-                action = st.get("action")
-                if action not in ("load", "check_events", "assert_events", "write"):
-                    errs.append("%s: bad journal action" % where)
-                per_action = {"load": {"where", "into"}, "check_events": {"from", "ended"}, "write": {"form", "from"},
-                              "assert_events": {"from", "events", "last", "count", "absent", "total", "prefix"}}
-                for k in st:
-                    if k not in ("op", "action") and k not in per_action.get(action, set()):
-                        errs.append("%s: key %r does not apply to journal %s" % (where, k, action))
-                if action == "write" and st.get("form") not in ("orig", "v1_all", "v1_but_last", "orig_plus_v3"):
-                    errs.append("%s: journal write needs a known form" % where)
-                if action == "assert_events" and not any(k in st for k in ("events", "last", "count", "absent", "total", "prefix")):
-                    errs.append("%s: assert_events asserts nothing" % where)
-                if st.get("where", "active") not in ("active", "archive"):
-                    errs.append("%s: where is active or archive" % where)
-            elif op == "fs":
-                if not st.get("assert"):
-                    errs.append("%s: fs step needs assert" % where)
-                for a in st.get("assert", []):
-                    for k in a:
-                        if k not in FS_KEYS:
-                            errs.append("%s: unknown fs assert key %r" % (where, k))
-                    if "path" not in a:
-                        errs.append("%s: fs assert needs path" % where)
+            validate_step("%s step %d" % (f, i + 1), st, tools, validator, errs)
+        track_servers(f, s.get("steps", []), {"main"}, errs)
+        if "launcher" not in s and any(st.get("stub") for st in all_steps(s.get("steps", []))):
+            errs.append("%s: stub steps need launcher" % f)
     return errs
 
 
@@ -807,8 +1178,13 @@ def main(argv):
     RUN_DIR = tempfile.mkdtemp(prefix="run-", dir=SCRATCH)
     print("TAP version 13")
     print("1..%d" % len(scenarios))
-    fails = 0
+    fails = pend = 0
     for n, s in enumerate(scenarios, 1):
+        why = pending_reason(s)
+        if why:
+            pend += 1
+            print("ok %d - %s %s # SKIP %s" % (n, s["id"], s["title"], why))
+            continue
         ok, detail = run_scenario(cmd, s, tools, validator)
         if ok:
             shutil.rmtree(os.path.join(RUN_DIR, s["id"]), ignore_errors=True)
@@ -816,7 +1192,9 @@ def main(argv):
             fails += 1
         print("%s %d - %s %s%s" % ("ok" if ok else "not ok", n, s["id"], s["title"],
                                    (" # " + detail) if detail else ""))
-    print("# %d/%d passed" % (len(scenarios) - fails, len(scenarios)))
+    print("# %d/%d passed" % (len(scenarios) - fails - pend, len(scenarios)))
+    if pend:
+        print("# %d pending (launcher not yet present; not a failure)" % pend)
     try:
         os.rmdir(RUN_DIR)  # empty when every scenario passed
     except OSError:

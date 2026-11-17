@@ -1,0 +1,169 @@
+{
+ "id": "S-61b",
+ "title": "ending an interview archives its journal; archives (and orphaned pid files) older than 30 days are pruned at server start, younger ones and stale-file leftovers under an hour old are kept, older ones removed",
+ "req": [
+  "REQ-61"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-61b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {}
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "nonempty": true
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": "$key/archive/iv-20261116T093015Z-a3f9c2d1.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": "$key/archive/iv-20261116T093016Z-b4a0d3e2.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093016Z-b4a0d3e2",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093017Z-c5b1e4f3.pid",
+   "content": "{}\n"
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093018Z-d6c2f5a4.pid",
+   "content": "{}\n"
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093018Z-d6c2f5a4.pid.stale-1-aabbccdd",
+   "content": "x\n"
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093018Z-d6c2f5a4.pid.stale-2-aabbccdd",
+   "content": "x\n"
+  },
+  {
+   "op": "utime",
+   "path": "$key/archive/iv-20261116T093015Z-a3f9c2d1.jsonl",
+   "age_seconds": 2678400
+  },
+  {
+   "op": "utime",
+   "path": "$key/archive/iv-20261116T093016Z-b4a0d3e2.jsonl",
+   "age_seconds": 2505600
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093017Z-c5b1e4f3.pid",
+   "age_seconds": 2678400
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093018Z-d6c2f5a4.pid",
+   "age_seconds": 2505600
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093018Z-d6c2f5a4.pid.stale-1-aabbccdd",
+   "age_seconds": 7200
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093018Z-d6c2f5a4.pid.stale-2-aabbccdd",
+   "age_seconds": 600
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/archive/iv-20261116T093015Z-a3f9c2d1.jsonl"
+    },
+    {
+     "path": "$key/iv-20261116T093017Z-c5b1e4f3.pid"
+    }
+   ]
+  },
+  {
+   "op": "restart"
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/archive/iv-20261116T093015Z-a3f9c2d1.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/iv-20261116T093016Z-b4a0d3e2.jsonl"
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl"
+    },
+    {
+     "path": "$key/iv-20261116T093017Z-c5b1e4f3.pid",
+     "exists": false
+    },
+    {
+     "path": "$key/iv-20261116T093018Z-d6c2f5a4.pid"
+    },
+    {
+     "path": "$key/iv-20261116T093018Z-d6c2f5a4.pid.stale-1-aabbccdd",
+     "exists": false
+    },
+    {
+     "path": "$key/iv-20261116T093018Z-d6c2f5a4.pid.stale-2-aabbccdd"
+    }
+   ]
+  }
+ ]
+}

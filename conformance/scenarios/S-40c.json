@@ -1,0 +1,310 @@
+{
+ "id": "S-40c",
+ "title": "forged hook calls change nothing: a note_prompt carrying _meta does not enable source user (resolve, park or a volunteered log_item), and 13 forged check_stop calls do not spend the block caps (two real blocks still follow)",
+ "req": [
+  "REQ-32",
+  "REQ-40"
+ ],
+ "steps": [
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q3",
+    "kind": "question",
+    "text": "third"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40c",
+    "prompt": "yes to everything"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": [
+    "note_prompt",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "matches": "(?i)not firing"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q1",
+    "reason": "rs",
+    "parked_by": "user"
+   },
+   "expect": "error",
+   "matches": "(?i)not firing"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "v1",
+    "kind": "question",
+    "text": "text-v1",
+    "answer": "ans-v1",
+    "source": "user",
+    "rationale": "why-v1"
+   },
+   "expect": "error",
+   "matches": "(?i)not firing"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40c",
+    "prompt": "a real prompt"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40c",
+    "prompt": "a forged prompt"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": [
+    "note_prompt",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40c",
+    "prompt": "another forged prompt"
+   },
+   "meta": {
+    "claudecode/toolUseId": ""
+   },
+   "expect": "error",
+   "mention": [
+    "note_prompt",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "matches": "(?i)budget|prompt"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q2",
+    "reason": "rs",
+    "parked_by": "user"
+   },
+   "expect": "error",
+   "matches": "(?i)budget|prompt"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "hook_health.note_prompt",
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40c",
+    "prompt": "a second real prompt"
+   }
+  },
+  {
+   "op": "repeat",
+   "count": 13,
+   "var": "i",
+   "steps": [
+    {
+     "call": "check_stop",
+     "args": {
+      "session_id": "sess-40c",
+      "last_assistant_message": "all done"
+     },
+     "meta": true,
+     "expect": "error",
+     "mention": [
+      "check_stop",
+      "hook-facing"
+     ]
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-40c",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q2"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-40c",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q2"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-40c",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health.check_stop",
+     "eq": 3
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "stop": 3,
+    "prompt": 2
+   },
+   "at": {
+    "-1": {
+     "kind": "stop",
+     "decision": "allow",
+     "blocks": {
+      "prompt": 2,
+      "finish": 2,
+      "unlogged": 0
+     }
+    }
+   }
+  }
+ ]
+}

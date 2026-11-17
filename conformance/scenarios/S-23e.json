@@ -1,0 +1,133 @@
+{
+ "id": "S-23e",
+ "title": "an allowed finish attempt because the caps are spent still writes the decision log, and the interview stays active",
+ "req": [
+  "REQ-23",
+  "REQ-42"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-23e",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text one"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-23e",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-23e",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "decision_log",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-23e",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "decision_log",
+     "matches": "decision-${iid}\\.md$"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: ${le}\nstate: active\nmode: register\nend_kind: none\nimplicit_start: [^\\n]+\n",
+     "mode": "600"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,196 @@
+{
+ "id": "S-30b",
+ "title": "a log_item with a caller-supplied id that is already used errors 'duplicate id: <id>' for any status, logs nothing and writes no journal event",
+ "req": [
+  "REQ-30"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-30b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-30b",
+    "last_assistant_message": "q1: first"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "into": "pre"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "last_event",
+     "eq": "$n_pre"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "decision",
+    "text": "second use of q1"
+   },
+   "expect": "error",
+   "mention": "duplicate id: q1"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second use of a resolved id"
+   },
+   "expect": "error",
+   "mention": "duplicate id: q2"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "subquestion",
+    "text": "x",
+    "parent": "q2"
+   },
+   "expect": "error",
+   "mention": "duplicate id: q1"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "last_event",
+     "eq": "$n_pre"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "len": 2
+    },
+    {
+     "path": "tree.0.text",
+     "eq": "first"
+    },
+    {
+     "path": "tree.0.kind",
+     "eq": "question"
+    },
+    {
+     "path": "tree.1.text",
+     "eq": "second"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-30b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-30b",
+    "last_assistant_message": "q1: first"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "into": "post"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "from": "post",
+   "prefix": "pre",
+   "count": {
+    "item": 2
+   },
+   "absent": [
+    "end"
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "from": "post",
+   "ended": false
+  }
+ ]
+}

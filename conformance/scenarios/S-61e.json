@@ -1,0 +1,161 @@
+{
+ "id": "S-61e",
+ "title": "an unwritable journal directory never fails a call: begin_interview, log_item, check_stop and status still succeed, status.write_error is set, and it clears (with the queued events written in order) after a later successful write",
+ "req": [
+  "REQ-61",
+  "REQ-50"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-61e",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "op": "seed",
+   "path": "$key",
+   "mkdir": true,
+   "mode": "500"
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "while unwritable"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "write_error",
+     "matches": "\\S"
+    },
+    {
+     "path": "last_event",
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-61e",
+    "last_assistant_message": "Q1: while unwritable?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "write_error",
+     "matches": "\\S"
+    },
+    {
+     "path": "last_event",
+     "eq": 4
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "second"
+   }
+  },
+  {
+   "op": "seed",
+   "path": "$key",
+   "mkdir": true,
+   "mode": "700"
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-61e",
+    "last_assistant_message": "Q1: while unwritable?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "write_error",
+     "eq": null
+    },
+    {
+     "path": "last_event",
+     "eq": 7
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "start": 1,
+    "item": 2,
+    "stop": 2,
+    "hook": 2
+   },
+   "total": 7
+  }
+ ]
+}

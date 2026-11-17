@@ -1,0 +1,107 @@
+{
+ "id": "S-43r",
+ "title": "words of a stale item's answer do not count towards overlap: only the item text is compared",
+ "req": [
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43r",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "storage engine choice"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "retention period policy",
+    "depends_on": [
+     "Q1"
+    ]
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q2",
+    "answer": "alpha bravo charlie",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "Q1",
+    "reason": "again"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43r",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43r",
+    "last_assistant_message": "alpha bravo charlie, what now?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    }
+   ],
+   "count": {
+    "stop": 1
+   }
+  }
+ ]
+}

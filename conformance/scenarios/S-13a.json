@@ -1,0 +1,273 @@
+{
+ "id": "S-13a",
+ "title": "while no interview is active, note_prompt, check_stop and skill_started (unlisted name) only record last_seen_session_id (bound by the next begin_interview) and, for note_prompt, prompt_seen: no interview, journal, counters or tree, and the hook-facing results stay empty or {}",
+ "req": [
+  "REQ-13",
+  "REQ-27",
+  "REQ-41"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-13a-note_prompt",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "eq": []
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    },
+    {
+     "path": "last_event",
+     "eq": 0
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": true
+     }
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "normal"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "session_id": "sess-13a-note_prompt",
+     "route": "begin_interview",
+     "prompt_count": 1
+    }
+   }
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "total": 2
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-13a-check_stop",
+    "last_assistant_message": "just chatting"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "eq": []
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "normal"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "session_id": "sess-13a-check_stop",
+     "route": "begin_interview",
+     "prompt_count": 0
+    }
+   }
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "total": 2
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-13a-skill_started",
+    "skill": "wayfinder"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "eq": []
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "normal"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "session_id": "sess-13a-skill_started",
+     "route": "begin_interview",
+     "prompt_count": 0
+    }
+   }
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "total": 2
+  }
+ ]
+}

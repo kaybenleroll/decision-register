@@ -1,0 +1,304 @@
+{
+ "id": "S-34a",
+ "title": "a decision item is resolved (and logged with an answer) only with source user and parked only with parked_by user; the rejections name the id and change nothing; questions are unaffected",
+ "req": [
+  "REQ-34",
+  "REQ-32",
+  "REQ-33"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-34a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d1",
+    "kind": "decision",
+    "text": "decision one"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d2",
+    "kind": "decision",
+    "text": "decision two"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "a question"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "another question"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d1",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "mention": "d1"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "d1",
+    "reason": "r",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": "d1"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d3",
+    "kind": "decision",
+    "text": "decided by the model",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "mention": "d3"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 4,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "len": 4
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-34a",
+    "prompt": "d1: go with option b"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d1",
+    "answer": "option b",
+    "source": "user",
+    "rationale": "user chose"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-34a",
+    "prompt": "d2: not now"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "d2",
+    "reason": "user wants it later",
+    "parked_by": "user"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d2",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "mention": "d2"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-34a",
+    "prompt": "d4: option c"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d4",
+    "kind": "decision",
+    "text": "volunteered decision",
+    "answer": "option c",
+    "source": "user",
+    "rationale": "user volunteered"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "ok",
+    "source": "model",
+    "rationale": "model may answer a question"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q2",
+    "reason": "model may park a question",
+    "parked_by": "model"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 3,
+      "parked": 2,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "d2"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.0.parked_by",
+     "eq": "user"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "q2"
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.1.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "d1"
+    },
+    {
+     "path": "tree.2.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.2.source",
+     "eq": "user"
+    },
+    {
+     "path": "tree.2.answer",
+     "eq": "option b"
+    },
+    {
+     "path": "tree.3.id",
+     "eq": "q1"
+    },
+    {
+     "path": "tree.3.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.3.source",
+     "eq": "model"
+    },
+    {
+     "path": "tree.4.id",
+     "eq": "d4"
+    },
+    {
+     "path": "tree.4.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.4.source",
+     "eq": "user"
+    },
+    {
+     "path": "tree.4.answer",
+     "eq": "option c"
+    }
+   ]
+  }
+ ]
+}

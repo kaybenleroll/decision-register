@@ -1,0 +1,251 @@
+{
+ "id": "S-22a",
+ "title": "starting resets counters and caps and stamps a new id; the invoking prompt (prompt_seen) is kept as prompt 1, whereas prompts of the earlier interview are not carried over",
+ "req": [
+  "REQ-22",
+  "REQ-27"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-22a",
+    "prompt": "first"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first interview item"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-22a",
+    "prompt": "second"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-22a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-22a",
+    "last_assistant_message": "all done again"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-22a",
+    "last_assistant_message": "still done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "last": {
+    "kind": "stop",
+    "decision": "allow"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid1": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 2,
+      "skill_started": 0,
+      "check_stop": 3,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "stop here"
+   },
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "ended_incomplete_by_model"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-22a",
+    "prompt": "kickoff of the second interview"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid2": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 1,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "eq": []
+    },
+    {
+     "path": "last_event",
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "interview_id",
+     "ne": "$iid1"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "second interview item"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-22a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "prompt_count": 1,
+     "interview_id": "$iid2"
+    }
+   },
+   "last": {
+    "kind": "stop",
+    "decision": "block",
+    "blocks": {
+     "prompt": 1,
+     "finish": 1,
+     "unlogged": 0
+    }
+   }
+  }
+ ]
+}

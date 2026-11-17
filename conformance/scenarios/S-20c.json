@@ -1,0 +1,130 @@
+{
+ "id": "S-20c",
+ "title": "the model-invoked route (PreToolUse, the same skill_started call after the typed one) yields the same interview: no second start, the pending interview and its id are unchanged and the second call is only counted",
+ "req": [
+  "REQ-20",
+  "REQ-22"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-20c",
+    "prompt": "/grill-me"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-20c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-20c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 1,
+      "skill_started": 2,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    },
+    {
+     "path": "last_event",
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-20c",
+    "last_assistant_message": "chat"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "start": 1,
+    "hook": 2
+   },
+   "total": 3,
+   "at": {
+    "2": {
+     "kind": "hook",
+     "tool": "skill_started",
+     "session_id": "sess-20c"
+    }
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    }
+   ]
+  }
+ ]
+}

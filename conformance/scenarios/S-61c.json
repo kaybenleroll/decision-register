@@ -1,0 +1,317 @@
+{
+ "id": "S-61c",
+ "title": "two servers on one project never share or archive each other's journals: each journal holds only its own events, ending one interview archives only that one, and neither server offers the other's journal for resume",
+ "req": [
+  "REQ-61"
+ ],
+ "steps": [
+  {
+   "op": "start",
+   "server": "b"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-61c-a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "a only"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-61c-b",
+    "prompt": "my answer is below"
+   },
+   "server": "b"
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid_b": "interview_id"
+   },
+   "server": "b"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "b one"
+   },
+   "server": "b"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "b two"
+   },
+   "server": "b"
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-61c-a",
+    "last_assistant_message": "chat"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-61c-b",
+    "last_assistant_message": "chat"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ],
+   "server": "b"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid_a": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_b"
+    }
+   ],
+   "server": "b"
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "into": "a"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "from": "a",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "from": "a",
+   "count": {
+    "item": 1,
+    "start": 1
+   },
+   "each": {
+    "item": {
+     "text": "a only"
+    }
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "server": "b"
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "into": "b"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "from": "b",
+   "count": {
+    "item": 2,
+    "start": 1
+   }
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid_a}.jsonl"
+    },
+    {
+     "path": "$key/${iid_a}.pid"
+    },
+    {
+     "path": "$key/${iid_b}.jsonl"
+    },
+    {
+     "path": "$key/${iid_b}.pid"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "b done"
+   },
+   "server": "b"
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid_a}.jsonl"
+    },
+    {
+     "path": "$key/${iid_a}.pid"
+    },
+    {
+     "path": "$key/archive/${iid_a}.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/${iid_b}.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/${iid_b}.jsonl",
+     "nonempty": true
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_a"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  },
+  {
+   "op": "stop",
+   "server": "b"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_a"
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "a done"
+   }
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/archive/${iid_a}.jsonl",
+     "nonempty": true
+    },
+    {
+     "path": "$key/${iid_a}.jsonl",
+     "exists": false
+    }
+   ]
+  }
+ ]
+}

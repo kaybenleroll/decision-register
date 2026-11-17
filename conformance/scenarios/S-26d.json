@@ -1,0 +1,183 @@
+{
+ "id": "S-26d",
+ "title": "begin_interview and an implicit start bind to the latest last_seen_session_id recorded by a hook call; only with no hook call seen do they fall back to CLAUDE_CODE_SESSION_ID",
+ "req": [
+  "REQ-26",
+  "REQ-27",
+  "REQ-21"
+ ],
+ "steps": [
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {}
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "session_id": "env-26d"
+    }
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-26d-a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-26d-b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "x"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {}
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "session_id": "sess-26d-b",
+     "route": "implicit"
+    }
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-26d-c",
+    "last_assistant_message": "chat"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {}
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "session_id": "sess-26d-c",
+     "route": "begin_interview"
+    }
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-26d-d",
+    "skill": "unlisted-skill"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {}
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "session_id": "sess-26d-d"
+    }
+   }
+  }
+ ],
+ "env": {
+  "CLAUDE_CODE_SESSION_ID": "env-26d"
+ }
+}

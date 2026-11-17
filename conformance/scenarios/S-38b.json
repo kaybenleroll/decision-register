@@ -1,0 +1,301 @@
+{
+ "id": "S-38b",
+ "title": "a model-parked item can be resolved or re-parked (model reason replaced, or with parked_by user after a prompt); a user-parked item cannot be parked again but can be resolved; resolving clears the park fields",
+ "req": [
+  "REQ-33",
+  "REQ-38"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-38b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "m1",
+    "kind": "question",
+    "text": "t1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "m2",
+    "kind": "question",
+    "text": "t2"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "m3",
+    "kind": "question",
+    "text": "t3"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "m1",
+    "reason": "model reason",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "m2",
+    "reason": "model reason 2",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "m3",
+    "reason": "model reason 3",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "m1",
+    "answer": "resolved after park",
+    "source": "model",
+    "rationale": "model may resolve a model park"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "m3",
+    "reason": "second model reason",
+    "parked_by": "model"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree.0.id",
+     "eq": "m2"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.0.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.0.park_reason",
+     "eq": "model reason 2"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "m3"
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.1.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.1.park_reason",
+     "eq": "second model reason"
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "m1"
+    },
+    {
+     "path": "tree.2.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.2.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.2.park_reason",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-38b",
+    "prompt": "park m2 as well"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "m2",
+    "reason": "user asked for it",
+    "parked_by": "user"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree.0.id",
+     "eq": "m2"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.0.parked_by",
+     "eq": "user"
+    },
+    {
+     "path": "tree.0.park_reason",
+     "eq": "user asked for it"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-38b",
+    "prompt": "again"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "m2",
+    "reason": "again",
+    "parked_by": "user"
+   },
+   "expect": "error",
+   "mention": [
+    "m2",
+    "Parked"
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "m2",
+    "reason": "again",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": [
+    "m2",
+    "Parked"
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "m2",
+    "answer": "now answered",
+    "source": "model",
+    "rationale": "resolving a user park"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 2,
+      "parked": 1,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "m3"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "m1"
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "m2"
+    },
+    {
+     "path": "tree.2.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.2.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.2.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.2.answer",
+     "eq": "now answered"
+    }
+   ]
+  }
+ ]
+}

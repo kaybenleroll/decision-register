@@ -1,0 +1,261 @@
+{
+ "id": "S-52a",
+ "title": "an unfinished journal with a dead owner: status shows it as resumable; begin_interview, log_item, resolve, park and reopen are refused with the unfinished-journal message and change nothing; hook calls still work",
+ "req": [
+  "REQ-52"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid_c": "interview_id",
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "open 1"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-52a",
+    "last_assistant_message": "Q1: open 1?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    }
+   ]
+  },
+  {
+   "op": "kill"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "resumable.0.interview_id",
+     "eq": "$iid_c"
+    },
+    {
+     "path": "resumable.0.last_event",
+     "eq": "$le"
+    },
+    {
+     "path": "resumable",
+     "len": 1
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "expect": "error",
+   "mention": "unfinished journal: call resume or discard"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "x"
+   },
+   "expect": "error",
+   "mention": "unfinished journal: call resume or discard"
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "unfinished journal: call resume or discard"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "Q1",
+    "reason": "rs",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": "unfinished journal: call resume or discard"
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "Q1",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": "unfinished journal: call resume or discard"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "resumable.0.interview_id",
+     "eq": "$iid_c"
+    },
+    {
+     "path": "last_event",
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52a-2",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-52a-2",
+    "last_assistant_message": "Which one?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-52a-2",
+    "skill": "unlisted"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "resumable",
+     "len": 1
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_c"
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "now allowed"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  }
+ ]
+}

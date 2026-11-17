@@ -1,0 +1,170 @@
+{
+ "id": "S-63a",
+ "title": "the log's journal_position equals status.last_event right after an allowed finish attempt (fresh) and is smaller than it after a later event (stale), until the next allowed finish attempt rewrites it",
+ "req": [
+  "REQ-63"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-63a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "x"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-63a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le1": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?m)^journal_position: ${le1}$"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "later"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le2": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "last_event",
+     "ne": "$le1"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?m)^journal_position: ${le1}$"
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?m)^state: complete$"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-63a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le3": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "last_event",
+     "ne": "$le2"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?m)^journal_position: ${le3}$"
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?m)^state: complete$"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,160 @@
+{
+ "id": "S-21b",
+ "title": "an implicit start on log_item with no interview starts straight into active (route implicit, no skill, bound to last_seen_session_id) and the decision log flags it; a begin_interview start does not carry the flag",
+ "req": [
+  "REQ-21",
+  "REQ-62"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-21b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "implicit item"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-21b",
+    "last_assistant_message": "chat"
+   }
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "route": "implicit",
+     "skill": null,
+     "implicit": true,
+     "session_id": "sess-21b",
+     "interview_id": "$iid"
+    }
+   },
+   "count": {
+    "start": 1
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "normal"
+    },
+    {
+     "path": "decision_log",
+     "matches": "decision-iv-"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-$iid.md",
+     "matches": "(?m)^implicit_start: true$",
+     "root": "project"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-$iid.md",
+     "matches": "(?m)^mode: register$",
+     "root": "project"
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {}
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-$iid.md",
+     "matches": "(?m)^implicit_start: false$",
+     "root": "project"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "route": "begin_interview",
+     "implicit": false,
+     "skill": "grill-me"
+    }
+   }
+  }
+ ]
+}

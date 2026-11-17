@@ -1,0 +1,93 @@
+{
+ "id": "S-26g",
+ "title": "a session change ends an interview whose only item is user-parked as normal, not abandoned (a user-parked item is not open)",
+ "req": [
+  "REQ-26"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-26g-a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "parked by the user"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q1",
+    "reason": "later",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-26g-b",
+    "prompt": "new session"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?m)^end_kind: normal$"
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "nonempty": true
+    },
+    {
+     "path": "$key/${iid}.jsonl",
+     "exists": false
+    }
+   ]
+  }
+ ]
+}

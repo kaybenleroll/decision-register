@@ -1,5 +1,5 @@
 {
- "tool_schema": 3,
+ "tool_schema": 4,
  "journal_schema": 2,
  "conventions": {
   "transport": "MCP over stdio, newline-delimited JSON-RPC 2.0; tools/call result.content[0].text carries the result.",
@@ -8,8 +8,18 @@
   "ids": "Item ids match ^[A-Za-z0-9_.-]{1,64}$. Statuses are capitalised (Open, Resolved, Parked, Stale); the items counts in status use lower-case keys.",
   "unknown_arguments": "Input schemas set additionalProperties false: an unknown argument is an error, so a model-facing tool cannot be handed a session id.",
   "errors": "Every domain failure (invalid arguments, refused transition, unknown id, rule violation, wrong state, unfinished journal, mismatch, _meta rejection) is a tools/call result with isError true and a single text content item holding a plain-text message that contains the substrings named in the errors table; it is never a JSON-RPC error. JSON-RPC errors are only for a malformed protocol request (unparseable JSON, unknown method, unknown tool name, malformed params envelope). A failing call changes no state and writes no journal event.",
-  "no_effect_on_error": "A call that returns an error changes nothing: it does not start an interview, engage a pending one, return a complete one to active, change a counter or cap, or write a journal event. Hook-facing calls that are rejected (row 2 or 3) do not record last_seen_session_id or count as hook calls.",
-  "patterns": "A trailing $ in a pattern means end of string and does not match before a final newline: ECMAScript and Rust regex already behave so; Python's re does not, so contract/check_contract.py (and any Python suite code) must translate a trailing $ to \\Z. Single-line fields (rationale, ids) therefore reject a trailing newline, and the oneline definition also rejects the line separators VT, FF, NEL, U+2028 and U+2029."
+  "no_effect_on_error": "A call that returns an error changes nothing: it does not start an interview, engage a pending one, return a complete one to active, change a counter or cap, or write a journal event. The one exception is the in-memory status.version_mismatch flag: a begin_interview that fails on a tool_schema mismatch still sets it (a matching call clears it), and it writes no journal event even when an interview is pending. Hook-facing calls that are rejected (row 2 or 3) do not record last_seen_session_id or count as hook calls.",
+  "budget_point": "A budget point is one unit of the per-prompt allowance of REQ-32: a user prompt sets the allowance to max(1, p), p being the number of distinct items the classifier named as presented since the previous user prompt (flat 4 when the classifier returned unknown), and each accepted source user answer (resolve, or log_item with an answer) or parked_by user park spends one. The per-prompt budget alone governs: there is no ordering rule between a prompt and model actions or Stop calls, so a model action between the prompt and the answer does not invalidate it. The rejection text is `user-answer budget spent:` followed by the used and allowed counts.",
+ "hook_rules": [
+  "Confirmed readings (REQ-23, REQ-26, REQ-52, REQ-62): a session change ends an interview as abandoned only when items are open (a user-parked item is not counted open) and is checked alike on note_prompt, check_stop and skill_started, the triggering call then behaving as with no interview; the decision-log directory (.scratch/ or decision-logs/) is chosen at the interview's first log and kept; resume restores hook_health counts and finish-gate caps and sets prompt_seen false; a v1 journal line of a kind outside item, resolve, park and reopen fails replay at its line; resume and discard refuse in active and complete with wrong state: <state>; begin_interview and log_item in active ignore an unfinished journal; a crash while complete resumes as active; unfinished journals are listed most recently modified first; a log written by an allowed finish attempt has journal_position equal to status.last_event right after it.",
+  "Block caps count blocks only: once the gate fails open, the journal stop event's blocks field stays at 2, 8 or 12 (per prompt, to finish, unlogged), it does not keep counting allowed turns.",
+  "The per-prompt cap of 2 is shared by finish blocks and unlogged-question blocks; a note_prompt resets only the per-prompt count.",
+  "An allowed finish attempt past a cap fails open: the interview stays active (not complete) and the decision log is still written (REQ-23).",
+  "A stop event is written only while the interview is active; none is written in none, pending or complete.",
+  "Quoted lines (lines whose first non-blank character is >) are stripped before the ? test, together with fenced code, inline code and URLs.",
+  "hook_health.note_prompt is 1 after an interview starts when a prompt had been seen: the prompt that preceded the start counts once, however many inactive prompts (before any interview) came before it; the inactive ones are not counted individually, and later non-injected prompts add 1 each."
+ ],
+ "patterns": "A trailing $ in a pattern means end of string and does not match before a final newline: ECMAScript and Rust regex already behave so; Python's re does not, so contract/check_contract.py (and any Python suite code) must translate a trailing $ to \\Z. Single-line fields (rationale, ids) therefore reject a trailing newline, and the oneline definition also rejects the line separators VT, FF, NEL, U+2028 and U+2029."
  },
  "$defs": {
   "id": {
@@ -384,19 +394,19 @@
    "examples": {
     "input_good": [
      {
-      "tool_schema": 3,
+      "tool_schema": 4,
       "skill": "grill-me",
       "mode": "register"
      }
     ],
     "input_bad": [
      {
-      "tool_schema": 3,
+      "tool_schema": 4,
       "skill": "grill-me",
       "mode": "plain"
      },
      {
-      "tool_schema": 3,
+      "tool_schema": 4,
       "skill": "grill-me",
       "mode": "register",
       "session_id": "s1"
@@ -1097,7 +1107,7 @@
     "result_good": [
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1122,7 +1132,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -1200,7 +1210,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1234,7 +1244,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
@@ -1261,12 +1271,12 @@
     "result_bad": [
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "state": "none"
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "running",
       "interview_id": null,
@@ -1289,7 +1299,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "ended",
       "interview_id": null,
@@ -1312,7 +1322,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -1388,7 +1398,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -1464,7 +1474,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -1540,7 +1550,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -1616,7 +1626,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1639,7 +1649,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1665,7 +1675,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1688,7 +1698,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1718,7 +1728,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Resume an unfinished journal (REQ-52): accepted only in state none or pending; rebinds to last_seen_session_id; claims the pid file exclusively. id may be omitted when exactly one unfinished journal exists; when several exist the error lists them. An id naming a live-owned journal is refused (journal is live-owned), distinct from losing the claim race (journal already claimed). Wrong state, no journal, unknown id: see errors. Replay failure names the 1-based line number and leaves state unchanged (REQ-60). The result state is always active (a journal whose last events include complete replays to active; the complete state is not restored). Not a start-engaging call.",
+   "description": "Resume an unfinished journal (REQ-52): accepted only in state none or pending; rebinds to last_seen_session_id; claims the pid file exclusively. id may be omitted when exactly one unfinished journal exists; when several exist the error lists them. An id naming a live-owned journal is refused (journal is live-owned) even when no unfinished journal exists, so journal is live-owned wins over no unfinished journal; losing the claim race (journal already claimed) is distinct, and is left to implementation unit tests, not the suite. Wrong state, no journal, unknown id: see errors. Replay failure names the 1-based line number and leaves state unchanged (REQ-60). The result state is always active (a journal whose last events include complete replays to active; the complete state is not restored). Not a start-engaging call.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -2035,7 +2045,7 @@
    "mutating": false,
    "rejects_meta": true,
    "engages_pending": false,
-   "description": "UserPromptSubmit hook: counts a user prompt and records last_seen_session_id, even when no interview is active (REQ-13, REQ-27). Rejects any call carrying _meta claudecode/toolUseId. Returns empty text or exactly {} (REQ-41).",
+   "description": "UserPromptSubmit hook: counts a user prompt and records last_seen_session_id, even when no interview is active (REQ-13, REQ-27). A harness-injected agent-message prompt (the prompt text begins, at character 0 with no trimming, with the exact characters `<agent-message `, as in the V10 subagent hand-back `<agent-message from=\"<agent id>\">`) is not a user prompt: after the `_meta` check the call is a complete no-op returning {} (no prompt count, no prompt_seen, no budget or answer-rule refresh, no hook-health count, no last_seen_session_id update, no journal event) (REQ-41). Rejects any call carrying _meta claudecode/toolUseId. Returns empty text or exactly {} (REQ-41).",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -2123,7 +2133,7 @@
    "examples": {
     "input_good": [
      {
-      "tool_schema": 3,
+      "tool_schema": 4,
       "session_id": "s1",
       "skill": "grill-me"
      }
@@ -2134,7 +2144,7 @@
       "skill": "grill-me"
      },
      {
-      "tool_schema": 3,
+      "tool_schema": 4,
       "session_id": "s1"
      },
      {
@@ -2158,7 +2168,7 @@
    "mutating": false,
    "rejects_meta": true,
    "engages_pending": false,
-   "description": "Stop hook: records last_seen_session_id, classifies the turn and applies the finish gate (REQ-42, REQ-43). Returns {} to allow or a block decision whose reason names the open items (first 10, text truncated to 120 characters, REQ-45). Rejects _meta claudecode/toolUseId. Fails open.",
+   "description": "Stop hook: records last_seen_session_id, classifies the turn and applies the finish gate (REQ-42, REQ-43), which also flags a parent that has children but fewer than N unless the user parked it (parked_by user) or the user resolved it (source user) (REQ-35). Returns {} to allow or a block decision whose reason names the open items (first 10, text truncated to 120 characters, then `N more` with N the count of open items not listed, e.g. `2 more`, `1 more`; nothing when 10 or fewer are open, REQ-45). Rejects _meta claudecode/toolUseId. Fails open.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -2266,7 +2276,7 @@
   },
   {
    "tools": "resolve",
-   "when": "decision item with source model; or REQ-35 parent with fewer than N children and source model",
+   "when": "decision item with source model; or REQ-35 parent that has children but fewer than N and source model (a parent with no children is not a branch and the model may resolve it)",
    "message_names": "the item id",
    "check": 9
   },
@@ -2278,7 +2288,7 @@
   },
   {
    "tools": "resolve|park|log_item",
-   "when": "source or parked_by user without a user prompt since the budget point",
+   "when": "source or parked_by user with no budget point left for the current user prompt because no user prompt has arrived (hooks not firing, REQ-44) or none since the previous prompt's allowance was spent (a budget point is one unit of the per-prompt allowance, see conventions.budget_point)",
    "message_names": "a message saying so; when no prompt hook call was ever seen, a message saying hooks are not firing (REQ-44)",
    "check": 10
   },
@@ -2392,7 +2402,7 @@
   },
   {
    "tools": "resolve|log_item",
-   "when": "source user, a prompt exists but the per-prompt budget max(1, p) (flat 4 when the classifier returned unknown) is spent (REQ-32)",
+   "when": "source or parked_by user, a prompt exists but all budget points of the per-prompt allowance max(1, p) (flat 4 when the classifier returned unknown) are spent (REQ-32)",
    "message_names": "user-answer budget spent: followed by used and allowed counts",
    "check": 10
   },
@@ -2412,8 +2422,8 @@
   "Wrong lifecycle state or nothing to act on, per state_matrix (resume and discard in active/complete; end_interview in none, pending without mode plain, mode plain outside pending, abandon with nothing open; no unfinished journal / unknown id / live owner for resume and discard).",
   "Item lookup: unknown id for resolve, park, reopen, or missing parent / depends_on for log_item (message 'no such item: <id>' or 'missing item: <id>'); duplicate caller id for log_item; subquestion without parent.",
   "Transition table (REQ-38): transition not allowed for the item's current status.",
-  "Kind rules: decision item with source model or parked_by model (REQ-34); under-sized parent resolved by model (REQ-35).",
-  "User-prompt rules: hooks not firing (REQ-44), no user prompt since the budget point, per-prompt budget spent, volunteered-answer cap reached (REQ-32, REQ-33).",
+  "Kind rules: decision item with source model or parked_by model (REQ-34); under-sized parent (has children, fewer than N) resolved by model (REQ-35); a parent with zero children is not under-sized.",
+  "User-prompt rules: hooks not firing (REQ-44), no budget point left, per-prompt budget spent, volunteered-answer cap reached (REQ-32, REQ-33).",
   "Open items without abandon true and a reason (end_interview only; checked after row 6 so a wrong state is reported first)."
  ],
  "state_matrix": {
