@@ -1,0 +1,204 @@
+{
+ "id": "S-26b",
+ "title": "a start after a session change ends the old interview first and then starts a new one (the session check precedes the no-op start): a pending one is stood down, an active one with open items abandoned; the new interview is pending, has a new id and is bound to the new session",
+ "req": [
+  "REQ-22",
+  "REQ-26"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-26b-a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-26b-a",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid1": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-26b-b",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid2": "interview_id",
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "interview_id",
+     "ne": "$iid1"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-26b-b",
+    "last_assistant_message": "chat"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "route": "hook",
+     "session_id": "sess-26b-b",
+     "interview_id": "$iid2"
+    }
+   }
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/archive/${iid1}.jsonl",
+     "nonempty": true
+    },
+    {
+     "path": "$key/${iid1}.jsonl",
+     "exists": false
+    },
+    {
+     "path": "decision-logs/decision-${iid1}.md",
+     "root": "project",
+     "matches": "(?m)^end_kind: stood_down$"
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "open item"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-26b-c",
+    "prompt": "/clear then grill-me"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-26b-c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid3": "interview_id",
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "interview_id",
+     "ne": "$iid2"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid2}.md",
+     "root": "project",
+     "matches": "(?m)^end_kind: abandoned$"
+    },
+    {
+     "path": "$key/archive/${iid2}.jsonl",
+     "nonempty": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-26b-c",
+    "last_assistant_message": "chat"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "at": {
+    "1": {
+     "kind": "start",
+     "route": "hook",
+     "session_id": "sess-26b-c",
+     "interview_id": "$iid3"
+    }
+   }
+  }
+ ]
+}
