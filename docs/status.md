@@ -245,3 +245,9 @@ Open items for the user:
 - Scenarios: new S-43u pins 1 to 4 (closing wrapper, multi-digit markers, marker needs a space or tab, double-backtick span versus single-backtick span with the journal row telling unlogged from finish). Suite 127 scenarios.
 - Spec questions 1 to 5 of the previous entry are resolved. Mutants (`.scratch/mutants_cls.py`, now 234): 222 killed; the 12 survivors are the 12 equivalents in the mutation report (the new tab mutant is killed by the tab row). C_line_wrapper_post_none, C_line_no_indent, C_line_marker_numeric_1digit and C_inline_nonempty are killed.
 - Verified: the four checks exit 0 before each commit.
+
+## 2026-11-17 (build plan gaps: user decisions; #34; branch docs-plan-gaps)
+
+- Corrections: V9 and V10 are verified (PR #41; issues #38 and #39 closed); M0 exit says `tool_schema` 4; P1 REQ line includes REQ-15.
+- User decisions, 2026-11-17: (1) the pending launcher scenarios S-73a and S-73b do not count against "full suite green" for M2: green means every non-pending scenario passes; they are required green at P1. (2) I5 does not depend on P1. (3) V3 runs against the I3 branch build before merge and gates the I3 merge. (4) V5 is a confirmation: it records the observed empty-message form in S-43c/S-43g; the user revisits the allow rule in `contract/classifier.md` only if the harness behaves differently.
+- Verified: the four checks exit 0 on each commit.
