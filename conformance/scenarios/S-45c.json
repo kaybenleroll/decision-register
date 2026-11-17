@@ -1,0 +1,319 @@
+{
+ "id": "S-45c",
+ "title": "with 12 open items the Stop reason lists the first 10 only and says '2 more' (1 more with 11, nothing with 10); item text of 130 characters is truncated to 120",
+ "req": [
+  "REQ-45",
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-45c",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-01",
+    "kind": "question",
+    "text": "T01-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-02",
+    "kind": "question",
+    "text": "T02-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-03",
+    "kind": "question",
+    "text": "T03-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-04",
+    "kind": "question",
+    "text": "T04-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-05",
+    "kind": "question",
+    "text": "T05-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-06",
+    "kind": "question",
+    "text": "T06-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-07",
+    "kind": "question",
+    "text": "T07-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-08",
+    "kind": "question",
+    "text": "T08-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-09",
+    "kind": "question",
+    "text": "T09-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-10",
+    "kind": "question",
+    "text": "T10-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-11",
+    "kind": "question",
+    "text": "T11-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "item-12",
+    "kind": "question",
+    "text": "T12-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkEND"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-45c",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "item-01"
+    },
+    {
+     "path": "reason",
+     "contains": "item-10"
+    },
+    {
+     "path": "reason",
+     "contains": "T10-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+    },
+    {
+     "path": "reason",
+     "not_contains": "T10-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+    },
+    {
+     "path": "reason",
+     "not_contains": "END"
+    },
+    {
+     "path": "reason",
+     "not_contains": "T11-"
+    },
+    {
+     "path": "reason",
+     "not_contains": "T12-"
+    },
+    {
+     "path": "reason",
+     "not_contains": "item-11"
+    },
+    {
+     "path": "reason",
+     "not_contains": "item-12"
+    },
+    {
+     "path": "reason",
+     "matches": "(?<!\\d)2 more"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-45c",
+    "prompt": "go on"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "item-12",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-45c",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "item-01"
+    },
+    {
+     "path": "reason",
+     "contains": "item-10"
+    },
+    {
+     "path": "reason",
+     "contains": "T10-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+    },
+    {
+     "path": "reason",
+     "not_contains": "T10-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+    },
+    {
+     "path": "reason",
+     "not_contains": "END"
+    },
+    {
+     "path": "reason",
+     "not_contains": "T11-"
+    },
+    {
+     "path": "reason",
+     "not_contains": "T12-"
+    },
+    {
+     "path": "reason",
+     "not_contains": "item-11"
+    },
+    {
+     "path": "reason",
+     "matches": "(?<!\\d)1 more"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-45c",
+    "prompt": "go on"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "item-11",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-45c",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "item-01"
+    },
+    {
+     "path": "reason",
+     "contains": "item-10"
+    },
+    {
+     "path": "reason",
+     "contains": "T10-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+    },
+    {
+     "path": "reason",
+     "not_contains": "T10-kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+    },
+    {
+     "path": "reason",
+     "not_contains": "END"
+    },
+    {
+     "path": "reason",
+     "not_contains": "T11-"
+    },
+    {
+     "path": "reason",
+     "not_contains": "T12-"
+    },
+    {
+     "path": "reason",
+     "matches": "item-10"
+    },
+    {
+     "path": "reason",
+     "not_contains": "more"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 10,
+      "resolved": 2,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}
