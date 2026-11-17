@@ -40,7 +40,7 @@ def rejects(fragment, *steps, **extra):
 
 # ---------------------------------------------------------------- a tiny fake server for the execution tests
 # `python3 -I selftest.py --fake`: speaks just enough MCP over stdio for the driver. Every tools/call appends the
-# tool name to <CLAUDE_PLUGIN_DATA>/calls.log and returns empty text (valid for the hook-facing tools); exits at EOF.
+# tool name to <CLAUDE_PLUGIN_DATA>/calls.log (as "<tool> <pid>") and returns empty text (valid for the hook-facing tools); exits at EOF.
 
 def fake_server():
     data = os.environ.get("CLAUDE_PLUGIN_DATA", ".")
@@ -50,7 +50,7 @@ def fake_server():
             continue
         if m["method"] == "tools/call":
             with open(os.path.join(data, "calls.log"), "a") as f:
-                f.write(m["params"]["name"] + "\n")
+                f.write("%s %d\n" % (m["params"]["name"], os.getpid()))
             res = {"content": [{"type": "text", "text": ""}]}
         else:
             res = {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}}, "serverInfo": {"name": "fake", "version": "0"}}
@@ -135,17 +135,57 @@ def repeat_steps_are_validated_per_pass():
 @test
 def repeat_runs_each_pass():
     plays({"op": "repeat", "count": 3, "var": "i", "steps": [NOTE]},
-          {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\A(note_prompt\n){3}\Z"}]})
+          {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\A(note_prompt \d+\n){3}\Z"}]})
     plays({"op": "repeat", "rows": [{"p": "a"}, {"p": "b"}],
            "steps": [{"call": "note_prompt", "args": {"session_id": "s", "prompt": "$p"}}]},
-          {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\A(note_prompt\n){2}\Z"}]})
+          {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\A(note_prompt \d+\n){2}\Z"}]})
 
 
 @test
 def repeat_binds_its_variable():
     # the count variable reaches the pass: a wrong expected count fails
     fails("does not match", {"op": "repeat", "count": 2, "var": "i", "steps": [NOTE]},
-          {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\A(note_prompt\n){3}\Z"}]})
+          {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\A(note_prompt \d+\n){3}\Z"}]})
+
+
+# ---------------------------------------------------------------- two servers
+
+def on(name, step):
+    return dict(step, server=name)
+
+
+@test
+def servers_parsed():
+    accepts({"op": "start", "server": "b"}, on("b", NOTE), on("b", {"op": "tools_list"}), {"op": "restart", "server": "b"},
+            {"op": "stop", "server": "b"}, {"op": "stop"}, {"op": "start"})
+    accepts({"op": "repeat", "count": 2, "var": "i", "steps": [{"op": "restart", "server": "main"}]})
+
+
+@test
+def servers_rejected_when_malformed():
+    rejects("server is a lower-case name", {"op": "start", "server": "B"})
+    rejects("server is a lower-case name", on(7, NOTE))
+    rejects("already running", {"op": "start"})
+    rejects("already running", {"op": "start", "server": "b"}, {"op": "start", "server": "b"})
+    rejects("server b is not running", on("b", NOTE))
+    rejects("server b is not running", {"op": "stop", "server": "b"})
+    rejects("server main is not running", {"op": "stop"}, NOTE)
+    rejects("server main is not running", {"op": "stop"}, {"op": "stop"})
+    rejects("same servers running", {"op": "repeat", "count": 2, "var": "i", "steps": [{"op": "start", "server": "b"}]})
+    rejects("unknown key", {"op": "start", "server": "b", "env": {}})
+
+
+@test
+def servers_run_side_by_side():
+    plays({"op": "start", "server": "b"}, NOTE, on("b", NOTE), NOTE,
+          {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\A(note_prompt ${pid}\n)(note_prompt ${pid_b}\n)(note_prompt ${pid}\n)\Z"}]},
+          {"op": "stop", "server": "b"}, {"op": "start", "server": "b"}, {"op": "restart", "server": "b"})
+
+
+@test
+def servers_a_stopped_one_cannot_be_called():
+    fails("not running", {"op": "start", "server": "b"}, {"op": "stop", "server": "b"}, on("b", NOTE))
+    fails("already running", {"op": "start", "server": "b"}, {"op": "start", "server": "b"})
 
 
 # ---------------------------------------------------------------- per-event journal assertions

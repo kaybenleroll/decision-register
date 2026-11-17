@@ -284,12 +284,19 @@ class Run:
             os.makedirs(d)
         self.vars = {"dir": self.dir, "data": self.data, "proj": self.proj, "cwd": os.path.realpath(self.cwd)}
         self.lines = None
-        self.srv = None
+        self.servers = {}  # running server processes by name; the scenario's own server is "main"
         self.env = None
         self.jl = {}  # loaded journals by name
         self.obs = []  # observed values behind each passed assertion, for the TAP detail
 
-    def start(self):
+    def server(self, name="main"):
+        if name not in self.servers:
+            raise AssertionError("server %r is not running" % name)
+        return self.servers[name]
+
+    def start(self, name="main"):
+        if name in self.servers:
+            raise AssertionError("server %r is already running" % name)
         env = dict(os.environ, CLAUDE_PLUGIN_DATA=self.data, CLAUDE_PROJECT_DIR=self.proj)
         # the contract's optional variables are set only by the scenarios that test them (runtime.md)
         for k in ("CLAUDE_CODE_SESSION_ID", "REGSPIKE_CLOCK_OFFSET_SECONDS"):
@@ -302,16 +309,18 @@ class Run:
         # contract/runtime.md: project path = CLAUDE_PROJECT_DIR if set and non-empty, else the working directory
         # as the operating system reports it
         self.vars["key"] = project_key(env.get("CLAUDE_PROJECT_DIR") or os.path.realpath(self.cwd))
-        self.srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"), self.cwd)
-        self.srv.initialize()
-        self.vars["pid"] = self.srv.p.pid
+        srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"), self.cwd)  # all servers share the log
+        self.servers[name] = srv
+        srv.initialize()
+        self.vars["pid" if name == "main" else "pid_" + name] = srv.p.pid
 
-    def stop_server(self):
-        """Close the running server and require a graceful exit on stdin EOF."""
-        srv, self.srv = self.srv, None
-        if srv and not srv.close():
-            raise AssertionError("server did not exit within %d s of stdin EOF (runtime.md: exits on stdin EOF)"
-                                 % EXIT_WAIT)
+    def stop_server(self, name="main"):
+        """Close the named server and require a graceful exit on stdin EOF."""
+        srv = self.server(name)
+        del self.servers[name]
+        if not srv.close():
+            raise AssertionError("server %s did not exit within %d s of stdin EOF (runtime.md: exits on stdin EOF)"
+                                 % (name, EXIT_WAIT))
 
     def journal_path(self, where="active"):
         """Journal path per contract/runtime.md: <data>/<project key>/<id>.jsonl (active) or
@@ -327,9 +336,10 @@ class Run:
             return self.env["CLAUDE_PLUGIN_DATA"]
         return os.path.join(self.env.get("TMPDIR", "/tmp"), FALLBACK_DIR)
 
-    def do_tools_list(self):
+    def do_tools_list(self, st):
         """REQ-71: the initialize reply and the tool list (names, input schemas) match contract/tools.json."""
-        init = self.srv.init
+        srv = self.server(st.get("server", "main"))
+        init = srv.init
         assert isinstance(init, dict), "initialize returned no result"
         assert init.get("protocolVersion") == "2024-11-05", "initialize protocolVersion is %r" % init.get("protocolVersion")
         assert isinstance(init.get("capabilities", {}).get("tools"), dict), "initialize lacks capabilities.tools"
@@ -338,7 +348,7 @@ class Run:
             "initialize serverInfo needs a name and a version"
         tools, cursor = [], None
         while True:
-            m = self.srv.rpc("tools/list", {} if cursor is None else {"cursor": cursor})
+            m = srv.rpc("tools/list", {} if cursor is None else {"cursor": cursor})
             assert "result" in m, "tools/list failed: %s" % json.dumps(m.get("error"))
             tools += m["result"].get("tools", [])
             cursor = m["result"].get("nextCursor")
@@ -391,19 +401,20 @@ class Run:
         op = st.get("op", "call")
         if op == "call":
             return self.do_call(st)
+        name = st.get("server", "main")
         if op == "restart":
-            self.stop_server()
-            self.start()
+            self.stop_server(name)
+            self.start(name)
         elif op == "stop":
-            self.stop_server()
+            self.stop_server(name)
         elif op == "start":
-            self.start()
+            self.start(name)
         elif op == "journal":
             self.do_journal(st)
         elif op == "fs":
             self.do_fs(st)
         elif op == "tools_list":
-            self.do_tools_list()
+            self.do_tools_list(st)
         elif op == "repeat":
             for row in repeat_rows(st):
                 self.vars.update(row)
@@ -423,7 +434,7 @@ class Run:
             meta = MODEL_META
         elif meta is False:
             meta = None
-        kind, text = self.srv.call(name, args, meta)
+        kind, text = self.server(st.get("server", "main")).call(name, args, meta)
         expect = st.get("expect", "ok")
         if expect in ("error", "protocol_error"):
             want = "tool_error" if expect == "error" else "protocol_error"
@@ -587,14 +598,15 @@ class Run:
         self.obs.append("journal %s: %d events, checks passed" % (name, len(evs)))
 
     def close(self):
-        """End of scenario: the running server must also exit on stdin EOF."""
-        self.stop_server()
+        """End of scenario: every running server must also exit on stdin EOF."""
+        for name in list(self.servers):
+            self.stop_server(name)
 
     def abort(self):
-        if self.srv:
-            self.srv.kill()
-            self.srv.errf.close()
-            self.srv = None
+        for srv in self.servers.values():
+            srv.kill()
+            srv.errf.close()
+        self.servers = {}
 
 
 def run_scenario(cmd, scen, tools, validator):
@@ -660,11 +672,11 @@ def fill_variables(args, schema, defs):
 
 
 STEP_KEYS = {
-    "call": {"op", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert"},
-    "restart": {"op"}, "stop": {"op"}, "start": {"op"},
+    "call": {"op", "server", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert"},
+    "restart": {"op", "server"}, "stop": {"op", "server"}, "start": {"op", "server"},
     "journal": {"op", "action", "form", "where", "into", "from", "ended", "events", "last", "count", "absent", "total", "prefix", "at", "each"},
     "fs": {"op", "assert"},
-    "tools_list": {"op"},
+    "tools_list": {"op", "server"},
     "repeat": {"op", "count", "var", "rows", "steps"},
 }
 MAX_REPEAT = 200
@@ -709,6 +721,8 @@ def validate_step(where, st, tools, validator, errs):
     for k in st:
         if allowed is not None and k not in allowed:
             errs.append("%s: unknown key %r for op %s" % (where, k, op))
+    if "server" in st and not (isinstance(st["server"], str) and re.match(r"^[a-z][a-z0-9_]*$", st["server"])):
+        errs.append("%s: server is a lower-case name" % where)
     if op == "repeat":
         validate_repeat(where, st, tools, validator, errs)
         return
@@ -823,6 +837,33 @@ def validate_repeat(where, st, tools, validator, errs):
             validate_step("%s pass %d step %d" % (where, n + 1, j + 1), subst(sub, row), tools, validator, errs)
 
 
+def track_servers(where, steps, running, errs):
+    """Follow which servers run, from the one the driver starts ("main"): start needs a stopped name; stop,
+    restart, tools_list and a call need a running one. A repeat must leave the running set as it found it.
+    Returns the running set after the steps."""
+    running = set(running)
+    for i, st in enumerate(steps):
+        if not isinstance(st, dict):
+            continue
+        op, name = st.get("op", "call"), st.get("server", "main")
+        if not isinstance(name, str):
+            continue
+        at = "%s step %d" % (where, i + 1)
+        if op == "start":
+            if name in running:
+                errs.append("%s: server %s is already running" % (at, name))
+            running.add(name)
+        elif op in ("stop", "restart", "tools_list", "call"):
+            if name not in running:
+                errs.append("%s: server %s is not running" % (at, name))
+            elif op == "stop":
+                running.discard(name)
+        elif op == "repeat" and isinstance(st.get("steps"), list):
+            if track_servers(at, st["steps"], running, errs) != running:
+                errs.append("%s: a repeat must leave the same servers running" % at)
+    return running
+
+
 def validate(scenarios, tools, validator):
     errs, ids = [], set()
     top = {"id", "title", "req", "steps", "env", "unset_env"}
@@ -841,6 +882,7 @@ def validate(scenarios, tools, validator):
             errs.append("%s: file name must be <id>.json" % f)
         for i, st in enumerate(s.get("steps", [])):
             validate_step("%s step %d" % (f, i + 1), st, tools, validator, errs)
+        track_servers(f, s.get("steps", []), {"main"}, errs)
     return errs
 
 
