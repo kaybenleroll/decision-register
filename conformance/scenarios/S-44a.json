@@ -1,0 +1,227 @@
+{
+ "id": "S-44a",
+ "title": "a user-sourced answer (resolve, park, or a volunteered log_item) when the server has seen no prompt hook call at all is rejected with a message saying hooks are not firing, whatever other hook calls it has counted (check_stop, skill_started, a start); once a prompt has been seen the message changes to the budget rule",
+ "req": [
+  "REQ-44",
+  "REQ-27"
+ ],
+ "steps": [
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-44a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-44a",
+    "skill": "other-skill"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-44a",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "hook_health.prompt_seen",
+     "eq": false
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q3",
+    "kind": "question",
+    "text": "third"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-44a",
+    "last_assistant_message": "Is the first one settled?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-44a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health.note_prompt",
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "hooks are not firing"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q1",
+    "reason": "rs",
+    "parked_by": "user"
+   },
+   "expect": "error",
+   "mention": "hooks are not firing"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "v1",
+    "kind": "question",
+    "text": "text-v1",
+    "answer": "ans-v1",
+    "source": "user",
+    "rationale": "why-v1"
+   },
+   "expect": "error",
+   "mention": "hooks are not firing"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-44a",
+    "prompt": "yes, the first one"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "not_mention": "hooks are not firing",
+   "matches": "(?i)budget|prompt"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "hook_health.note_prompt",
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}
