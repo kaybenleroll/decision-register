@@ -102,6 +102,13 @@ Entries are appended as the fixes land; all belong to this one bump.
   directory behaviour pinned (fail open, in-memory continues, retry). Why:
   REQ-50 fail-open was unspecified for storage failure (review S3-8).
 
+(no bump, 2026-11-17, walk Q1)  tools.json descriptions of begin_interview and
+skill_started state that the exact-match skill-name list (REQ-24) applies to the
+hook route (skill_started) only, and that begin_interview accepts any non-blank
+skill name. This restates existing behaviour (the none-state row already says an
+unlisted name is accepted); no shape, parameter or error text changes, so
+tool_schema stays 3.
+
 (no bump, 2026-11-16, conformance review S2-7)  contract/journal.schema.json is
 the machine-readable form of journal.md's envelope and 13 event kinds (JSON
 Schema subset, with good and bad examples); check_contract.py ties it to the

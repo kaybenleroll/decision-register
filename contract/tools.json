@@ -337,7 +337,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": true,
-   "description": "Register-mode start by the skill after its status probe (REQ-21). No session id: binds to last_seen_session_id (REQ-27 rule 1). In state none it starts an interview into active (existing false). In state pending it engages it: pending becomes active, the id of the pending interview is returned, existing true (REQ-27 rule 3). In active or complete it is a no-op returning the existing id with the unchanged state and existing true; it does not return a complete interview to active (REQ-22, REQ-27). Refused while an unfinished journal exists (REQ-52). Error on tool_schema mismatch names both values (REQ-77).",
+   "description": "Register-mode start by the skill after its status probe (REQ-21). No session id: binds to last_seen_session_id (REQ-27 rule 1). In state none it starts an interview into active (existing false). In state pending it engages it: pending becomes active, the id of the pending interview is returned, existing true (REQ-27 rule 3). In active or complete it is a no-op returning the existing id with the unchanged state and existing true; it does not return a complete interview to active (REQ-22, REQ-27). Refused while an unfinished journal exists (REQ-52). Error on tool_schema mismatch names both values (REQ-77). Accepts any non-blank skill name: the exact-match skill-name list (REQ-24) applies only to the hook route (skill_started), not to this call.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -2096,7 +2096,7 @@
    "mutating": false,
    "rejects_meta": true,
    "engages_pending": false,
-   "description": "UserPromptExpansion and PreToolUse(Skill) hooks: a skill name exactly matching the configured list starts a pending interview (REQ-20, REQ-24). Never blocks or denies; on a tool_schema mismatch returns {} and records the mismatch for status (REQ-77). Rejects _meta claudecode/toolUseId. Returns empty text or exactly {}.",
+   "description": "UserPromptExpansion and PreToolUse(Skill) hooks: a skill name exactly matching the configured list starts a pending interview (REQ-20, REQ-24). The list applies to this hook route only; begin_interview accepts any non-blank skill name. Never blocks or denies; on a tool_schema mismatch returns {} and records the mismatch for status (REQ-77). Rejects _meta claudecode/toolUseId. Returns empty text or exactly {}.",
    "input": {
     "type": "object",
     "additionalProperties": false,
