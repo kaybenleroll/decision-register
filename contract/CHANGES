@@ -18,6 +18,13 @@ an example that violates its schema, a missing state_matrix cell or an errors ro
 without a valid precedence number.
 
 Log (newest first)
+
+(no bump, 2026-11-17)  contract/classifier.md: the finish-attempt classifier rules
+(label forms, stripping, finish attempt, concerned items, content words, the
+88-word stop list, empty-message rule) and the note that `unknown` is covered by
+implementation unit tests only. Restates build plan 5.1 and adds the decisions of
+2026-11-17; no tool name, parameter, result shape or journal event shape changes,
+so tool_schema stays 4.
 ------------------
 
 tool_schema 4  (decision round of 2026-11-17)
