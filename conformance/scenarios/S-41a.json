@@ -1,0 +1,175 @@
+{
+ "id": "S-41a",
+ "title": "the prompt counter advances once per note_prompt (an empty or blank prompt counts): prompts seen before the start keep only one (start.prompt_count 1, prompt_seen cleared); each later prompt writes a prompt event with the next count and a hook event, and hook_health.note_prompt follows",
+ "req": [
+  "REQ-41",
+  "REQ-44"
+ ],
+ "steps": [
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health.prompt_seen",
+     "eq": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41a",
+    "prompt": "one"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "hook_health.prompt_seen",
+     "eq": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41a",
+    "prompt": "two"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "hook_health.prompt_seen",
+     "eq": true
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 1,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "op": "repeat",
+   "count": 3,
+   "var": "i",
+   "steps": [
+    {
+     "call": "note_prompt",
+     "args": {
+      "session_id": "sess-41a",
+      "prompt": "prompt ${i}"
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41a",
+    "prompt": ""
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41a",
+    "prompt": "   "
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health.note_prompt",
+     "eq": 6
+    },
+    {
+     "path": "hook_health.prompt_seen",
+     "eq": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-41a",
+    "last_assistant_message": "all done"
+   }
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "start",
+     "prompt_count": 1
+    },
+    {
+     "kind": "prompt",
+     "count": 2
+    },
+    {
+     "kind": "prompt",
+     "count": 3
+    },
+    {
+     "kind": "prompt",
+     "count": 4
+    },
+    {
+     "kind": "prompt",
+     "count": 5
+    },
+    {
+     "kind": "prompt",
+     "count": 6
+    }
+   ],
+   "count": {
+    "prompt": 5,
+    "hook": 6
+   }
+  }
+ ]
+}
