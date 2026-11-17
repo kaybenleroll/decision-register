@@ -1,0 +1,369 @@
+{
+ "id": "S-43t",
+ "title": "question-mark test stripping details: only backtick fences, one-line inline code, https? URLs and quote lines whose first non-blank character is > are removed, in that order, and only the ASCII ? counts",
+ "req": [
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "storage engine choice"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "retention period policy"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "Visit http://example.com/a?b=1 now."
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "Use `foo\nbar?` carefully"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "```a```\nWhat now?\n```b```"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "~~~\nIs it?\n~~~"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "  > Is it fast?\nOk then."
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "\t> Is it fast?\nOk then."
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "- > Is it fast?\nOk then."
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "a -> b?\nOk then."
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "> ```\nIs it?\n> ```"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "Is it fast\uff1f"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "What now? Ok."
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43t",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43t",
+    "last_assistant_message": "What now?\nOk then."
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "block",
+     "presented": []
+    }
+   ],
+   "count": {
+    "stop": 12
+   }
+  }
+ ]
+}
