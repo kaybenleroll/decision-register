@@ -1,0 +1,281 @@
+{
+ "id": "S-30a",
+ "title": "item fields (id, kind, text, parent, depends_on, status, answer, source, rationale) round-trip through status for every kind, with and without a volunteered answer",
+ "req": [
+  "REQ-30",
+  "REQ-45"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-30a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "Which store: \"SQLite\" or Postgres? (ü, naïve)"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "sq1",
+    "kind": "subquestion",
+    "text": "sub of q1",
+    "parent": "q1",
+    "depends_on": [
+     "q1"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d1",
+    "kind": "decision",
+    "text": "decide the store",
+    "depends_on": [
+     "q1",
+     "sq1"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "volunteered",
+    "answer": "ans q2",
+    "source": "model",
+    "rationale": "because q2"
+   },
+   "assert": [
+    {
+     "path": "id",
+     "eq": "q2"
+    },
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "q1"
+    },
+    {
+     "path": "tree.0.kind",
+     "eq": "question"
+    },
+    {
+     "path": "tree.0.text",
+     "eq": "Which store: \"SQLite\" or Postgres? (ü, naïve)"
+    },
+    {
+     "path": "tree.0.parent",
+     "eq": null
+    },
+    {
+     "path": "tree.0.depends_on",
+     "eq": []
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.0.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.0.source",
+     "eq": null
+    },
+    {
+     "path": "tree.0.rationale",
+     "eq": null
+    },
+    {
+     "path": "tree.0.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.0.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "sq1"
+    },
+    {
+     "path": "tree.1.kind",
+     "eq": "subquestion"
+    },
+    {
+     "path": "tree.1.text",
+     "eq": "sub of q1"
+    },
+    {
+     "path": "tree.1.parent",
+     "eq": "q1"
+    },
+    {
+     "path": "tree.1.depends_on",
+     "eq": [
+      "q1"
+     ]
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.1.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.1.source",
+     "eq": null
+    },
+    {
+     "path": "tree.1.rationale",
+     "eq": null
+    },
+    {
+     "path": "tree.1.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.1.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "d1"
+    },
+    {
+     "path": "tree.2.kind",
+     "eq": "decision"
+    },
+    {
+     "path": "tree.2.text",
+     "eq": "decide the store"
+    },
+    {
+     "path": "tree.2.parent",
+     "eq": null
+    },
+    {
+     "path": "tree.2.depends_on",
+     "eq": [
+      "q1",
+      "sq1"
+     ]
+    },
+    {
+     "path": "tree.2.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.2.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.2.source",
+     "eq": null
+    },
+    {
+     "path": "tree.2.rationale",
+     "eq": null
+    },
+    {
+     "path": "tree.2.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.2.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.3.id",
+     "eq": "q2"
+    },
+    {
+     "path": "tree.3.kind",
+     "eq": "question"
+    },
+    {
+     "path": "tree.3.text",
+     "eq": "volunteered"
+    },
+    {
+     "path": "tree.3.parent",
+     "eq": null
+    },
+    {
+     "path": "tree.3.depends_on",
+     "eq": []
+    },
+    {
+     "path": "tree.3.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.3.answer",
+     "eq": "ans q2"
+    },
+    {
+     "path": "tree.3.source",
+     "eq": "model"
+    },
+    {
+     "path": "tree.3.rationale",
+     "eq": "because q2"
+    },
+    {
+     "path": "tree.3.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.3.park_reason",
+     "eq": null
+    }
+   ]
+  }
+ ]
+}
