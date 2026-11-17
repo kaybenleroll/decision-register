@@ -38,4 +38,6 @@ Steps (`op` defaults to `call`):
 
 - `seed`: `{"op": "seed", "path": "rel/path", "root": "data"|"project" (as for fs), "mode": "600", and exactly one of "content": text, "lines": [object or text, ...] (objects as JSON lines), "json": object (one JSON line, e.g. a pid file), "mkdir": true}` creates or replaces a file (or directory) as a crashed or earlier server might have left it; parent directories get mode 0700, files 0600 unless `mode`. `path` expands `$key`, `$iid` and `${variables}`. `$start` (and `$start_b`, ...) is the start time of the server process in clock ticks (field 22 of `/proc/<pid>/stat`, null where unreadable) for a pid file of a live owner; `$dead_pid`, defined once a seed mentions it, is the pid of a process that has exited, for a pid file of a dead one.
 
+- `stderr`: `{"op": "stderr", "assert": [{"empty": true|false} | {"contains": text} | {"not_contains": text} | {"matches": regex} | {"not_matches": regex}]}` checks what the server processes have written to standard error so far (the one `server.stderr.log`, shared by every named server); one operator per entry, `${variables}` expand.
+
 The TAP detail of a passing scenario lists the values the assertions observed.

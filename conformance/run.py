@@ -431,6 +431,26 @@ class Run:
         os.chmod(p, mode)
         self.obs.append("seeded %s (%d bytes)" % (st["path"], len(text)))
 
+    def do_stderr(self, st):
+        """Assertions on what the server processes wrote to standard error so far (server.stderr.log, shared by
+        every named server): `empty`, `contains`, `not_contains`, `matches`, `not_matches`."""
+        with open(os.path.join(self.dir, "server.stderr.log"), encoding="utf-8", errors="replace") as f:
+            text = f.read()
+        for a in st["assert"]:
+            op = [k for k in a][0]
+            want = subst(a[op], self.vars)
+            if op == "empty" and bool(text) == want:
+                raise AssertionError("stderr %s: %r" % ("is not empty" if want else "is empty", text[:150]))
+            if op == "contains" and want not in text:
+                raise AssertionError("stderr lacks %r: %r" % (want, text[:150]))
+            if op == "not_contains" and want in text:
+                raise AssertionError("stderr should not contain %r: %r" % (want, text[:150]))
+            if op == "matches" and not re.search(want, text):
+                raise AssertionError("stderr does not match /%s/: %r" % (want, text[:150]))
+            if op == "not_matches" and re.search(want, text):
+                raise AssertionError("stderr should not match /%s/: %r" % (want, text[:150]))
+            self.obs.append("stderr %s %s (%d bytes)" % (op, json.dumps(want)[:40], len(text)))
+
     def do_fs(self, st):
         for a in st["assert"]:
             p = self.fs_path(a)
@@ -474,6 +494,8 @@ class Run:
             self.do_fs(st)
         elif op == "seed":
             self.do_seed(st)
+        elif op == "stderr":
+            self.do_stderr(st)
         elif op == "tools_list":
             self.do_tools_list(st)
         elif op == "repeat":
@@ -739,11 +761,13 @@ STEP_KEYS = {
     "fs": {"op", "assert"},
     "tools_list": {"op", "server"},
     "repeat": {"op", "count", "var", "rows", "steps"},
+    "stderr": {"op", "assert"},
     "seed": {"op", "path", "root", "content", "lines", "json", "mkdir", "mode"},
 }
 MAX_REPEAT = 200
 FS_KEYS = {"path", "root", "exists", "mode", "matches", "nonempty"}
 FS_ROOTS = ("data", "project")
+STDERR_OPS = ("empty", "contains", "not_contains", "matches", "not_matches")
 EXPECTS = ("ok", "error", "protocol_error")
 
 
@@ -869,6 +893,24 @@ def validate_step(where, st, tools, validator, errs):
             if "path" not in a:
                 errs.append("%s: fs assert needs path" % where)
             check_path(where, a, errs)
+    elif op == "stderr":
+        if not isinstance(st.get("assert"), list) or not st["assert"]:
+            errs.append("%s: stderr step needs a non-empty assert list" % where)
+        for a in st.get("assert", []) if isinstance(st.get("assert"), list) else []:
+            if not isinstance(a, dict) or len(a) != 1 or next(iter(a)) not in STDERR_OPS:
+                errs.append("%s: a stderr assert entry has exactly one operator (%s)" % (where, ", ".join(STDERR_OPS)))
+                continue
+            op_, val = next(iter(a.items()))
+            if op_ == "empty":
+                if not isinstance(val, bool):
+                    errs.append("%s: stderr empty needs a boolean" % where)
+            elif not isinstance(val, str):
+                errs.append("%s: stderr %s needs a string" % (where, op_))
+            elif op_ in ("matches", "not_matches"):
+                try:
+                    re.compile(re.sub(r"\$\{\w+\}", "0", val))
+                except re.error as e:
+                    errs.append("%s: bad regex: %s" % (where, e))
     elif op == "seed":
         check_path(where, st, errs)
         if "path" not in st or st.get("path") == "":

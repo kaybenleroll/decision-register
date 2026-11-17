@@ -51,6 +51,9 @@ def fake_server():
         if m["method"] == "tools/call":
             with open(os.path.join(data, "calls.log"), "a") as f:
                 f.write("%s %d\n" % (m["params"]["name"], os.getpid()))
+            if os.environ.get("FAKE_STDERR"):
+                sys.stderr.write(os.environ["FAKE_STDERR"] + "\n")
+                sys.stderr.flush()
             if os.environ.get("FAKE_PROJECT_FILE"):  # a stand-in for the decision log, below the project path
                 path = os.path.join(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd(), os.environ["FAKE_PROJECT_FILE"])
                 os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -272,6 +275,42 @@ def seed_dead_pid_is_not_running():
     r_pid = run.proc_start(os.getpid())
     assert r_pid is None or r_pid > 0
     assert run.proc_start(2 ** 22 + 12345) is None
+
+
+# ---------------------------------------------------------------- stderr assertions
+
+@test
+def stderr_parsed():
+    accepts({"op": "stderr", "assert": [{"empty": True}, {"empty": False}, {"contains": "x"}, {"not_contains": "y"},
+                                        {"matches": r"^warn \d+$"}, {"not_matches": "Traceback"}]})
+    accepts({"op": "stderr", "assert": [{"contains": "pid ${pid}"}]})
+
+
+@test
+def stderr_rejected_when_malformed():
+    rejects("non-empty assert list", {"op": "stderr"})
+    rejects("non-empty assert list", {"op": "stderr", "assert": []})
+    rejects("exactly one operator", {"op": "stderr", "assert": [{}]})
+    rejects("exactly one operator", {"op": "stderr", "assert": [{"contains": "a", "empty": False}]})
+    rejects("exactly one operator", {"op": "stderr", "assert": [{"eq": "a"}]})
+    rejects("exactly one operator", {"op": "stderr", "assert": ["a"]})
+    rejects("empty needs a boolean", {"op": "stderr", "assert": [{"empty": "yes"}]})
+    rejects("contains needs a string", {"op": "stderr", "assert": [{"contains": 3}]})
+    rejects("bad regex", {"op": "stderr", "assert": [{"matches": "("}]})
+    rejects("bad regex", {"op": "stderr", "assert": [{"not_matches": "["}]})
+    rejects("unknown key", {"op": "stderr", "assert": [{"empty": True}], "server": "main"})
+
+
+@test
+def stderr_runs():
+    plays({"op": "stderr", "assert": [{"empty": True}]}, NOTE,
+          {"op": "stderr", "assert": [{"empty": False}, {"contains": "boom 1"}, {"not_contains": "boom 2"},
+                                      {"matches": r"^boom \d$"}, {"not_matches": "Traceback"}]}, env={"FAKE_STDERR": "boom 1"})
+    plays({"op": "stderr", "assert": [{"empty": True}]}, NOTE, {"op": "stderr", "assert": [{"empty": True}]})
+    fails("stderr is empty", NOTE, {"op": "stderr", "assert": [{"empty": False}]})
+    for bad in ({"contains": "boom 2"}, {"not_contains": "boom"}, {"matches": "^x"}, {"not_matches": "boom"}):
+        fails("stderr", NOTE, {"op": "stderr", "assert": [bad]}, env={"FAKE_STDERR": "boom 1"})
+    fails("stderr is not empty", NOTE, {"op": "stderr", "assert": [{"empty": True}]}, env={"FAKE_STDERR": "boom 1"})
 
 
 # ---------------------------------------------------------------- SIGKILL
