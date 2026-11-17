@@ -186,6 +186,40 @@
      "eq": {}
     }
    ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-41b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-41b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
   }
  ]
 }

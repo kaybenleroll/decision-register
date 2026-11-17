@@ -554,7 +554,8 @@ class Run:
             return
         if kind != "ok":
             raise AssertionError("%s %s unexpectedly failed (%s): %s" % (name, args, kind, text[:150]))
-        body = {} if (text.strip() == "" and tool["audience"] == "hook") else json.loads(text)
+        # result_text (tools.json): only note_prompt and skill_started may return empty text; check_stop never does
+        body = {} if (text == "" and name in ("note_prompt", "skill_started")) else json.loads(text)
         errs = self.check(body, tool["result"], self.tools["$defs"])
         if errs:
             raise AssertionError("%s result violates tools.json: %s" % (name, "; ".join(errs[:3])))

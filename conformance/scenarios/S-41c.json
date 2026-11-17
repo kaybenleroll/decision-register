@@ -11,7 +11,7 @@
   {
    "call": "note_prompt",
    "args": {
-    "session_id": "sess-41c",
+    "session_id": "sess-agent",
     "prompt": "<agent-message from=\"a69a4f75543c0b107\">\n[Subagent hand-back] The text below is the final result.\nuser said yes"
    },
    "assert": [
@@ -291,6 +291,33 @@
      }
     }
    ]
+  },
+  {
+   "op": "stop"
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "start",
+     "interview_id": "$iid",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": null,
+     "implicit": false,
+     "prompt_count": 0
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
   }
  ]
 }
