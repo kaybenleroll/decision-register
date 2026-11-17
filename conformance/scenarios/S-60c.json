@@ -353,6 +353,35 @@
        "implicit": false,
        "prompt_count": 0
       },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      "{not json"
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093016Z-b4a0d3e2",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "old",
+       "implicit": false,
+       "prompt_count": 0
+      },
       "{not json",
       {
        "v": 2,
