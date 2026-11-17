@@ -42,6 +42,17 @@ Entries are appended as the decisions land; all belong to this one bump.
   user-prompt-since refresh, hook_health count, last_seen_session_id update or
   journal event. Behaviour change, no new field or event, so journal_schema
   stays 2.
+- Budget wording (user decision 2026-11-17): the per-prompt budget governs and
+  there is no ordering rule between a prompt and model actions or Stop calls
+  (REQ-32 amended). "Budget point" is defined (conventions.budget_point): one
+  unit of the per-prompt allowance max(1, p), flat 4 when the classifier returned
+  unknown. Error rows reworded to use it; messages and behaviour unchanged.
+- Six confirmed hook behaviours written down (conventions.hook_rules): block
+  caps count blocks only; the per-prompt cap of 2 is shared by finish and
+  unlogged blocks; a fail-open allow leaves the interview active and writes the
+  log; stop events only while active; quoted lines stripped before the ?
+  test; hook_health.note_prompt is 1 after a start preceded by inactive prompts.
+  Text only, no schema change.
 - Hook output contract (REQ-41, V8 verified 2026-11-17): hook-facing tools return
   only empty text or the exact documented JSON shape (note_prompt, skill_started:
   empty or {}; check_stop: {} or the decision object), because the harness acts
