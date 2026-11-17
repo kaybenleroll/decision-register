@@ -1,0 +1,195 @@
+{
+ "id": "S-33b",
+ "title": "parked_by user is rejected with no prompt (hooks not firing), and again once the prompt's budget is spent; each rejection changes nothing; a model park needs no prompt",
+ "req": [
+  "REQ-33",
+  "REQ-32",
+  "REQ-44"
+ ],
+ "steps": [
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "up1",
+    "kind": "question",
+    "text": "text-up1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "up2",
+    "kind": "question",
+    "text": "text-up2"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "mp1",
+    "kind": "question",
+    "text": "text-mp1"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "mp1",
+    "reason": "model needs no prompt",
+    "parked_by": "model"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "up1",
+    "reason": "claimed by the user",
+    "parked_by": "user"
+   },
+   "expect": "error",
+   "matches": "(?i)not firing"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 0,
+      "parked": 1,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "up1"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    },
+    {
+     "path": "last_event",
+     "eq": 5
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-33b",
+    "prompt": "park up1 please"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "up1",
+    "reason": "claimed by the user",
+    "parked_by": "user"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "up2",
+    "reason": "second claim, no new prompt",
+    "parked_by": "user"
+   },
+   "expect": "error",
+   "matches": "(?i)prompt"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 2,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "up2"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.0.parked_by",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-33b",
+    "prompt": "and up2"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "up2",
+    "reason": "after a new prompt",
+    "parked_by": "user"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 3,
+      "stale": 0
+     }
+    },
+    {
+     "path": "last_event",
+     "eq": 11
+    }
+   ]
+  }
+ ]
+}
