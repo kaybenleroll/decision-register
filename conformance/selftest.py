@@ -221,6 +221,59 @@ def fs_root_selects_the_directory():
     fails("missing", NOTE, {"op": "fs", "assert": [{"path": "decision-logs/d.md", "root": "project"}]})
 
 
+# ---------------------------------------------------------------- seeding files
+
+@test
+def seed_parsed():
+    accepts({"op": "seed", "path": "$key/x.pid", "json": {"pid": "$dead_pid", "start": None, "interview_id": "x"}},
+            {"op": "seed", "path": "$key/x.jsonl", "lines": [{"v": 2, "seq": 1, "kind": "start"}, "not json"], "mode": "0644"},
+            {"op": "seed", "path": "a.txt", "content": "text\n", "root": "project"},
+            {"op": "seed", "path": ".scratch", "mkdir": True, "root": "project"})
+
+
+@test
+def seed_rejected_when_malformed():
+    rejects("exactly one of content, lines, json and mkdir", {"op": "seed", "path": "a"})
+    rejects("exactly one of content, lines, json and mkdir", {"op": "seed", "path": "a", "content": "", "json": {}})
+    rejects("seed needs a path", {"op": "seed", "content": "x"})
+    rejects("seed needs a path", {"op": "seed", "path": "", "content": "x"})
+    rejects("stays inside", {"op": "seed", "path": "../a", "content": "x"})
+    rejects("stays inside", {"op": "seed", "path": "/tmp/a", "content": "x"})
+    rejects("fs root is one of", {"op": "seed", "path": "a", "content": "x", "root": "tmp"})
+    rejects("content is a string", {"op": "seed", "path": "a", "content": 3})
+    rejects("lines is a list", {"op": "seed", "path": "a", "lines": [1]})
+    rejects("lines is a list", {"op": "seed", "path": "a", "lines": "x"})
+    rejects("json is an object", {"op": "seed", "path": "a", "json": []})
+    rejects("mkdir is true", {"op": "seed", "path": "a", "mkdir": False})
+    rejects("octal string", {"op": "seed", "path": "a", "content": "x", "mode": 600})
+    rejects("octal string", {"op": "seed", "path": "a", "content": "x", "mode": "999"})
+    rejects("unknown key", {"op": "seed", "path": "a", "content": "x", "exists": True})
+
+
+@test
+def seed_writes_what_it_says():
+    plays({"op": "seed", "path": "$key/i1.pid", "json": {"pid": "$dead_pid", "start": None, "interview_id": "i1"}},
+          {"op": "seed", "path": "$key/i1.jsonl", "lines": [{"kind": "start", "n": "${pid}"}, "raw", {"s": "$start"}], "mode": "640"},
+          {"op": "seed", "path": "$key/archive", "mkdir": True},
+          {"op": "seed", "path": "docs/a.txt", "content": "one\n", "root": "project"},
+          {"op": "seed", "path": "docs/a.txt", "content": "two ${pid}\n", "root": "project"},
+          {"op": "fs", "assert": [
+              {"path": "$key/i1.pid", "mode": "600", "matches": r'\A\{"pid": ${dead_pid}, "start": null, "interview_id": "i1"\}\n\Z'},
+              {"path": "$key/i1.jsonl", "mode": "640", "matches": r'\A\{"kind": "start", "n": "${pid}"\}\nraw\n\{"s": \d+\}\n\Z'},
+              {"path": "$key/archive", "mode": "700"},
+              {"path": "$key", "mode": "700"},
+              {"path": "docs/a.txt", "root": "project", "matches": r"\Atwo ${pid}\n\Z"}]})
+
+
+@test
+def seed_dead_pid_is_not_running():
+    plays({"op": "seed", "path": "p", "content": "${dead_pid}"},
+          {"op": "fs", "assert": [{"path": "p", "matches": r"\A\d+\Z"}]})
+    r_pid = run.proc_start(os.getpid())
+    assert r_pid is None or r_pid > 0
+    assert run.proc_start(2 ** 22 + 12345) is None
+
+
 # ---------------------------------------------------------------- SIGKILL
 
 @test

@@ -264,6 +264,16 @@ def check_assert(name, a, body, vars_):
     return "%s=%s" % (where, json.dumps(val)[:60])
 
 
+def proc_start(pid):
+    """Start time of a process in clock ticks since boot (field 22 of /proc/<pid>/stat), None where unreadable
+    (contract/runtime.md, Pid file and claim)."""
+    try:
+        with open("/proc/%d/stat" % pid) as f:
+            return int(f.read().rsplit(")", 1)[1].split()[19])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
 def repeat_rows(st):
     """The variable bindings of each pass of a `repeat` step: `count` passes with `var` = 1..count, or one pass
     per object of `rows` (each key becomes a variable)."""
@@ -312,7 +322,9 @@ class Run:
         srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"), self.cwd)  # all servers share the log
         self.servers[name] = srv
         srv.initialize()
-        self.vars["pid" if name == "main" else "pid_" + name] = srv.p.pid
+        suffix = "" if name == "main" else "_" + name
+        self.vars["pid" + suffix] = srv.p.pid
+        self.vars["start" + suffix] = proc_start(srv.p.pid)
 
     def stop_server(self, name="main"):
         """Close the named server and require a graceful exit on stdin EOF."""
@@ -383,11 +395,45 @@ class Run:
         """The project path of contract/runtime.md: CLAUDE_PROJECT_DIR if set and non-empty, else the working directory."""
         return self.env.get("CLAUDE_PROJECT_DIR") or os.path.realpath(self.cwd)
 
+    def fs_path(self, a):
+        """Absolute path of an fs or seed entry: `path` (with $key, $iid and ${variables} expanded) below its `root`."""
+        root = self.project_root() if a.get("root") == "project" else self.root()
+        rel = a["path"].replace("$key", self.vars["key"]).replace("$iid", str(self.vars.get("iid", "$iid")))
+        rel = subst(rel, self.vars)
+        return os.path.join(root, rel) if rel else root
+
+    def do_seed(self, st):
+        """Create a file or directory below the data or project root, replacing any file there, as a crashed or
+        earlier server might have left it: `content` (text), `lines` (objects dumped as JSON lines, strings verbatim),
+        `json` (one JSON line, e.g. a pid file) or `mkdir`. Parent directories get mode 0700, files 0600 unless `mode`.
+        `$dead_pid` (the pid of a process that has exited) is available to the content."""
+        if "dead_pid" in json.dumps(st) and "dead_pid" not in self.vars:
+            done = subprocess.Popen([sys.executable, "-c", "pass"])
+            done.wait()
+            self.vars["dead_pid"] = done.pid
+        p = self.fs_path(st)
+        mode = int(st.get("mode", "700" if st.get("mkdir") else "600"), 8)
+        os.makedirs(os.path.dirname(p), mode=0o700, exist_ok=True)
+        if st.get("mkdir"):
+            os.makedirs(p, mode=mode, exist_ok=True)
+            os.chmod(p, mode)
+            self.obs.append("seeded directory %s" % st["path"])
+            return
+        if "json" in st:
+            text = json.dumps(subst(st["json"], self.vars)) + "\n"
+        elif "lines" in st:
+            text = "".join((l if isinstance(l, str) else json.dumps(l)) + "\n" for l in subst(st["lines"], self.vars))
+        else:
+            text = subst(st["content"], self.vars)
+        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.chmod(p, mode)
+        self.obs.append("seeded %s (%d bytes)" % (st["path"], len(text)))
+
     def do_fs(self, st):
         for a in st["assert"]:
-            root = self.project_root() if a.get("root") == "project" else self.root()
-            rel = a["path"].replace("$key", self.vars["key"]).replace("$iid", self.vars.get("iid", "$iid"))
-            p = os.path.join(root, rel) if rel else root
+            p = self.fs_path(a)
             want = a.get("exists", True)
             if os.path.exists(p) != want:
                 raise AssertionError("%s %s" % (p, "missing" if want else "should not exist"))
@@ -426,6 +472,8 @@ class Run:
             self.do_journal(st)
         elif op == "fs":
             self.do_fs(st)
+        elif op == "seed":
+            self.do_seed(st)
         elif op == "tools_list":
             self.do_tools_list(st)
         elif op == "repeat":
@@ -691,6 +739,7 @@ STEP_KEYS = {
     "fs": {"op", "assert"},
     "tools_list": {"op", "server"},
     "repeat": {"op", "count", "var", "rows", "steps"},
+    "seed": {"op", "path", "root", "content", "lines", "json", "mkdir", "mode"},
 }
 MAX_REPEAT = 200
 FS_KEYS = {"path", "root", "exists", "mode", "matches", "nonempty"}
@@ -724,6 +773,14 @@ def validate_assert(where, a, errs):
             re.compile(re.sub(r"\$\{\w+\}", "0", a[op]))
         except (re.error, TypeError) as e:
             errs.append("%s: bad regex: %s" % (where, e))
+
+
+def check_path(where, a, errs):
+    """An fs or seed path is relative to its root and stays inside it; the root is known."""
+    if "path" in a and (not isinstance(a["path"], str) or a["path"].startswith("/") or ".." in a["path"].split("/")):
+        errs.append("%s: fs path is relative to its root and stays inside it" % where)
+    if a.get("root", "data") not in FS_ROOTS:
+        errs.append("%s: fs root is one of %s" % (where, ", ".join(FS_ROOTS)))
 
 
 def validate_step(where, st, tools, validator, errs):
@@ -811,10 +868,24 @@ def validate_step(where, st, tools, validator, errs):
                     errs.append("%s: unknown fs assert key %r" % (where, k))
             if "path" not in a:
                 errs.append("%s: fs assert needs path" % where)
-            elif not isinstance(a["path"], str) or a["path"].startswith("/") or ".." in a["path"].split("/"):
-                errs.append("%s: fs path is relative to its root and stays inside it" % where)
-            if a.get("root", "data") not in FS_ROOTS:
-                errs.append("%s: fs root is one of %s" % (where, ", ".join(FS_ROOTS)))
+            check_path(where, a, errs)
+    elif op == "seed":
+        check_path(where, st, errs)
+        if "path" not in st or st.get("path") == "":
+            errs.append("%s: seed needs a path" % where)
+        given = [k for k in ("content", "lines", "json", "mkdir") if k in st]
+        if len(given) != 1:
+            errs.append("%s: seed needs exactly one of content, lines, json and mkdir" % where)
+        elif given[0] == "content" and not isinstance(st["content"], str):
+            errs.append("%s: seed content is a string" % where)
+        elif given[0] == "lines" and not (isinstance(st["lines"], list) and all(isinstance(l, (str, dict)) for l in st["lines"])):
+            errs.append("%s: seed lines is a list of objects and strings" % where)
+        elif given[0] == "json" and not isinstance(st["json"], dict):
+            errs.append("%s: seed json is an object" % where)
+        elif given[0] == "mkdir" and st["mkdir"] is not True:
+            errs.append("%s: seed mkdir is true" % where)
+        if "mode" in st and not (isinstance(st["mode"], str) and re.match(r"^[0-7]{3,4}$", st["mode"])):
+            errs.append("%s: seed mode is an octal string such as 600" % where)
 
 
 def validate_repeat(where, st, tools, validator, errs):
