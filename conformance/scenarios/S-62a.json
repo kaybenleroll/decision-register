@@ -1,0 +1,292 @@
+{
+ "id": "S-62a",
+ "title": "log location and content: decision-logs/ (with a .gitignore of * and mode 0600) unless .scratch/ exists when the first log of the interview is written, a choice kept for that interview; the log shows the tree, answers with rationale, parked items with reasons and the reopen history",
+ "req": [
+  "REQ-62",
+  "REQ-91"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-62a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "TEXT-AAA"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "TEXT-PARKED"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q3",
+    "kind": "question",
+    "text": "TEXT-REOPENED"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "ANS-BBB",
+    "source": "model",
+    "rationale": "RAT-CCC"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q2",
+    "reason": "PARK-DDD",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q3",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "q3",
+    "reason": "REO-EEE"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q3",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-62a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "decision_log",
+     "matches": "decision-logs/decision-${iid}\\.md$"
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": ".scratch",
+   "mkdir": true,
+   "root": "project"
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "TEXT-AAA",
+     "mode": "600"
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "ANS-BBB",
+     "mode": "600"
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "RAT-CCC",
+     "mode": "600"
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "PARK-DDD",
+     "mode": "600"
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "REO-EEE",
+     "mode": "600"
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "TEXT-PARKED",
+     "mode": "600"
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?i)\\buser\\b",
+     "mode": "600"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/.gitignore",
+     "root": "project",
+     "mode": "600",
+     "matches": "\\A\\*\\n\\Z"
+    },
+    {
+     "path": "decision-logs",
+     "root": "project",
+     "mode": "700"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "ended_after_completion"
+    },
+    {
+     "path": "decision_log",
+     "matches": "/decision-logs/decision-${iid}\\.md$"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": ".scratch/decision-${iid}.md",
+     "root": "project",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-62a",
+    "prompt": "second"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid2": "interview_id",
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "second one"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-62a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "decision_log",
+     "matches": "/\\.scratch/decision-${iid2}\\.md$"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": ".scratch/decision-${iid2}.md",
+     "root": "project",
+     "mode": "600",
+     "matches": "(?m)^interview_id: ${iid2}$"
+    },
+    {
+     "path": "decision-logs/decision-${iid2}.md",
+     "root": "project",
+     "exists": false
+    },
+    {
+     "path": ".scratch/.gitignore",
+     "root": "project",
+     "exists": false
+    }
+   ]
+  }
+ ]
+}
