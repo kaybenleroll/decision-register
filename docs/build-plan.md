@@ -89,7 +89,7 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-22c new start archives only the server's own earlier journal | REQ-22, REQ-61 |
 | S-22d interview ids match `iv-<UTC timestamp>-<8 hex>`; two servers run in turn on one project never reuse an id; server-assigned item ids are `Q<n>` (next unused) and caller-supplied ids are kept | REQ-22, REQ-23, REQ-30 |
 | S-23a allowed finish attempt writes the log; with nothing open the interview becomes `complete`, journal kept | REQ-23, REQ-27, REQ-63 |
-| S-23b `reopen`, `log_item`, `park` or `resolve` in `complete` returns it to `active`; no implicit start | REQ-21, REQ-23, REQ-27 |
+| S-23b `reopen`, `log_item` or `resolve` (of a user-parked item) in `complete` returns it to `active`; no implicit start; a failing `park` (nothing is parkable in `complete`), `resolve` or `reopen` leaves it `complete` | REQ-21, REQ-23, REQ-27 |
 | S-23c `end_interview` with items open refused; with `abandon` and reason accepted; log says "ended incomplete by the model" | REQ-23, REQ-50 |
 | S-23d log file name carries the interview id; second interview does not overwrite | REQ-23 |
 | S-23e allowed finish because caps are spent still writes the log | REQ-23, REQ-42 |
@@ -173,7 +173,7 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-77a `status` returns `server_version`, integer `tool_schema` | REQ-77 |
 | S-77b `begin_interview` with wrong `tool_schema`: error naming both values | REQ-77 |
 | S-77c `skill_started` with wrong `tool_schema` returns `{}` and does not block; `status` reports the recorded mismatch | REQ-77, REQ-41 |
-| S-73a launcher with the binary missing serves a no-op stub MCP server: hook-facing tools return `{}`, `status` returns `{"unavailable":"binary not found"}`, one-line message on stderr | REQ-73, REQ-77 |
+| S-73a launcher with the binary missing serves a no-op stub MCP server: hook-facing tools return `{}`, `status` returns `{"unavailable":"binary not found"}`, one-line message on stderr (authored in C5 with the runner keys `launcher` and `strip_path`; reported `pending P1` until `plugin/bin/regspike-launch` exists, then green) | REQ-73, REQ-77 |
 | S-73b the launcher's binary-missing message differs from the version-mismatch error text | REQ-73, REQ-77 |
 | S-A1 dependent items go Stale on reopen and resolve back one at a time; the tree lists Open, Stale, Parked, Resolved in that order and keeps each answer, source and rationale (kept) | REQ-36, REQ-38, REQ-31, REQ-45 |
 | S-A2 reopen on an Open item errors naming the id and its status; unknown `depends_on` or `resolve` ids error naming the id; a duplicate id errors; blank text and an unknown argument are `invalid arguments:` errors; a failing call leaves the tree and `last_event` unchanged (kept) | REQ-36, REQ-38, REQ-30, REQ-40 |
