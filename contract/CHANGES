@@ -20,6 +20,12 @@ without a valid precedence number.
 Log (newest first)
 ------------------
 
+tool_schema 4  (decision round of 2026-11-17)
+Entries are appended as the decisions land; all belong to this one bump.
+- Version bump only in this commit: tools.json, runtime.md heading and
+  statement, check_contract.py, the selftest and every scenario's
+  begin_interview now carry tool_schema 4. journal_schema stays 2.
+
 tool_schema 3  (review fixes after the three independent reviews, 2026-11-16)
 Entries are appended as the fixes land; all belong to this one bump.
 - begin_interview: in state pending it engages the interview (returns state

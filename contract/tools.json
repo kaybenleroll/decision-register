@@ -1,5 +1,5 @@
 {
- "tool_schema": 3,
+ "tool_schema": 4,
  "journal_schema": 2,
  "conventions": {
   "transport": "MCP over stdio, newline-delimited JSON-RPC 2.0; tools/call result.content[0].text carries the result.",
@@ -384,19 +384,19 @@
    "examples": {
     "input_good": [
      {
-      "tool_schema": 3,
+      "tool_schema": 4,
       "skill": "grill-me",
       "mode": "register"
      }
     ],
     "input_bad": [
      {
-      "tool_schema": 3,
+      "tool_schema": 4,
       "skill": "grill-me",
       "mode": "plain"
      },
      {
-      "tool_schema": 3,
+      "tool_schema": 4,
       "skill": "grill-me",
       "mode": "register",
       "session_id": "s1"
@@ -1097,7 +1097,7 @@
     "result_good": [
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1122,7 +1122,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -1200,7 +1200,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1234,7 +1234,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
@@ -1261,12 +1261,12 @@
     "result_bad": [
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "state": "none"
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "running",
       "interview_id": null,
@@ -1289,7 +1289,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "ended",
       "interview_id": null,
@@ -1312,7 +1312,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -1388,7 +1388,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -1464,7 +1464,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -1540,7 +1540,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
@@ -1616,7 +1616,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1639,7 +1639,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1665,7 +1665,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -1688,7 +1688,7 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 3,
+      "tool_schema": 4,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
@@ -2123,7 +2123,7 @@
    "examples": {
     "input_good": [
      {
-      "tool_schema": 3,
+      "tool_schema": 4,
       "session_id": "s1",
       "skill": "grill-me"
      }
@@ -2134,7 +2134,7 @@
       "skill": "grill-me"
      },
      {
-      "tool_schema": 3,
+      "tool_schema": 4,
       "session_id": "s1"
      },
      {
