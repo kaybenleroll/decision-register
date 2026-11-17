@@ -1,0 +1,268 @@
+{
+ "id": "S-38c",
+ "title": "resolve, park or reopen on an unknown id errors 'no such item: <id>' before any user-prompt rule; from none or pending the call starts and engages nothing and writes nothing; when active it changes nothing",
+ "req": [
+  "REQ-27",
+  "REQ-38",
+  "REQ-21"
+ ],
+ "steps": [
+  {
+   "call": "resolve",
+   "args": {
+    "id": "zz",
+    "answer": "a",
+    "source": "user",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "mention": "no such item: zz",
+   "not_mention": "firing"
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "zz",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "no such item: zz"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "zz",
+    "reason": "rs",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": "no such item: zz"
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "zz",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": "no such item: zz"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "last_event",
+     "eq": 0
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 3,
+    "session_id": "sess-38c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ],
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-38c",
+    "last_assistant_message": "hello"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "zz",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "no such item: zz"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "zz",
+    "reason": "rs",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": "no such item: zz"
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "zz",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": "no such item: zz"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "absent": [
+    "engage",
+    "item",
+    "resolve",
+    "park",
+    "reopen",
+    "end"
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "zz",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "no such item: zz"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "zz",
+    "reason": "rs",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": "no such item: zz"
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "zz",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": "no such item: zz"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}
