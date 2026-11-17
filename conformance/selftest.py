@@ -443,8 +443,8 @@ def main():
             nfail += 1
             print("not ok - %s: %s: %s" % (f.__name__, type(e).__name__, e))
     print("# %d/%d passed" % (len(TESTS) - nfail, len(TESTS)))
-    if PLAY_DIR and not os.listdir(PLAY_DIR):
-        os.rmdir(PLAY_DIR)
+    if PLAY_DIR:
+        shutil.rmtree(PLAY_DIR, ignore_errors=True)  # every scenario here is disposable
     return 1 if nfail else 0
 
 
