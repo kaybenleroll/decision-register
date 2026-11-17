@@ -1,0 +1,214 @@
+{
+ "id": "S-35e",
+ "title": "a parent the user resolved is exempt from the under-size check as a user-parked one is; an under-sized parent resolved by the model is rejected when it has children and flagged when it was resolved before its children arrived",
+ "req": [
+  "REQ-35",
+  "REQ-43",
+  "REQ-33"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-35e",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "up",
+    "kind": "question",
+    "text": "parent the user resolves"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "uc",
+    "kind": "subquestion",
+    "text": "its only child",
+    "parent": "up"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "uc",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "up",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "up"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-35e",
+    "prompt": "that branch is moot, drop it"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "up",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-35e",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 2,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "mp",
+    "kind": "question",
+    "text": "parent the model resolves while childless"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "mp",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "mc",
+    "kind": "subquestion",
+    "text": "its only child, added afterwards",
+    "parent": "mp"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "mc",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-35e",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "mp"
+    },
+    {
+     "path": "reason",
+     "not_contains": "up:"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "mc2",
+    "kind": "subquestion",
+    "text": "a second child",
+    "parent": "mp"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "mc2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-35e",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  }
+ ]
+}

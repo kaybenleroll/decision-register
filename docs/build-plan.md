@@ -122,6 +122,7 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-35a `log_item` never rejects on branch size; finish gate flags under-sized parent; `resolve` of a parent that has children but fewer than 2 is rejected for source `model` (a zero-child parent is not a branch: accepted) | REQ-35 |
 | S-35b `subquestion` without parent rejected ("subquestion needs a parent"); `question` with parent accepted | REQ-35 |
 | S-35d a parent with no children is not a branch: the model may resolve it, the gate does not flag it; one child added afterwards is flagged, two are allowed | REQ-35, REQ-43 |
+| S-35e a parent the user resolved is exempt from the under-size check; a parent the model resolved childless and then left with one child is flagged | REQ-35, REQ-43, REQ-33 |
 | S-35c a parent parked by the user is not flagged by the gate; `resolve` of an under-sized parent with source `user` accepted; children of any kind and any status count toward N | REQ-35, REQ-33 |
 | S-36a reopen makes dependants (direct and transitive) Stale; Stale blocks finish; resolvable again | REQ-36 |
 | S-38a transition table: every allowed and disallowed pair, error names id and current status | REQ-38 |
