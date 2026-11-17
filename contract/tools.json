@@ -2035,7 +2035,7 @@
    "mutating": false,
    "rejects_meta": true,
    "engages_pending": false,
-   "description": "UserPromptSubmit hook: counts a user prompt and records last_seen_session_id, even when no interview is active (REQ-13, REQ-27). Rejects any call carrying _meta claudecode/toolUseId. Returns empty text or exactly {} (REQ-41).",
+   "description": "UserPromptSubmit hook: counts a user prompt and records last_seen_session_id, even when no interview is active (REQ-13, REQ-27). A harness-injected agent-message prompt (the prompt text begins, at character 0 with no trimming, with the exact characters `<agent-message `, as in the V10 subagent hand-back `<agent-message from=\"<agent id>\">`) is not a user prompt: after the `_meta` check the call is a complete no-op returning {} (no prompt count, no prompt_seen, no budget or answer-rule refresh, no hook-health count, no last_seen_session_id update, no journal event) (REQ-41). Rejects any call carrying _meta claudecode/toolUseId. Returns empty text or exactly {} (REQ-41).",
    "input": {
     "type": "object",
     "additionalProperties": false,

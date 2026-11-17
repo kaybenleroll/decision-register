@@ -35,6 +35,18 @@ Entries are appended as the decisions land; all belong to this one bump.
 - Finish gate: a parent resolved by the user (source user) is exempt from the
   under-size flag, as a user-parked parent already was (REQ-35). A parent
   resolved by the model and left with children but fewer than N stays flagged.
+- note_prompt ignores harness-injected agent-message prompts (user decision
+  2026-11-17). A prompt whose text begins, at character 0 with no trimming, with
+  the exact characters `<agent-message ` (V10 form `<agent-message from="<id>">`)
+  is a complete no-op returning {}: no prompt count, prompt_seen, budget or
+  user-prompt-since refresh, hook_health count, last_seen_session_id update or
+  journal event. Behaviour change, no new field or event, so journal_schema
+  stays 2.
+- Hook output contract (REQ-41, V8 verified 2026-11-17): hook-facing tools return
+  only empty text or the exact documented JSON shape (note_prompt, skill_started:
+  empty or {}; check_stop: {} or the decision object), because the harness acts
+  on any returned text that parses as JSON with decision or hookSpecificOutput
+  keys.
 
 tool_schema 3  (review fixes after the three independent reviews, 2026-11-16)
 Entries are appended as the fixes land; all belong to this one bump.
