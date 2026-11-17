@@ -536,6 +536,7 @@ class Run:
             meta = MODEL_META
         elif meta is False:
             meta = None
+        # a dict is sent as the `_meta` object itself
         kind, text = self.server(st.get("server", "main")).call(name, args, meta)
         expect = st.get("expect", "ok")
         if expect in ("error", "protocol_error"):
@@ -861,7 +862,15 @@ def validate_step(where, st, tools, validator, errs):
             args = fill_variables(args, tool["input"], tools["$defs"])
             for e in validator(args, tool["input"], tools["$defs"]):
                 errs.append("%s: %s args violate tools.json: %s" % (where, name, e))
-        if tool["audience"] == "hook" and st.get("meta") not in (None, False) and expect == "ok":
+        meta = st.get("meta")
+        if not (meta is None or isinstance(meta, (bool, dict))):
+            errs.append("%s: meta must be true, false or an object" % where)
+        elif isinstance(meta, dict):
+            for k, v in meta.items():
+                if not isinstance(v, (str, int, float, bool, type(None))):
+                    errs.append("%s: meta value of %r must be a scalar" % (where, k))
+        marked = meta is True or (isinstance(meta, dict) and "claudecode/toolUseId" in meta)
+        if tool["audience"] == "hook" and marked and expect == "ok":
             errs.append("%s: hook-facing %s sent with _meta must expect error" % (where, name))
         if expect == "ok":
             for k in ("mention", "not_mention", "matches"):

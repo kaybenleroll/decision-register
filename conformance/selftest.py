@@ -58,6 +58,8 @@ def fake_server():
                 path = os.path.join(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd(), os.environ["FAKE_PROJECT_FILE"])
                 os.makedirs(os.path.dirname(path), exist_ok=True)
                 open(path, "w").write("hello\n")
+            with open(os.path.join(data, "meta.log"), "a") as f:
+                f.write(json.dumps(m["params"].get("_meta", "none"), sort_keys=True) + "\n")
             res = {"content": [{"type": "text", "text": ""}]}
         else:
             res = {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}}, "serverInfo": {"name": "fake", "version": "0"}}
@@ -379,6 +381,34 @@ def kill_runs_without_a_graceful_exit():
           {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\Anote_prompt ${pid}\n\Z"}]})
     fails("not running", {"op": "kill"}, NOTE)
     fails("not running", {"op": "kill"}, {"op": "stop"})
+
+
+# ---------------------------------------------------------------- explicit _meta
+
+@test
+def meta_object_parsed():
+    accepts({"call": "note_prompt", "args": {"session_id": "s", "prompt": "p"}, "meta": {"progressToken": "x"}})
+    accepts({"call": "note_prompt", "args": {"session_id": "s", "prompt": "p"}, "meta": {}})
+    accepts({"call": "note_prompt", "args": {"session_id": "s", "prompt": "p"}, "meta": {"claudecode/toolUseId": ""},
+             "expect": "error"})
+    accepts({"call": "status", "args": {}, "meta": {"claudecode/toolUseId": None}})
+
+
+@test
+def meta_object_rejected_when_malformed():
+    rejects("must expect error", {"call": "note_prompt", "args": {"session_id": "s", "prompt": "p"},
+                                  "meta": {"claudecode/toolUseId": ""}})
+    rejects("meta must be", {"call": "status", "args": {}, "meta": "x"})
+    rejects("meta must be", {"call": "status", "args": {}, "meta": [1]})
+    rejects("must be a scalar", {"call": "status", "args": {}, "meta": {"a": {"b": 1}}})
+
+
+@test
+def meta_object_is_sent_as_given():
+    plays({"call": "note_prompt", "args": {"session_id": "s", "prompt": "p"}, "meta": {"progressToken": "x"}},
+          {"call": "note_prompt", "args": {"session_id": "s", "prompt": "p"}, "meta": {}},
+          {"call": "note_prompt", "args": {"session_id": "s", "prompt": "p"}},
+          {"op": "fs", "assert": [{"path": "meta.log", "matches": r'\A\{"progressToken": "x"\}\n\{\}\n"none"\n\Z'}]})
 
 
 # ---------------------------------------------------------------- per-event journal assertions

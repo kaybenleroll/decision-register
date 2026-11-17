@@ -22,7 +22,7 @@ arguments of every step that expects success against the tool's input schema (a 
 
 Steps (`op` defaults to `call`):
 
-- `call`: `{"call": tool, "args": {...}, "meta": true|false (default: model-facing tools send _meta, hook-facing tools send none), "expect": "ok"|"error"|"protocol_error", ...}`.
+- `call`: `{"call": tool, "args": {...}, "meta": true|false|{object} (default: model-facing tools send _meta, hook-facing tools send none; an object is sent as the `_meta` itself, e.g. `{"progressToken": "x"}` or `{"claudecode/toolUseId": ""}`; a hook-facing call whose `_meta` has the key `claudecode/toolUseId` must expect error), "expect": "ok"|"error"|"protocol_error", ...}`.
   - `expect: ok`: `"save": {var: "dotted.path"}` and `"assert": [...]`. Every result is validated against the tool's result schema; every `status` result must have `items` equal to the counts derived from `tree`.
   - `expect: error` requires a tool result with `isError: true` (a JSON-RPC error object fails); `expect: protocol_error` requires a JSON-RPC error object. Both take `"mention"` (substring or list), `"not_mention"` and `"matches"` (regular expression or list) on the message text.
   - An assert entry is an optional `path` (dotted, list indices as numbers; omitted means the whole result) plus exactly one operator: `eq`, `ne`, `contains`, `not_contains`, `matches` (regular expression, `re.search`), `len`, `ge`, `absent: true` (the path does not exist), `decision_block: true|false` (whole result: a block decision, or no decision at all).
