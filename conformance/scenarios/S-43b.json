@@ -1,0 +1,206 @@
+{
+ "id": "S-43b",
+ "title": "a question turn is allowed when it concerns a logged open item (by id label, or by sharing at least three content words) and blocked when it asks a question that is not logged (including two shared words only, or the label of an item that does not exist); logging the question first lets the same question through",
+ "req": [
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "storage engine choice"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "retention period policy"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree.0.id",
+     "eq": "Q1"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "Q2"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43b",
+    "last_assistant_message": "Q1: which one do you prefer?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43b",
+    "last_assistant_message": "Which storage engine choice do you prefer?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43b",
+    "last_assistant_message": "What colour should the dashboard be?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "dashboard colour scheme"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43b",
+    "last_assistant_message": "Q3: What colour should the dashboard be?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43b",
+    "last_assistant_message": "Which storage engine is fastest?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43b",
+    "last_assistant_message": "Q7: should we cache this as well?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "question"
+    },
+    {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "question"
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "question"
+    },
+    {
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "question"
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "question"
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "question"
+    }
+   ],
+   "count": {
+    "stop": 6
+   },
+   "absent": [
+    "complete"
+   ]
+  }
+ ]
+}
