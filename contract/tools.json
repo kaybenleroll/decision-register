@@ -1,0 +1,2493 @@
+{
+ "tool_schema": 3,
+ "journal_schema": 2,
+ "conventions": {
+  "transport": "MCP over stdio, newline-delimited JSON-RPC 2.0; tools/call result.content[0].text carries the result.",
+  "result_text": "For every tool the text is a JSON object matching result, except that note_prompt and skill_started may return empty text, which counts as {}.",
+  "validation": "input and result are JSON Schema (draft 2020-12 subset: type, enum, const, required, properties, additionalProperties, items, minimum, minLength, maxProperties, pattern, oneOf, dependentRequired, $ref to #/$defs). contract/check_contract.py checks them with a stdlib validator.",
+  "ids": "Item ids match ^[A-Za-z0-9_.-]{1,64}$. Statuses are capitalised (Open, Resolved, Parked, Stale); the items counts in status use lower-case keys.",
+  "unknown_arguments": "Input schemas set additionalProperties false: an unknown argument is an error, so a model-facing tool cannot be handed a session id.",
+  "errors": "Every domain failure (invalid arguments, refused transition, unknown id, rule violation, wrong state, unfinished journal, mismatch, _meta rejection) is a tools/call result with isError true and a single text content item holding a plain-text message that contains the substrings named in the errors table; it is never a JSON-RPC error. JSON-RPC errors are only for a malformed protocol request (unparseable JSON, unknown method, unknown tool name, malformed params envelope). A failing call changes no state and writes no journal event.",
+  "no_effect_on_error": "A call that returns an error changes nothing: it does not start an interview, engage a pending one, return a complete one to active, change a counter or cap, or write a journal event. Hook-facing calls that are rejected (row 2 or 3) do not record last_seen_session_id or count as hook calls.",
+  "patterns": "A trailing $ in a pattern means end of string and does not match before a final newline: ECMAScript and Rust regex already behave so; Python's re does not, so contract/check_contract.py (and any Python suite code) must translate a trailing $ to \\Z. Single-line fields (rationale, ids) therefore reject a trailing newline, and the oneline definition also rejects the line separators VT, FF, NEL, U+2028 and U+2029."
+ },
+ "$defs": {
+  "id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+  },
+  "nonblank": {
+   "type": "string",
+   "pattern": "\\S"
+  },
+  "kind": {
+   "enum": [
+    "question",
+    "subquestion",
+    "decision"
+   ]
+  },
+  "status": {
+   "enum": [
+    "Open",
+    "Resolved",
+    "Parked",
+    "Stale"
+   ]
+  },
+  "source": {
+   "enum": [
+    "user",
+    "model"
+   ]
+  },
+  "state": {
+   "enum": [
+    "none",
+    "pending",
+    "active",
+    "complete"
+   ]
+  },
+  "toolSchema": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "empty_hook_result": {
+   "type": "object",
+   "maxProperties": 0
+  },
+  "item": {
+   "oneOf": [
+    {
+     "$ref": "#/$defs/itemOpen"
+    },
+    {
+     "$ref": "#/$defs/itemStale"
+    },
+    {
+     "$ref": "#/$defs/itemParked"
+    },
+    {
+     "$ref": "#/$defs/itemResolved"
+    }
+   ],
+   "description": "Open: answer, source, rationale, parked_by, park_reason all null. Stale: keeps the answer, source and rationale it had when Resolved; parked fields null. Parked: parked_by and park_reason set, answer fields null (park and reopen clear them). Resolved: answer, source and rationale set, parked fields null (resolve clears a model park). Order in tree: Open, then Stale, then Parked, then Resolved; within each group by creation order."
+  },
+  "oneline": {
+   "type": "string",
+   "pattern": "^[^\\r\\n\\x0b\\x0c\\x85\\u2028\\u2029]*\\S[^\\r\\n\\x0b\\x0c\\x85\\u2028\\u2029]*$"
+  },
+  "itemOpen": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "kind",
+    "text",
+    "parent",
+    "depends_on",
+    "status",
+    "answer",
+    "source",
+    "rationale",
+    "parked_by",
+    "park_reason"
+   ],
+   "properties": {
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "kind": {
+     "$ref": "#/$defs/kind"
+    },
+    "text": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "parent": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/id"
+      }
+     ]
+    },
+    "depends_on": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/id"
+     }
+    },
+    "status": {
+     "const": "Open"
+    },
+    "answer": {
+     "type": "null"
+    },
+    "source": {
+     "type": "null"
+    },
+    "rationale": {
+     "type": "null"
+    },
+    "parked_by": {
+     "type": "null"
+    },
+    "park_reason": {
+     "type": "null"
+    }
+   }
+  },
+  "itemStale": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "kind",
+    "text",
+    "parent",
+    "depends_on",
+    "status",
+    "answer",
+    "source",
+    "rationale",
+    "parked_by",
+    "park_reason"
+   ],
+   "properties": {
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "kind": {
+     "$ref": "#/$defs/kind"
+    },
+    "text": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "parent": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/id"
+      }
+     ]
+    },
+    "depends_on": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/id"
+     }
+    },
+    "status": {
+     "const": "Stale"
+    },
+    "answer": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "source": {
+     "$ref": "#/$defs/source"
+    },
+    "rationale": {
+     "$ref": "#/$defs/oneline"
+    },
+    "parked_by": {
+     "type": "null"
+    },
+    "park_reason": {
+     "type": "null"
+    }
+   }
+  },
+  "itemParked": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "kind",
+    "text",
+    "parent",
+    "depends_on",
+    "status",
+    "answer",
+    "source",
+    "rationale",
+    "parked_by",
+    "park_reason"
+   ],
+   "properties": {
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "kind": {
+     "$ref": "#/$defs/kind"
+    },
+    "text": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "parent": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/id"
+      }
+     ]
+    },
+    "depends_on": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/id"
+     }
+    },
+    "status": {
+     "const": "Parked"
+    },
+    "answer": {
+     "type": "null"
+    },
+    "source": {
+     "type": "null"
+    },
+    "rationale": {
+     "type": "null"
+    },
+    "parked_by": {
+     "$ref": "#/$defs/source"
+    },
+    "park_reason": {
+     "$ref": "#/$defs/nonblank"
+    }
+   }
+  },
+  "itemResolved": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "kind",
+    "text",
+    "parent",
+    "depends_on",
+    "status",
+    "answer",
+    "source",
+    "rationale",
+    "parked_by",
+    "park_reason"
+   ],
+   "properties": {
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "kind": {
+     "$ref": "#/$defs/kind"
+    },
+    "text": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "parent": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/id"
+      }
+     ]
+    },
+    "depends_on": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/id"
+     }
+    },
+    "status": {
+     "const": "Resolved"
+    },
+    "answer": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "source": {
+     "$ref": "#/$defs/source"
+    },
+    "rationale": {
+     "$ref": "#/$defs/oneline"
+    },
+    "parked_by": {
+     "type": "null"
+    },
+    "park_reason": {
+     "type": "null"
+    }
+   }
+  },
+  "path": {
+   "type": "string",
+   "minLength": 1
+  }
+ },
+ "tools": {
+  "begin_interview": {
+   "audience": "model",
+   "mutating": false,
+   "rejects_meta": false,
+   "engages_pending": true,
+   "description": "Register-mode start by the skill after its status probe (REQ-21). No session id: binds to last_seen_session_id (REQ-27 rule 1). In state none it starts an interview into active (existing false). In state pending it engages it: pending becomes active, the id of the pending interview is returned, existing true (REQ-27 rule 3). In active or complete it is a no-op returning the existing id with the unchanged state and existing true; it does not return a complete interview to active (REQ-22, REQ-27). Refused while an unfinished journal exists (REQ-52). Error on tool_schema mismatch names both values (REQ-77). Accepts any non-blank skill name: the exact-match skill-name list (REQ-24) applies only to the hook route (skill_started), not to this call.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "tool_schema",
+     "skill",
+     "mode"
+    ],
+    "properties": {
+     "tool_schema": {
+      "$ref": "#/$defs/toolSchema"
+     },
+     "skill": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "mode": {
+      "const": "register"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "interview_id",
+     "state",
+     "existing"
+    ],
+    "properties": {
+     "interview_id": {
+      "$ref": "#/$defs/id"
+     },
+     "state": {
+      "enum": [
+       "active",
+       "complete"
+      ]
+     },
+     "existing": {
+      "type": "boolean"
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {
+      "tool_schema": 3,
+      "skill": "grill-me",
+      "mode": "register"
+     }
+    ],
+    "input_bad": [
+     {
+      "tool_schema": 3,
+      "skill": "grill-me",
+      "mode": "plain"
+     },
+     {
+      "tool_schema": 3,
+      "skill": "grill-me",
+      "mode": "register",
+      "session_id": "s1"
+     },
+     {
+      "skill": "grill-me",
+      "mode": "register"
+     },
+     {
+      "tool_schema": "1",
+      "skill": "grill-me",
+      "mode": "register"
+     }
+    ],
+    "result_good": [
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "active",
+      "existing": false
+     },
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "active",
+      "existing": true
+     },
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "complete",
+      "existing": true
+     }
+    ],
+    "result_bad": [
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "started"
+     },
+     {
+      "state": "active"
+     },
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "pending",
+      "existing": true
+     },
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "active"
+     },
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "ended",
+      "existing": true
+     }
+    ]
+   }
+  },
+  "log_item": {
+   "audience": "model",
+   "mutating": true,
+   "rejects_meta": false,
+   "engages_pending": true,
+   "description": "Log an item. id is an optional caller-supplied label (kept from spike 3); the server assigns one if absent. depends_on ids must already exist. A subquestion requires parent. answer, source and rationale together record a decision the user volunteered (REQ-32); source user is subject to the per-prompt rule. Errors on: a kind decision with a model answer (REQ-34), a subquestion without parent, the budget rows.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "kind",
+     "text"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "kind": {
+      "$ref": "#/$defs/kind"
+     },
+     "text": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "parent": {
+      "$ref": "#/$defs/id"
+     },
+     "depends_on": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/id"
+      }
+     },
+     "answer": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "source": {
+      "$ref": "#/$defs/source"
+     },
+     "rationale": {
+      "$ref": "#/$defs/oneline"
+     }
+    },
+    "dependentRequired": {
+     "answer": [
+      "source",
+      "rationale"
+     ],
+     "source": [
+      "answer",
+      "rationale"
+     ],
+     "rationale": [
+      "answer",
+      "source"
+     ]
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "status"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "status": {
+      "$ref": "#/$defs/status"
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {
+      "kind": "question",
+      "text": "Which store?"
+     },
+     {
+      "id": "q2",
+      "kind": "subquestion",
+      "text": "Sub",
+      "parent": "q1",
+      "depends_on": [
+       "q1"
+      ]
+     },
+     {
+      "kind": "decision",
+      "text": "Use X",
+      "answer": "X",
+      "source": "user",
+      "rationale": "User said so"
+     }
+    ],
+    "input_bad": [
+     {
+      "kind": "topic",
+      "text": "x"
+     },
+     {
+      "kind": "question",
+      "text": "   "
+     },
+     {
+      "kind": "question"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "answer": "a"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "answer": "a",
+      "source": "model",
+      "rationale": "two\nlines"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "depends_on": "q1"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "id": "bad id"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "source": "model"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "answer": "a",
+      "source": "model",
+      "rationale": "trailing newline\n"
+     },
+     {
+      "kind": "question",
+      "text": "t",
+      "answer": "a",
+      "source": "model",
+      "rationale": "line sep"
+     },
+     {
+      "id": "q1\n",
+      "kind": "question",
+      "text": "t"
+     }
+    ],
+    "result_good": [
+     {
+      "id": "q1",
+      "status": "Open"
+     },
+     {
+      "id": "q2",
+      "status": "Resolved"
+     }
+    ],
+    "result_bad": [
+     {
+      "id": "q1"
+     },
+     {
+      "id": "q1",
+      "status": "open"
+     },
+     {
+      "id": "q1",
+      "status": "Open",
+      "stale": []
+     }
+    ]
+   }
+  },
+  "resolve": {
+   "audience": "model",
+   "mutating": true,
+   "rejects_meta": false,
+   "engages_pending": true,
+   "description": "Resolve an Open, Stale or Parked item (REQ-38). answer, source and rationale are all required (REQ-31). source user needs a user prompt since the item's last model action (REQ-32); a decision item takes source user only (REQ-34).",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "answer",
+     "source",
+     "rationale"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "answer": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "source": {
+      "$ref": "#/$defs/source"
+     },
+     "rationale": {
+      "$ref": "#/$defs/oneline"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "status"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "status": {
+      "$ref": "#/$defs/status"
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {
+      "id": "q1",
+      "answer": "Postgres",
+      "source": "model",
+      "rationale": "Only store with the feature"
+     }
+    ],
+    "input_bad": [
+     {
+      "id": "q1",
+      "answer": "a",
+      "source": "model"
+     },
+     {
+      "id": "q1",
+      "answer": "",
+      "source": "model",
+      "rationale": "r"
+     },
+     {
+      "id": "q1",
+      "answer": "a",
+      "source": "robot",
+      "rationale": "r"
+     },
+     {
+      "answer": "a",
+      "source": "user",
+      "rationale": "r"
+     },
+     {
+      "id": "q1",
+      "answer": "a",
+      "source": "user",
+      "rationale": "r\n"
+     }
+    ],
+    "result_good": [
+     {
+      "id": "q1",
+      "status": "Resolved"
+     }
+    ],
+    "result_bad": [
+     {
+      "id": "q1",
+      "status": "Done"
+     },
+     {
+      "id": "q1",
+      "status": "Open",
+      "stale": []
+     }
+    ]
+   }
+  },
+  "park": {
+   "audience": "model",
+   "mutating": true,
+   "rejects_meta": false,
+   "engages_pending": true,
+   "description": "Park an Open, Stale or model-Parked item (REQ-38). parked_by user is subject to the user-prompt rule (REQ-33); a decision item is parked by user only (REQ-34).",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "reason",
+     "parked_by"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "reason": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "parked_by": {
+      "$ref": "#/$defs/source"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "status"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "status": {
+      "$ref": "#/$defs/status"
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {
+      "id": "q1",
+      "reason": "Out of scope",
+      "parked_by": "user"
+     }
+    ],
+    "input_bad": [
+     {
+      "id": "q1",
+      "reason": "x"
+     },
+     {
+      "id": "q1",
+      "reason": "x",
+      "parked_by": "assistant"
+     },
+     {
+      "id": "q1",
+      "reason": " ",
+      "parked_by": "model"
+     }
+    ],
+    "result_good": [
+     {
+      "id": "q1",
+      "status": "Parked"
+     }
+    ],
+    "result_bad": [
+     {
+      "id": "q1",
+      "status": "Parked",
+      "parked_by": "model"
+     },
+     {
+      "id": "q1",
+      "status": "Open",
+      "stale": []
+     }
+    ]
+   }
+  },
+  "reopen": {
+   "audience": "model",
+   "mutating": true,
+   "rejects_meta": false,
+   "engages_pending": true,
+   "description": "Reopen a Resolved item (REQ-36): it becomes Open and every Resolved item depending on it, directly or transitively, becomes Stale; the result lists those ids in stale. Error if the item is not Resolved. Only reopen can make items Stale, so only its result carries stale.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "reason"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "reason": {
+      "$ref": "#/$defs/nonblank"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "status",
+     "stale"
+    ],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     },
+     "status": {
+      "$ref": "#/$defs/status"
+     },
+     "stale": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/id"
+      }
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {
+      "id": "q1",
+      "reason": "New evidence"
+     }
+    ],
+    "input_bad": [
+     {
+      "id": "q1"
+     },
+     {
+      "reason": "r"
+     }
+    ],
+    "result_good": [
+     {
+      "id": "q1",
+      "status": "Open",
+      "stale": [
+       "q2",
+       "q3"
+      ]
+     }
+    ],
+    "result_bad": [
+     {
+      "id": "q1",
+      "status": "Open"
+     }
+    ]
+   }
+  },
+  "status": {
+   "audience": "model",
+   "mutating": false,
+   "rejects_meta": false,
+   "engages_pending": false,
+   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; after an interview ends the state is none, never ended), the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable (an array of {interview_id, last_event}, one per unfinished journal with no live owner, most recently modified first, ties by interview id ascending; empty when none), and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7). The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale); check_contract.py checks this on every good example and C2 scenarios assert it. version_mismatch reflects the most recent tool_schema comparison: set by a mismatching skill_started or begin_interview, cleared by a later matching one, null if none was made. decision_log is the absolute path of the current interview's decision log once written (first allowed finish attempt, end, or exit), else null (runtime.md 'Decision log'). write_error is null, or the last journal or decision-log write failure message (runtime.md 'Unwritable data directory').",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {}
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "server_version",
+     "tool_schema",
+     "journal_schema",
+     "state",
+     "interview_id",
+     "items",
+     "tree",
+     "hook_health",
+     "last_event",
+     "resumable",
+     "version_mismatch",
+     "decision_log",
+     "write_error"
+    ],
+    "properties": {
+     "server_version": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "tool_schema": {
+      "$ref": "#/$defs/toolSchema"
+     },
+     "journal_schema": {
+      "const": 2
+     },
+     "state": {
+      "$ref": "#/$defs/state"
+     },
+     "interview_id": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "$ref": "#/$defs/id"
+       }
+      ]
+     },
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "open",
+       "resolved",
+       "parked",
+       "stale"
+      ],
+      "properties": {
+       "open": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "resolved": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "parked": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "stale": {
+        "type": "integer",
+        "minimum": 0
+       }
+      }
+     },
+     "tree": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/item"
+      }
+     },
+     "hook_health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "note_prompt",
+       "skill_started",
+       "check_stop",
+       "prompt_seen"
+      ],
+      "properties": {
+       "note_prompt": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "skill_started": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "check_stop": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "prompt_seen": {
+        "type": "boolean"
+       }
+      }
+     },
+     "last_event": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "resumable": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "interview_id",
+        "last_event"
+       ],
+       "properties": {
+        "interview_id": {
+         "$ref": "#/$defs/id"
+        },
+        "last_event": {
+         "type": "integer",
+         "minimum": 0
+        }
+       }
+      }
+     },
+     "version_mismatch": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+         "plugin_tool_schema",
+         "server_tool_schema"
+        ],
+        "properties": {
+         "plugin_tool_schema": {
+          "$ref": "#/$defs/toolSchema"
+         },
+         "server_tool_schema": {
+          "$ref": "#/$defs/toolSchema"
+         }
+        }
+       }
+      ]
+     },
+     "decision_log": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "$ref": "#/$defs/path"
+       }
+      ]
+     },
+     "write_error": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "$ref": "#/$defs/nonblank"
+       }
+      ]
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {}
+    ],
+    "input_bad": [
+     {
+      "verbose": true
+     }
+    ],
+    "result_good": [
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "none",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": [],
+      "version_mismatch": null,
+      "decision_log": null,
+      "write_error": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "i1",
+      "items": {
+       "open": 1,
+       "resolved": 1,
+       "parked": 1,
+       "stale": 1
+      },
+      "tree": [
+       {
+        "id": "q1",
+        "kind": "question",
+        "text": "t q1",
+        "parent": null,
+        "depends_on": [],
+        "status": "Open",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q4",
+        "kind": "question",
+        "text": "t q4",
+        "parent": null,
+        "depends_on": [],
+        "status": "Stale",
+        "answer": "a",
+        "source": "model",
+        "rationale": "r",
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q3",
+        "kind": "question",
+        "text": "t q3",
+        "parent": null,
+        "depends_on": [],
+        "status": "Parked",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": "user",
+        "park_reason": "later"
+       },
+       {
+        "id": "q2",
+        "kind": "question",
+        "text": "t q2",
+        "parent": null,
+        "depends_on": [],
+        "status": "Resolved",
+        "answer": "a",
+        "source": "user",
+        "rationale": "r",
+        "parked_by": null,
+        "park_reason": null
+       }
+      ],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 9,
+      "resumable": [],
+      "version_mismatch": null,
+      "decision_log": "/home/u/proj/.scratch/decision-iv-20261116T093015Z-a3f9c2d1.md",
+      "write_error": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "none",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": [
+       {
+        "interview_id": "iv-20261116T101500Z-0b7e44aa",
+        "last_event": 9
+       },
+       {
+        "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+        "last_event": 4
+       }
+      ],
+      "version_mismatch": null,
+      "decision_log": null,
+      "write_error": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": [],
+      "version_mismatch": null,
+      "decision_log": null,
+      "write_error": "journal: permission denied"
+     }
+    ],
+    "result_bad": [
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "state": "none"
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "running",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "ended",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "i1",
+      "items": {
+       "open": 1,
+       "resolved": 1,
+       "parked": 1,
+       "stale": 1
+      },
+      "tree": [
+       {
+        "id": "q1",
+        "kind": "question",
+        "text": "t q1",
+        "parent": null,
+        "depends_on": [],
+        "status": "Open",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q2",
+        "kind": "question",
+        "text": "t q2",
+        "parent": null,
+        "depends_on": [],
+        "status": "Resolved",
+        "answer": null,
+        "source": "user",
+        "rationale": "r",
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q3",
+        "kind": "question",
+        "text": "t q3",
+        "parent": null,
+        "depends_on": [],
+        "status": "Parked",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": "user",
+        "park_reason": "later"
+       },
+       {
+        "id": "q4",
+        "kind": "question",
+        "text": "t q4",
+        "parent": null,
+        "depends_on": [],
+        "status": "Stale",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       }
+      ],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 9,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "i1",
+      "items": {
+       "open": 1,
+       "resolved": 1,
+       "parked": 1,
+       "stale": 1
+      },
+      "tree": [
+       {
+        "id": "q1",
+        "kind": "question",
+        "text": "t q1",
+        "parent": null,
+        "depends_on": [],
+        "status": "Open",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q2",
+        "kind": "question",
+        "text": "t q2",
+        "parent": null,
+        "depends_on": [],
+        "status": "Resolved",
+        "answer": "a",
+        "source": "user",
+        "rationale": "",
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q3",
+        "kind": "question",
+        "text": "t q3",
+        "parent": null,
+        "depends_on": [],
+        "status": "Parked",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": "user",
+        "park_reason": "later"
+       },
+       {
+        "id": "q4",
+        "kind": "question",
+        "text": "t q4",
+        "parent": null,
+        "depends_on": [],
+        "status": "Stale",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       }
+      ],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 9,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "i1",
+      "items": {
+       "open": 1,
+       "resolved": 1,
+       "parked": 1,
+       "stale": 1
+      },
+      "tree": [
+       {
+        "id": "q1",
+        "kind": "question",
+        "text": "t q1",
+        "parent": null,
+        "depends_on": [],
+        "status": "Open",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q2",
+        "kind": "question",
+        "text": "t q2",
+        "parent": null,
+        "depends_on": [],
+        "status": "Resolved",
+        "answer": "a",
+        "source": "user",
+        "rationale": "r",
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q3",
+        "kind": "question",
+        "text": "t q3",
+        "parent": null,
+        "depends_on": [],
+        "status": "Parked",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": "later"
+       },
+       {
+        "id": "q4",
+        "kind": "question",
+        "text": "t q4",
+        "parent": null,
+        "depends_on": [],
+        "status": "Stale",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       }
+      ],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 9,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "active",
+      "interview_id": "i1",
+      "items": {
+       "open": 1,
+       "resolved": 1,
+       "parked": 1,
+       "stale": 1
+      },
+      "tree": [
+       {
+        "id": "q1",
+        "kind": "question",
+        "text": "t q1",
+        "parent": null,
+        "depends_on": [],
+        "status": "Open",
+        "answer": "a",
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q2",
+        "kind": "question",
+        "text": "t q2",
+        "parent": null,
+        "depends_on": [],
+        "status": "Resolved",
+        "answer": "a",
+        "source": "user",
+        "rationale": "r",
+        "parked_by": null,
+        "park_reason": null
+       },
+       {
+        "id": "q3",
+        "kind": "question",
+        "text": "t q3",
+        "parent": null,
+        "depends_on": [],
+        "status": "Parked",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": "user",
+        "park_reason": "later"
+       },
+       {
+        "id": "q4",
+        "kind": "question",
+        "text": "t q4",
+        "parent": null,
+        "depends_on": [],
+        "status": "Stale",
+        "answer": null,
+        "source": null,
+        "rationale": null,
+        "parked_by": null,
+        "park_reason": null
+       }
+      ],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 9,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "none",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": null,
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "none",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": {
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "last_event": 4
+      },
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "none",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": [],
+      "version_mismatch": null
+     },
+     {
+      "server_version": "0.1.0",
+      "tool_schema": 3,
+      "journal_schema": 2,
+      "state": "none",
+      "interview_id": null,
+      "items": {
+       "open": 0,
+       "resolved": 0,
+       "parked": 0,
+       "stale": 0
+      },
+      "tree": [],
+      "hook_health": {
+       "note_prompt": 0,
+       "skill_started": 0,
+       "check_stop": 0,
+       "prompt_seen": false
+      },
+      "last_event": 0,
+      "resumable": [],
+      "version_mismatch": null,
+      "decision_log": null
+     }
+    ]
+   }
+  },
+  "resume": {
+   "audience": "model",
+   "mutating": false,
+   "rejects_meta": false,
+   "engages_pending": false,
+   "description": "Resume an unfinished journal (REQ-52): accepted only in state none or pending; rebinds to last_seen_session_id; claims the pid file exclusively. id may be omitted when exactly one unfinished journal exists; when several exist the error lists them. An id naming a live-owned journal is refused (journal is live-owned), distinct from losing the claim race (journal already claimed). Wrong state, no journal, unknown id: see errors. Replay failure names the 1-based line number and leaves state unchanged (REQ-60). The result state is always active (a journal whose last events include complete replays to active; the complete state is not restored). Not a start-engaging call.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "interview_id",
+     "state",
+     "last_event",
+     "items"
+    ],
+    "properties": {
+     "interview_id": {
+      "$ref": "#/$defs/id"
+     },
+     "state": {
+      "const": "active"
+     },
+     "last_event": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "open",
+       "resolved",
+       "parked",
+       "stale"
+      ],
+      "properties": {
+       "open": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "resolved": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "parked": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "stale": {
+        "type": "integer",
+        "minimum": 0
+       }
+      }
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {},
+     {
+      "id": "iv-20261116T093015Z-a3f9c2d1"
+     }
+    ],
+    "input_bad": [
+     {
+      "id": ""
+     },
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1"
+     }
+    ],
+    "result_good": [
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "active",
+      "last_event": 7,
+      "items": {
+       "open": 1,
+       "resolved": 2,
+       "parked": 0,
+       "stale": 0
+      }
+     }
+    ],
+    "result_bad": [
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "active"
+     },
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "complete",
+      "last_event": 7,
+      "items": {
+       "open": 0,
+       "resolved": 1,
+       "parked": 0,
+       "stale": 0
+      }
+     }
+    ]
+   }
+  },
+  "discard": {
+   "audience": "model",
+   "mutating": false,
+   "rejects_meta": false,
+   "engages_pending": false,
+   "description": "Archive an unfinished journal and continue plain (REQ-52). id may be omitted when exactly one unfinished journal exists. Accepted in states none and pending only (a pending interview stays pending); the same no-journal, unknown-id, live-owned, several-and-no-id and wrong-state errors as resume. Archives by moving <id>.jsonl to archive/ and removing any <id>.pid file.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [],
+    "properties": {
+     "id": {
+      "$ref": "#/$defs/id"
+     }
+    }
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "interview_id",
+     "archived"
+    ],
+    "properties": {
+     "interview_id": {
+      "$ref": "#/$defs/id"
+     },
+     "archived": {
+      "const": true
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {},
+     {
+      "id": "iv-20261116T093015Z-a3f9c2d1"
+     }
+    ],
+    "input_bad": [
+     {
+      "id": 5
+     },
+     {
+      "id": "has space"
+     },
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1"
+     }
+    ],
+    "result_good": [
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "archived": true
+     }
+    ],
+    "result_bad": [
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "archived": false
+     }
+    ]
+   }
+  },
+  "end_interview": {
+   "audience": "model",
+   "mutating": false,
+   "rejects_meta": false,
+   "engages_pending": false,
+   "description": "End the interview (REQ-23). Refused while items are open unless abandon is true with a non-blank reason. end_kind: normal = active, nothing open; ended_incomplete_by_model = abandon true with a reason while items are open; ended_after_completion = complete interview; stood_down = mode plain on a pending interview. The journal-only kinds abandoned (session change) and the log-only kind interrupted are never returned by this tool. mode plain stands a pending interview down without flagging it incomplete (REQ-27 rule 3). The result state is the const ended (the transition just made); a later status reports none. Not a start-engaging call. Input is either {mode: plain} alone, or an optional abandon (true only) that must come with a reason, and a reason that must come with abandon. Per-state outcomes: see state_matrix. The result carries decision_log, the absolute path of the log just written.",
+   "input": {
+    "oneOf": [
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "mode"
+      ],
+      "properties": {
+       "mode": {
+        "const": "plain"
+       }
+      }
+     },
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+       "abandon": {
+        "const": true
+       },
+       "reason": {
+        "$ref": "#/$defs/nonblank"
+       }
+      },
+      "dependentRequired": {
+       "abandon": [
+        "reason"
+       ],
+       "reason": [
+        "abandon"
+       ]
+      }
+     }
+    ]
+   },
+   "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "interview_id",
+     "state",
+     "end_kind",
+     "decision_log"
+    ],
+    "properties": {
+     "interview_id": {
+      "$ref": "#/$defs/id"
+     },
+     "state": {
+      "const": "ended"
+     },
+     "end_kind": {
+      "enum": [
+       "normal",
+       "ended_after_completion",
+       "ended_incomplete_by_model",
+       "stood_down"
+      ]
+     },
+     "decision_log": {
+      "$ref": "#/$defs/path"
+     }
+    }
+   },
+   "examples": {
+    "input_good": [
+     {},
+     {
+      "abandon": true,
+      "reason": "User left"
+     },
+     {
+      "mode": "plain"
+     }
+    ],
+    "input_bad": [
+     {
+      "abandon": "yes"
+     },
+     {
+      "mode": "register"
+     },
+     {
+      "reason": ""
+     },
+     {
+      "abandon": true
+     },
+     {
+      "reason": "User left"
+     },
+     {
+      "abandon": false,
+      "reason": "x"
+     },
+     {
+      "mode": "plain",
+      "abandon": true,
+      "reason": "x"
+     },
+     {
+      "mode": "plain",
+      "reason": "x"
+     }
+    ],
+    "result_good": [
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "ended",
+      "end_kind": "normal",
+      "decision_log": "/home/u/proj/.scratch/decision-iv-1.md"
+     }
+    ],
+    "result_bad": [
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "ended",
+      "end_kind": "finished"
+     },
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "ended",
+      "end_kind": "abandoned"
+     },
+     {
+      "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "state": "ended",
+      "end_kind": "normal"
+     }
+    ]
+   }
+  },
+  "note_prompt": {
+   "audience": "hook",
+   "mutating": false,
+   "rejects_meta": true,
+   "engages_pending": false,
+   "description": "UserPromptSubmit hook: counts a user prompt and records last_seen_session_id, even when no interview is active (REQ-13, REQ-27). Rejects any call carrying _meta claudecode/toolUseId. Returns empty text or exactly {} (REQ-41).",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "session_id",
+     "prompt"
+    ],
+    "properties": {
+     "session_id": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "prompt": {
+      "type": "string"
+     }
+    }
+   },
+   "result": {
+    "$ref": "#/$defs/empty_hook_result"
+   },
+   "examples": {
+    "input_good": [
+     {
+      "session_id": "s1",
+      "prompt": "hello"
+     },
+     {
+      "session_id": "s1",
+      "prompt": ""
+     }
+    ],
+    "input_bad": [
+     {
+      "prompt": "hello"
+     },
+     {
+      "session_id": "s1"
+     },
+     {
+      "session_id": "",
+      "prompt": "x"
+     }
+    ],
+    "result_good": [
+     {}
+    ],
+    "result_bad": [
+     {
+      "decision": "block"
+     },
+     {
+      "note": "counted"
+     }
+    ]
+   }
+  },
+  "skill_started": {
+   "audience": "hook",
+   "mutating": false,
+   "rejects_meta": true,
+   "engages_pending": false,
+   "description": "UserPromptExpansion and PreToolUse(Skill) hooks: a skill name exactly matching the configured list starts a pending interview (REQ-20, REQ-24). The list applies to this hook route only; begin_interview accepts any non-blank skill name. Never blocks or denies; on a tool_schema mismatch returns {} and records the mismatch for status (REQ-77). Rejects _meta claudecode/toolUseId. Returns empty text or exactly {}.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "tool_schema",
+     "session_id",
+     "skill"
+    ],
+    "properties": {
+     "tool_schema": {
+      "$ref": "#/$defs/toolSchema"
+     },
+     "session_id": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "skill": {
+      "$ref": "#/$defs/nonblank"
+     }
+    }
+   },
+   "result": {
+    "$ref": "#/$defs/empty_hook_result"
+   },
+   "examples": {
+    "input_good": [
+     {
+      "tool_schema": 3,
+      "session_id": "s1",
+      "skill": "grill-me"
+     }
+    ],
+    "input_bad": [
+     {
+      "session_id": "s1",
+      "skill": "grill-me"
+     },
+     {
+      "tool_schema": 3,
+      "session_id": "s1"
+     },
+     {
+      "tool_schema": 0,
+      "session_id": "s1",
+      "skill": "x"
+     }
+    ],
+    "result_good": [
+     {}
+    ],
+    "result_bad": [
+     {
+      "permissionDecision": "deny"
+     }
+    ]
+   }
+  },
+  "check_stop": {
+   "audience": "hook",
+   "mutating": false,
+   "rejects_meta": true,
+   "engages_pending": false,
+   "description": "Stop hook: records last_seen_session_id, classifies the turn and applies the finish gate (REQ-42, REQ-43). Returns {} to allow or a block decision whose reason names the open items (first 10, text truncated to 120 characters, REQ-45). Rejects _meta claudecode/toolUseId. Fails open.",
+   "input": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "session_id",
+     "last_assistant_message"
+    ],
+    "properties": {
+     "session_id": {
+      "$ref": "#/$defs/nonblank"
+     },
+     "last_assistant_message": {
+      "type": "string"
+     }
+    }
+   },
+   "result": {
+    "oneOf": [
+     {
+      "$ref": "#/$defs/empty_hook_result"
+     },
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "decision",
+       "reason"
+      ],
+      "properties": {
+       "decision": {
+        "const": "block"
+       },
+       "reason": {
+        "$ref": "#/$defs/nonblank"
+       }
+      }
+     }
+    ]
+   },
+   "examples": {
+    "input_good": [
+     {
+      "session_id": "s1",
+      "last_assistant_message": "Done."
+     },
+     {
+      "session_id": "s1",
+      "last_assistant_message": ""
+     }
+    ],
+    "input_bad": [
+     {
+      "session_id": "s1"
+     },
+     {
+      "last_assistant_message": "x"
+     }
+    ],
+    "result_good": [
+     {},
+     {
+      "decision": "block",
+      "reason": "2 open: q1 Which store?"
+     }
+    ],
+    "result_bad": [
+     {
+      "decision": "allow"
+     },
+     {
+      "decision": "block"
+     },
+     {
+      "decision": "block",
+      "reason": ""
+     }
+    ]
+   }
+  }
+ },
+ "errors": [
+  {
+   "tools": "begin_interview",
+   "when": "tool_schema differs from the server's",
+   "message_names": "both values, plugin and server (REQ-77)",
+   "check": 4
+  },
+  {
+   "tools": "begin_interview|log_item|resolve|park|reopen",
+   "when": "an unfinished journal exists",
+   "message_names": "unfinished journal: call resume or discard",
+   "check": 5
+  },
+  {
+   "tools": "resolve|park|reopen",
+   "when": "transition not allowed by REQ-38",
+   "message_names": "the item id and its current status",
+   "check": 8
+  },
+  {
+   "tools": "log_item",
+   "when": "depends_on or parent names a missing item",
+   "message_names": "missing item: <id>",
+   "check": 7
+  },
+  {
+   "tools": "resolve",
+   "when": "decision item with source model; or REQ-35 parent with fewer than N children and source model",
+   "message_names": "the item id",
+   "check": 9
+  },
+  {
+   "tools": "park",
+   "when": "decision item with parked_by model",
+   "message_names": "the item id",
+   "check": 9
+  },
+  {
+   "tools": "resolve|park|log_item",
+   "when": "source or parked_by user without a user prompt since the budget point",
+   "message_names": "a message saying so; when no prompt hook call was ever seen, a message saying hooks are not firing (REQ-44)",
+   "check": 10
+  },
+  {
+   "tools": "log_item",
+   "when": "a caller-supplied id is already used by an item in this interview",
+   "message_names": "the duplicate id, e.g. \"duplicate id: q1\"; nothing is logged and no journal event is written",
+   "check": 7
+  },
+  {
+   "tools": "end_interview",
+   "when": "items open without abandon true and a reason",
+   "message_names": "the open item ids",
+   "check": 11
+  },
+  {
+   "tools": "note_prompt|skill_started|check_stop",
+   "when": "call carries _meta claudecode/toolUseId",
+   "message_names": "the tool name and 'hook-facing'",
+   "check": 2
+  },
+  {
+   "tools": "end_interview",
+   "when": "no interview exists (state none)",
+   "message_names": "no interview to end",
+   "check": 6
+  },
+  {
+   "tools": "end_interview",
+   "when": "state pending and mode plain is absent",
+   "message_names": "pending interview: use mode plain",
+   "check": 6
+  },
+  {
+   "tools": "end_interview",
+   "when": "mode plain in state active or complete",
+   "message_names": "mode plain applies only to a pending interview",
+   "check": 6
+  },
+  {
+   "tools": "end_interview",
+   "when": "abandon true while nothing is open (state active or complete)",
+   "message_names": "nothing is open: abandon is not needed",
+   "check": 6
+  },
+  {
+   "tools": "resolve|park|reopen",
+   "when": "the id names no item (including every id in states none and pending, where the register is empty)",
+   "message_names": "no such item: <id>; the call starts and engages nothing",
+   "check": 7
+  },
+  {
+   "tools": "resume|discard",
+   "when": "no unfinished journal exists",
+   "message_names": "no unfinished journal",
+   "check": 6
+  },
+  {
+   "tools": "resume|discard",
+   "when": "the id names no unfinished journal (unknown, already archived, or ended)",
+   "message_names": "unknown interview id: <id>",
+   "check": 6
+  },
+  {
+   "tools": "resume|discard",
+   "when": "the id names a journal whose owner is alive (pid file with a live process and the same start time)",
+   "message_names": "journal is live-owned: <id>",
+   "check": 6
+  },
+  {
+   "tools": "resume|discard",
+   "when": "several unfinished journals exist and no id was given",
+   "message_names": "several unfinished journals: followed by the interview ids, comma separated",
+   "check": 6
+  },
+  {
+   "tools": "resume|discard",
+   "when": "state active or complete",
+   "message_names": "wrong state: followed by the state name",
+   "check": 6
+  },
+  {
+   "tools": "resume",
+   "when": "the exclusive pid-file create loses a race with another resumer",
+   "message_names": "journal already claimed",
+   "check": 6
+  },
+  {
+   "tools": "resume",
+   "when": "replay fails (REQ-31 violation, invalid JSON on a non-final line, seq gap, unknown kind, v above 2)",
+   "message_names": "replay failed at line followed by the 1-based line number as a digit string; state unchanged and the pid file removed",
+   "check": 6
+  },
+  {
+   "tools": "*",
+   "when": "arguments fail the input schema (missing, unknown or mistyped parameter, blank text, multi-line rationale, cross-field dependency)",
+   "message_names": "invalid arguments: followed by the parameter name",
+   "check": 3
+  },
+  {
+   "tools": "log_item",
+   "when": "kind subquestion without parent (the input schema cannot express this)",
+   "message_names": "subquestion needs a parent",
+   "check": 7
+  },
+  {
+   "tools": "log_item",
+   "when": "kind decision carrying answer with source model (REQ-34)",
+   "message_names": "decision item can be answered by the user only: <id>",
+   "check": 9
+  },
+  {
+   "tools": "resolve|log_item",
+   "when": "source user, a prompt exists but the per-prompt budget max(1, p) (flat 4 when the classifier returned unknown) is spent (REQ-32)",
+   "message_names": "user-answer budget spent: followed by used and allowed counts",
+   "check": 10
+  },
+  {
+   "tools": "log_item",
+   "when": "more than 4 volunteered answers (answer+source+rationale) since the previous user prompt (REQ-32)",
+   "message_names": "volunteered-answer cap reached",
+   "check": 10
+  }
+ ],
+ "error_precedence": [
+  "Protocol: unparseable JSON, unknown method or unknown tool name is a JSON-RPC error (the only non-isError failures).",
+  "Hook-facing tools only: a call carrying _meta claudecode/toolUseId is rejected (isError, row 'call carries _meta').",
+  "Argument validation against the tool's input schema, including unknown arguments and cross-field dependencies (isError, message starts 'invalid arguments:' and names the parameter).",
+  "begin_interview only: tool_schema differs from the server's (message names both values).",
+  "Unfinished journal: begin_interview, log_item, resolve, park and reopen are refused while an unfinished journal exists and the server is in state none or pending (message 'unfinished journal: call resume or discard').",
+  "Wrong lifecycle state or nothing to act on, per state_matrix (resume and discard in active/complete; end_interview in none, pending without mode plain, mode plain outside pending, abandon with nothing open; no unfinished journal / unknown id / live owner for resume and discard).",
+  "Item lookup: unknown id for resolve, park, reopen, or missing parent / depends_on for log_item (message 'no such item: <id>' or 'missing item: <id>'); duplicate caller id for log_item; subquestion without parent.",
+  "Transition table (REQ-38): transition not allowed for the item's current status.",
+  "Kind rules: decision item with source model or parked_by model (REQ-34); under-sized parent resolved by model (REQ-35).",
+  "User-prompt rules: hooks not firing (REQ-44), no user prompt since the budget point, per-prompt budget spent, volunteered-answer cap reached (REQ-32, REQ-33).",
+  "Open items without abandon true and a reason (end_interview only; checked after row 6 so a wrong state is reported first)."
+ ],
+ "state_matrix": {
+  "begin_interview": {
+   "none": "result: starts an interview into active, existing false; the skill value is recorded unvalidated (an unlisted skill name is accepted)",
+   "pending": "result: engages the pending interview into active, existing true (REQ-27 rule 3)",
+   "active": "result: no-op, state active, existing true",
+   "complete": "result: no-op, state complete (does not return to active), existing true"
+  },
+  "log_item": {
+   "none": "result: implicit start into active (route implicit), item logged; rule errors leave state none",
+   "pending": "result: engages into active, item logged",
+   "active": "result: item logged",
+   "complete": "result: item logged and the interview returns to active"
+  },
+  "resolve": {
+   "none": "error: no such item (the register is empty); does not start an interview",
+   "pending": "error: no such item (a pending interview holds no items); does not engage",
+   "active": "result: transition applied, or the error rows for unknown id, transition, kind and prompt rules",
+   "complete": "result: transition applied and the interview returns to active; any error leaves it complete"
+  },
+  "park": {
+   "none": "error: no such item (the register is empty); does not start an interview",
+   "pending": "error: no such item (a pending interview holds no items); does not engage",
+   "active": "result: transition applied, or the error rows for unknown id, transition, kind and prompt rules",
+   "complete": "result: transition applied and the interview returns to active; any error leaves it complete"
+  },
+  "reopen": {
+   "none": "error: no such item (the register is empty); does not start an interview",
+   "pending": "error: no such item (a pending interview holds no items); does not engage",
+   "active": "result: transition applied, or the error rows for unknown id, transition, kind and prompt rules",
+   "complete": "result: transition applied and the interview returns to active; any error leaves it complete"
+  },
+  "status": {
+   "none": "result: state none; never starts an interview",
+   "pending": "result: state pending; does not engage",
+   "active": "result: state active",
+   "complete": "result: state complete; does not return it to active"
+  },
+  "resume": {
+   "none": "result: replays the journal and claims it, state active; errors: no unfinished journal, unknown id, live owner, several and no id, replay failure, journal already claimed",
+   "pending": "result: as none; the pending interview is replaced (ended as stood_down, not_engaged) only after the resume succeeded",
+   "active": "error: wrong state (message names active)",
+   "complete": "error: wrong state (message names complete)"
+  },
+  "discard": {
+   "none": "result: archives the named (or only) unfinished journal; state stays none; errors: no unfinished journal, unknown id, live owner, several and no id",
+   "pending": "result: as none; the pending interview stays pending",
+   "active": "error: wrong state (message names active)",
+   "complete": "error: wrong state (message names complete)"
+  },
+  "end_interview": {
+   "none": "error: no interview to end",
+   "pending": "with mode plain and no abandon/reason: result stood_down; otherwise error (pending interview: use mode plain)",
+   "active": "nothing open and no abandon: result normal; open items without abandon: error naming them; abandon true with reason and items open: result ended_incomplete_by_model; abandon true with nothing open: error; mode plain: error",
+   "complete": "no abandon: result ended_after_completion; abandon: error (nothing open); mode plain: error"
+  },
+  "note_prompt": {
+   "none": "result {}: records last_seen_session_id (and prompt_seen for note_prompt); skill_started with a listed name starts a pending interview",
+   "pending": "result {}: counted in hook_health; skill_started is a no-op returning the existing interview",
+   "active": "result {}: counted in hook_health",
+   "complete": "result {}: counted in hook_health"
+  },
+  "skill_started": {
+   "none": "result {}: records last_seen_session_id (and prompt_seen for note_prompt); skill_started with a listed name starts a pending interview",
+   "pending": "result {}: counted in hook_health; skill_started is a no-op returning the existing interview",
+   "active": "result {}: counted in hook_health",
+   "complete": "result {}: counted in hook_health"
+  },
+  "check_stop": {
+   "none": "result {}: allows and clears prompt_seen",
+   "pending": "result {}: allows; the second check stands the interview down",
+   "active": "result {} or a block decision (REQ-42, REQ-43)",
+   "complete": "result {}: allows every turn"
+  }
+ }
+}

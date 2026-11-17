@@ -1,0 +1,124 @@
+{
+ "id": "S-A7",
+ "title": "begin_interview without any hook call starts an active interview; status reports the schema versions and the initial fields",
+ "req": [
+  "REQ-60",
+  "REQ-21",
+  "REQ-27",
+  "REQ-13",
+  "REQ-77"
+ ],
+ "steps": [
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "existing",
+     "eq": false
+    },
+    {
+     "path": "interview_id",
+     "matches": "^iv-"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "journal_schema",
+     "eq": 2
+    },
+    {
+     "path": "tool_schema",
+     "eq": 3
+    },
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "last_event",
+     "eq": 1
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "len": 0
+    },
+    {
+     "path": "resumable",
+     "len": 0
+    },
+    {
+     "path": "decision_log",
+     "eq": null
+    },
+    {
+     "path": "write_error",
+     "eq": null
+    },
+    {
+     "path": "version_mismatch",
+     "eq": null
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "existing",
+     "eq": true
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    }
+   ]
+  }
+ ]
+}

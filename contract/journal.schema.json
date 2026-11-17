@@ -1,0 +1,1168 @@
+{
+ "journal_schema": 2,
+ "description": "Machine-readable form of contract/journal.md (the event envelope and the 13 event kinds). `kinds` maps each kind to the JSON Schema (same subset as tools.json) of one journal line; a $ref names a definition in this file's $defs or in tools.json's $defs (id, nonblank, oneline, kind, source, toolSchema). The runner validates every line of a journal against kinds[line.kind], requires seq 1..n gapless and a `start` first event. Version 1 lines (no v, ts, seq) are replay input only and are not described here. contract/check_contract.py checks this file against journal.md and its own examples.",
+ "$defs": {
+  "ts": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d+)?(Z|\\+00:00)$"
+  }
+ },
+ "kinds": {
+  "start": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "interview_id",
+    "route",
+    "skill",
+    "session_id",
+    "implicit",
+    "prompt_count"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "start"
+    },
+    "interview_id": {
+     "$ref": "#/$defs/id"
+    },
+    "route": {
+     "enum": [
+      "hook",
+      "begin_interview",
+      "implicit"
+     ]
+    },
+    "skill": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/nonblank"
+      }
+     ]
+    },
+    "session_id": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/nonblank"
+      }
+     ]
+    },
+    "implicit": {
+     "type": "boolean"
+    },
+    "prompt_count": {
+     "type": "integer",
+     "enum": [
+      0,
+      1
+     ]
+    }
+   },
+   "oneOf": [
+    {
+     "required": [
+      "route",
+      "skill",
+      "implicit"
+     ],
+     "properties": {
+      "route": {
+       "const": "implicit"
+      },
+      "skill": {
+       "type": "null"
+      },
+      "implicit": {
+       "const": true
+      }
+     }
+    },
+    {
+     "required": [
+      "route",
+      "skill",
+      "implicit"
+     ],
+     "properties": {
+      "route": {
+       "enum": [
+        "hook",
+        "begin_interview"
+       ]
+      },
+      "skill": {
+       "$ref": "#/$defs/nonblank"
+      },
+      "implicit": {
+       "const": false
+      }
+     }
+    }
+   ]
+  },
+  "engage": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "via"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "engage"
+    },
+    "via": {
+     "enum": [
+      "begin_interview",
+      "log_item",
+      "resolve",
+      "park",
+      "reopen"
+     ]
+    }
+   }
+  },
+  "prompt": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "session_id",
+    "count"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "prompt"
+    },
+    "session_id": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "count": {
+     "type": "integer",
+     "minimum": 1
+    }
+   }
+  },
+  "hook": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "tool",
+    "session_id"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "hook"
+    },
+    "tool": {
+     "enum": [
+      "note_prompt",
+      "skill_started",
+      "check_stop"
+     ]
+    },
+    "session_id": {
+     "$ref": "#/$defs/nonblank"
+    }
+   }
+  },
+  "item": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "id",
+    "item_kind",
+    "text",
+    "parent",
+    "depends_on"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "item"
+    },
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "item_kind": {
+     "$ref": "#/$defs/kind"
+    },
+    "text": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "parent": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/id"
+      }
+     ]
+    },
+    "depends_on": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/id"
+     }
+    }
+   }
+  },
+  "resolve": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "id",
+    "answer",
+    "source",
+    "rationale"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "resolve"
+    },
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "answer": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "source": {
+     "$ref": "#/$defs/source"
+    },
+    "rationale": {
+     "$ref": "#/$defs/oneline"
+    }
+   }
+  },
+  "park": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "id",
+    "reason",
+    "parked_by"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "park"
+    },
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "reason": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "parked_by": {
+     "$ref": "#/$defs/source"
+    }
+   }
+  },
+  "reopen": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "id",
+    "reason",
+    "stale"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "reopen"
+    },
+    "id": {
+     "$ref": "#/$defs/id"
+    },
+    "reason": {
+     "$ref": "#/$defs/nonblank"
+    },
+    "stale": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/id"
+     }
+    }
+   }
+  },
+  "stop": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "decision",
+    "classification",
+    "presented",
+    "blocks"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "stop"
+    },
+    "decision": {
+     "enum": [
+      "allow",
+      "block"
+     ]
+    },
+    "classification": {
+     "enum": [
+      "finish",
+      "question",
+      "unknown"
+     ]
+    },
+    "presented": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/id"
+       }
+      }
+     ]
+    },
+    "blocks": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "prompt",
+      "finish",
+      "unlogged"
+     ],
+     "properties": {
+      "prompt": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "finish": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "unlogged": {
+       "type": "integer",
+       "minimum": 0
+      }
+     }
+    }
+   }
+  },
+  "complete": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "complete"
+    }
+   }
+  },
+  "mismatch": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "plugin_tool_schema",
+    "server_tool_schema"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "mismatch"
+    },
+    "plugin_tool_schema": {
+     "$ref": "#/$defs/toolSchema"
+    },
+    "server_tool_schema": {
+     "$ref": "#/$defs/toolSchema"
+    }
+   }
+  },
+  "resume": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "session_id",
+    "from_seq"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "resume"
+    },
+    "session_id": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/nonblank"
+      }
+     ]
+    },
+    "from_seq": {
+     "type": "integer",
+     "minimum": 0
+    }
+   }
+  },
+  "end": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "v",
+    "ts",
+    "seq",
+    "kind",
+    "end_kind",
+    "mode",
+    "reason"
+   ],
+   "properties": {
+    "v": {
+     "const": 2
+    },
+    "ts": {
+     "$ref": "#/$defs/ts"
+    },
+    "seq": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "kind": {
+     "const": "end"
+    },
+    "end_kind": {
+     "enum": [
+      "normal",
+      "ended_after_completion",
+      "ended_incomplete_by_model",
+      "abandoned",
+      "stood_down"
+     ]
+    },
+    "mode": {
+     "enum": [
+      "register",
+      "plain",
+      "not_engaged"
+     ]
+    },
+    "reason": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    }
+   }
+  }
+ },
+ "examples": {
+  "good": [
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 1,
+    "kind": "start",
+    "interview_id": "iv-20261116T100000Z-0123abcd",
+    "route": "hook",
+    "skill": "grill-me",
+    "session_id": "s1",
+    "implicit": false,
+    "prompt_count": 1
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 1,
+    "kind": "start",
+    "interview_id": "iv-20261116T100000Z-0123abcd",
+    "route": "begin_interview",
+    "skill": "grill-me",
+    "session_id": null,
+    "implicit": false,
+    "prompt_count": 0
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 1,
+    "kind": "start",
+    "interview_id": "iv-20261116T100000Z-0123abcd",
+    "route": "implicit",
+    "skill": null,
+    "session_id": "s1",
+    "implicit": true,
+    "prompt_count": 0
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 2,
+    "kind": "engage",
+    "via": "log_item"
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 3,
+    "kind": "prompt",
+    "session_id": "s1",
+    "count": 2
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 4,
+    "kind": "hook",
+    "tool": "check_stop",
+    "session_id": "s1"
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 5,
+    "kind": "item",
+    "id": "Q1",
+    "item_kind": "subquestion",
+    "text": "t",
+    "parent": "q0",
+    "depends_on": [
+     "q1"
+    ]
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 6,
+    "kind": "resolve",
+    "id": "Q1",
+    "answer": "a",
+    "source": "user",
+    "rationale": "because"
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 7,
+    "kind": "park",
+    "id": "Q1",
+    "reason": "later",
+    "parked_by": "model"
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 8,
+    "kind": "reopen",
+    "id": "Q1",
+    "reason": "new fact",
+    "stale": [
+     "Q2",
+     "Q3"
+    ]
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 9,
+    "kind": "stop",
+    "decision": "block",
+    "classification": "finish",
+    "presented": null,
+    "blocks": {
+     "prompt": 1,
+     "finish": 1,
+     "unlogged": 0
+    }
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 10,
+    "kind": "stop",
+    "decision": "allow",
+    "classification": "question",
+    "presented": [
+     "Q1"
+    ],
+    "blocks": {
+     "prompt": 0,
+     "finish": 1,
+     "unlogged": 0
+    }
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 11,
+    "kind": "complete"
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 12,
+    "kind": "mismatch",
+    "plugin_tool_schema": 2,
+    "server_tool_schema": 3
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 13,
+    "kind": "resume",
+    "session_id": "s2",
+    "from_seq": 12
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 14,
+    "kind": "end",
+    "end_kind": "stood_down",
+    "mode": "not_engaged",
+    "reason": "skill did not engage"
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 15,
+    "kind": "end",
+    "end_kind": "normal",
+    "mode": "register",
+    "reason": null
+   }
+  ],
+  "bad": [
+   {
+    "why": "missing v",
+    "event": {
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 5,
+     "kind": "item",
+     "id": "Q1",
+     "item_kind": "question",
+     "text": "t",
+     "parent": null,
+     "depends_on": []
+    }
+   },
+   {
+    "why": "v 3",
+    "event": {
+     "v": 3,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 5,
+     "kind": "item",
+     "id": "Q1",
+     "item_kind": "question",
+     "text": "t",
+     "parent": null,
+     "depends_on": []
+    }
+   },
+   {
+    "why": "seq 0",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 0,
+     "kind": "item",
+     "id": "Q1",
+     "item_kind": "question",
+     "text": "t",
+     "parent": null,
+     "depends_on": []
+    }
+   },
+   {
+    "why": "seq missing",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "kind": "item",
+     "id": "Q1",
+     "item_kind": "question",
+     "text": "t",
+     "parent": null,
+     "depends_on": []
+    }
+   },
+   {
+    "why": "unknown kind",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 5,
+     "kind": "nudge",
+     "id": "Q1",
+     "item_kind": "question",
+     "text": "t",
+     "parent": null,
+     "depends_on": []
+    }
+   },
+   {
+    "why": "ts without zone",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00",
+     "seq": 5,
+     "kind": "item",
+     "id": "Q1",
+     "item_kind": "question",
+     "text": "t",
+     "parent": null,
+     "depends_on": []
+    }
+   },
+   {
+    "why": "ts with space",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16 10:00:00Z",
+     "seq": 5,
+     "kind": "item",
+     "id": "Q1",
+     "item_kind": "question",
+     "text": "t",
+     "parent": null,
+     "depends_on": []
+    }
+   },
+   {
+    "why": "extra field",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 5,
+     "kind": "item",
+     "id": "Q1",
+     "item_kind": "question",
+     "text": "t",
+     "parent": null,
+     "depends_on": [],
+     "extra": 1
+    }
+   },
+   {
+    "why": "item_kind task",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 5,
+     "kind": "item",
+     "id": "Q1",
+     "item_kind": "task",
+     "text": "t",
+     "parent": null,
+     "depends_on": []
+    }
+   },
+   {
+    "why": "depends_on missing",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 5,
+     "kind": "item",
+     "id": "Q1",
+     "item_kind": "question",
+     "text": "t",
+     "parent": null
+    }
+   },
+   {
+    "why": "blank text",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 5,
+     "kind": "item",
+     "id": "Q1",
+     "item_kind": "question",
+     "text": "  ",
+     "parent": null,
+     "depends_on": []
+    }
+   },
+   {
+    "why": "start implicit with a skill",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-x",
+     "route": "implicit",
+     "skill": "grill-me",
+     "session_id": null,
+     "implicit": true,
+     "prompt_count": 0
+    }
+   },
+   {
+    "why": "start hook flagged implicit",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-x",
+     "route": "hook",
+     "skill": "grill-me",
+     "session_id": null,
+     "implicit": true,
+     "prompt_count": 0
+    }
+   },
+   {
+    "why": "start route unknown",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-x",
+     "route": "typed",
+     "skill": "grill-me",
+     "session_id": null,
+     "implicit": false,
+     "prompt_count": 0
+    }
+   },
+   {
+    "why": "engage via status",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "engage",
+     "via": "status"
+    }
+   },
+   {
+    "why": "hook tool status",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "hook",
+     "tool": "status",
+     "session_id": "s1"
+    }
+   },
+   {
+    "why": "hook without session",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "hook",
+     "tool": "check_stop"
+    }
+   },
+   {
+    "why": "stop decision deny",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "stop",
+     "decision": "deny",
+     "classification": "finish",
+     "presented": null,
+     "blocks": {
+      "prompt": 0,
+      "finish": 0,
+      "unlogged": 0
+     }
+    }
+   },
+   {
+    "why": "stop blocks as number",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "finish",
+     "presented": null,
+     "blocks": 3
+    }
+   },
+   {
+    "why": "stop blocks missing unlogged",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "stop",
+     "decision": "allow",
+     "classification": "finish",
+     "presented": null,
+     "blocks": {
+      "prompt": 0,
+      "finish": 0
+     }
+    }
+   },
+   {
+    "why": "end_kind interrupted",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "end",
+     "end_kind": "interrupted",
+     "mode": "register",
+     "reason": null
+    }
+   },
+   {
+    "why": "end mode unknown",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "end",
+     "end_kind": "normal",
+     "mode": "quiet",
+     "reason": null
+    }
+   },
+   {
+    "why": "complete with a field",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "complete",
+     "x": 1
+    }
+   },
+   {
+    "why": "resolve multi-line rationale",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "resolve",
+     "id": "Q1",
+     "answer": "a",
+     "source": "user",
+     "rationale": "a\nb"
+    }
+   },
+   {
+    "why": "reopen stale not a list",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "reopen",
+     "id": "Q1",
+     "reason": "r",
+     "stale": "Q2"
+    }
+   },
+   {
+    "why": "resume from_seq negative",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "resume",
+     "session_id": null,
+     "from_seq": -1
+    }
+   },
+   {
+    "why": "mismatch string schema",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "mismatch",
+     "plugin_tool_schema": "2",
+     "server_tool_schema": 3
+    }
+   }
+  ]
+ }
+}

@@ -1,0 +1,134 @@
+Contract change rule
+====================
+
+The contract is tools.json (tool names, parameters, result shapes, error
+messages the suite matches on), journal.md (event kinds and the journal
+schema) and runtime.md (process start).
+
+Any change to a tool name, a parameter (name, type, optionality, allowed
+values), a result shape, or a journal event shape bumps `tool_schema` by one
+in tools.json, in the same commit, and adds an entry below. A change to
+`journal_schema` (the `v` field) also bumps `tool_schema`. Wording changes
+that alter no schema and no matched error text do not bump it.
+
+The plugin declares the `tool_schema` it requires; both implementations and
+the conformance suite read the value from tools.json. contract/check_contract.py
+fails on a tool_schema value other than the one it expects, a tool-list change,
+an example that violates its schema, a missing state_matrix cell or an errors row
+without a valid precedence number.
+
+Log (newest first)
+------------------
+
+tool_schema 3  (review fixes after the three independent reviews, 2026-11-16)
+Entries are appended as the fixes land; all belong to this one bump.
+- begin_interview: in state pending it engages the interview (returns state
+  active, existing true); `existing` is now required and `state` is narrowed to
+  active|complete. Why: the old text made the hook-start plus begin_interview
+  route leave the interview pending and stood down (review S1-1).
+- Error channel: domain failures must be isError:true tool results, never
+  JSON-RPC errors (the old text let the suite accept either, which weakened
+  REQ-40/REQ-71 identical behaviour).
+- Journal flush: the queue is also flushed on stdin EOF (user decision), not
+  only at check_stop and at end. Why: a graceful exit must lose no event.
+- State enums: status.state is none|pending|active|complete (an ended
+  interview reports none, REQ-27 "none: entered ... after ended"); resume.state
+  is the const active; the end_interview result end_kind no longer lists
+  `abandoned`, which is journal-only (session change). Why: unreachable and
+  ambiguous values let two implementations diverge (review S2-5).
+- State x tool matrix (tools.json state_matrix) and numbered error precedence
+  (error_precedence): every cell of the REQ-27 table now has a stated result or
+  error; a failing call changes nothing (never starts, engages or revives an
+  interview). Why: two implementations diverged on unspecified cells (S1-2).
+- end_interview: `abandon` is now the const true, `abandon` and `reason`
+  require each other, and `mode: plain` excludes both (a oneOf); four new error
+  rows (nothing to end, pending without mode plain, mode plain outside pending,
+  abandon with nothing open). Why: these cells were unspecified (review S1-2).
+- resolve|park|reopen on an unknown id: error row `no such item: <id>`; such a
+  call never starts or engages an interview (review S1-2).
+- resume and discard: error rows for no unfinished journal, unknown id, a
+  live-owned journal (distinct from "journal already claimed"), several
+  journals without an id, wrong state; discard is accepted in none and pending.
+  Why: only the claim/several/state/replay rows existed (review S1-2).
+- Error rows added: invalid arguments (any tool), subquestion without parent,
+  decision-item answer by the model through log_item (REQ-34), per-prompt budget
+  spent and volunteered-answer cap (REQ-32); every row now carries `check`, its
+  number in error_precedence. Why: required rejections had no row (S2-8).
+- Single-line patterns: the rationale pattern (new $defs.oneline) and the id
+  pattern reject a trailing newline and the line separators VT, FF, NEL, U+2028,
+  U+2029; a trailing `$` means end of string and the Python checker translates
+  it to \Z. Why: Python's `$` matched "ok\n" while ECMAScript/Rust did not, so
+  suite and servers disagreed (review S3-1).
+- Item/tree schema: $defs.item is a oneOf by status (Open all-null; Stale keeps
+  its answer/source/rationale; Parked needs parked_by and park_reason; Resolved
+  needs non-null answer, source and single-line rationale). `stale` removed from
+  the log_item, resolve and park results (only reopen can make items Stale,
+  REQ-36). Tree order pinned: Open, Stale, Parked, Resolved, creation order
+  within a group. Why: REQ-31 states must be unrepresentable (review S2-7).
+- status.resumable is an array (empty when none) of {interview_id, last_event},
+  most recently modified journal first. Why: REQ-52 allows several unfinished
+  journals; a single object hid the others (review S2-6). version_mismatch
+  lifetime pinned (set by a mismatch, cleared by a later match).
+- Decision log pinned in runtime.md (directory rule, file name, modes,
+  journal_position header line, mode and end_kind strings); status gains a
+  required decision_log (path or null) and the end_interview result a required
+  decision_log path. Why: the log was not in the contract, so REQ-63 replay
+  could not find or compare it (review S2-1).
+- Id generation pinned: interview id iv-<UTC timestamp>-<8 hex>, item id Q<n>
+  (next unused). Why: counters (iv-1) would collide across server restarts and
+  archive rename-onto-existing would break (review S2-2). Examples updated.
+- Pid file pinned: one-line JSON {pid, start, interview_id}, start time from
+  /proc/<pid>/stat field 22, exact-equality liveness, the stale-replace
+  (rename aside, verify, O_EXCL create) sequence and orphan pruning. Why: REQ-52
+  gave pid and start time but no format, and O_EXCL cannot replace a crashed
+  owner's file (review S2-3, build-plan F1).
+- Pending interview fates: replaced-by-resume, server exit while pending and
+  session change each write an `end` event (stood_down, mode not_engaged) and
+  archive the journal, so no ghost unfinished journal remains; mode `plain` is
+  reserved for end_interview mode plain; "Interview ends and server exit" table
+  in runtime.md. Why: a hook start journals a pending interview, and nothing
+  ended it on those paths (review S2-4).
+- Journal details: hook vs prompt vs stop (one `hook` event per hook call,
+  `prompt`/`stop` additional), hook_health derivation, `stop.blocks` is an
+  object {prompt, finish, unlogged}, `resume.from_seq` equals the result
+  `last_event` (pre-resume), `start.route/implicit/skill/session_id` rules,
+  `mismatch` rule, replay failure modes (torn final line ignored; invalid JSON,
+  gap, unknown kind fail naming the line), v1 shape. Why: counters and caps
+  must replay identically (review S2-9, S2-10, S3-4).
+- `_meta` test pinned: presence of the key claudecode/toolUseId (a _meta
+  without it is hook-style); check_stop always returns JSON text, never empty
+  text. Why: runtime.md and tools.json disagreed (review S2-11, S3-2).
+- status gains a required write_error (string or null); unwritable data
+  directory behaviour pinned (fail open, in-memory continues, retry). Why:
+  REQ-50 fail-open was unspecified for storage failure (review S3-8).
+
+(no bump, 2026-11-17, walk Q1)  tools.json descriptions of begin_interview and
+skill_started state that the exact-match skill-name list (REQ-24) applies to the
+hook route (skill_started) only, and that begin_interview accepts any non-blank
+skill name. This restates existing behaviour (the none-state row already says an
+unlisted name is accepted); no shape, parameter or error text changes, so
+tool_schema stays 3.
+
+(no bump, 2026-11-16, conformance review S2-7)  contract/journal.schema.json is
+the machine-readable form of journal.md's envelope and 13 event kinds (JSON
+Schema subset, with good and bad examples); check_contract.py ties it to the
+journal.md event table, and the conformance runner validates every journal line
+against it. It restates the existing journal shape and changes none, so
+tool_schema stays 3 and journal_schema stays 2.
+
+(no bump, 2026-11-16)  runtime.md "Journal location": exact path template,
+project-key derivation (SHA-256 of CLAUDE_PROJECT_DIR), archive folder, modes
+0700/0600 and the temp-directory fallback. Run-time layout only; no tool name,
+parameter, result shape or journal event shape changes, so tool_schema stays 2.
+
+tool_schema 2  (slice C1 walkthrough, 2026-11-16)  Journal format change, and a
+result-shape narrowing: `interrupted` removed from the journal `end` event's
+end_kind enum and from the `end_interview` result enum (a crash or server exit
+on an active interview writes no `end` event; `interrupted` is a decision-log
+kind only). End-kind triggers stated in journal.md. Added without schema change:
+`log_item` duplicate caller-supplied id error row, and the rule that `status`
+`items` counts equal the counts derived from `tree` (checked in check_contract.py).
+Bumped because the CHANGES rule counts a journal event shape change.
+
+tool_schema 1  (slice C1, 2026-11-16)  Initial freeze: REQ-40 tool list,
+journal_schema 2.

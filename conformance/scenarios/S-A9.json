@@ -1,0 +1,116 @@
+{
+ "id": "S-A9",
+ "title": "a model-facing register call with no interview: resolve of an unknown id starts nothing; log_item starts an implicit interview recorded as such",
+ "req": [
+  "REQ-21",
+  "REQ-27",
+  "REQ-13"
+ ],
+ "steps": [
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "mention": "q1"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "last_event",
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-one"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "matches": "^iv-"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "last_event",
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "op": "stop"
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "total": 2,
+   "events": [
+    {
+     "kind": "start",
+     "interview_id": "$iid",
+     "route": "implicit",
+     "skill": null,
+     "session_id": null,
+     "implicit": true,
+     "prompt_count": 0
+    },
+    {
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-one"
+    }
+   ],
+   "absent": [
+    "engage",
+    "hook"
+   ]
+  }
+ ]
+}

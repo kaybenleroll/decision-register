@@ -1,0 +1,146 @@
+{
+ "id": "S-A4",
+ "title": "decisions: model resolve rejected; user resolve rejected before any prompt (hooks not firing) and once the budget is spent; accepted after a user prompt",
+ "req": [
+  "REQ-32",
+  "REQ-34",
+  "REQ-44"
+ ],
+ "steps": [
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d1",
+    "kind": "decision",
+    "text": "td1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d2",
+    "kind": "decision",
+    "text": "td2"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d1",
+    "answer": "a",
+    "source": "model",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "mention": "d1"
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d1",
+    "answer": "a",
+    "source": "user",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "matches": "(?i)not firing"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-a4",
+    "prompt": "yes, use option b"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d1",
+    "answer": "ans-d1",
+    "source": "user",
+    "rationale": "why-d1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d2",
+    "answer": "ans-d2",
+    "source": "user",
+    "rationale": "why-d2"
+   },
+   "expect": "error"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "d2"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "d1"
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.1.source",
+     "eq": "user"
+    },
+    {
+     "path": "tree.1.answer",
+     "eq": "ans-d1"
+    }
+   ]
+  }
+ ]
+}

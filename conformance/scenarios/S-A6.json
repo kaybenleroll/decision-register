@@ -1,0 +1,550 @@
+{
+ "id": "S-A6",
+ "title": "journal: events complete and valid; flushed at check_stop and on stdin EOF; v1, mixed and v2 journals replay the same tree; v=3 fails resume naming the line",
+ "req": [
+  "REQ-60",
+  "REQ-61",
+  "REQ-31",
+  "REQ-45"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-a6",
+    "prompt": "grill me on this plan"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "tq1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "tq2",
+    "depends_on": [
+     "q1"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "sq1",
+    "kind": "subquestion",
+    "text": "tsub",
+    "parent": "q2"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d1",
+    "kind": "decision",
+    "text": "td1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q3",
+    "kind": "question",
+    "text": "tq3"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "ans-q1",
+    "source": "model",
+    "rationale": "why-q1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "ans-q2",
+    "source": "model",
+    "rationale": "why-q2"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "q1",
+    "reason": "new-fact"
+   },
+   "assert": [
+    {
+     "path": "stale",
+     "eq": [
+      "q2"
+     ]
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "ans-q1b",
+    "source": "model",
+    "rationale": "why-q1b"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "sq1",
+    "reason": "park-sq1",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d1",
+    "answer": "ans-d1",
+    "source": "user",
+    "rationale": "why-d1"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-a6",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "into": "mid"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "from": "mid",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "from": "mid",
+   "events": [
+    {
+     "kind": "start",
+     "interview_id": "$iid",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "sess-a6",
+     "implicit": false,
+     "prompt_count": 1
+    },
+    {
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "tq1",
+     "parent": null,
+     "depends_on": []
+    },
+    {
+     "kind": "item",
+     "id": "q2",
+     "item_kind": "question",
+     "text": "tq2",
+     "parent": null,
+     "depends_on": [
+      "q1"
+     ]
+    },
+    {
+     "kind": "item",
+     "id": "sq1",
+     "item_kind": "subquestion",
+     "text": "tsub",
+     "parent": "q2",
+     "depends_on": []
+    },
+    {
+     "kind": "item",
+     "id": "d1",
+     "item_kind": "decision",
+     "text": "td1"
+    },
+    {
+     "kind": "item",
+     "id": "q3",
+     "item_kind": "question",
+     "text": "tq3"
+    },
+    {
+     "kind": "resolve",
+     "id": "q1",
+     "answer": "ans-q1",
+     "source": "model",
+     "rationale": "why-q1"
+    },
+    {
+     "kind": "resolve",
+     "id": "q2",
+     "answer": "ans-q2",
+     "source": "model",
+     "rationale": "why-q2"
+    },
+    {
+     "kind": "reopen",
+     "id": "q1",
+     "reason": "new-fact",
+     "stale": [
+      "q2"
+     ]
+    },
+    {
+     "kind": "resolve",
+     "id": "q1",
+     "answer": "ans-q1b",
+     "source": "model",
+     "rationale": "why-q1b"
+    },
+    {
+     "kind": "park",
+     "id": "sq1",
+     "reason": "park-sq1",
+     "parked_by": "model"
+    },
+    {
+     "kind": "resolve",
+     "id": "d1",
+     "answer": "ans-d1",
+     "source": "user",
+     "rationale": "why-d1"
+    },
+    {
+     "kind": "hook",
+     "tool": "check_stop",
+     "session_id": "sess-a6"
+    },
+    {
+     "kind": "stop",
+     "decision": "block",
+     "classification": "finish"
+    }
+   ],
+   "count": {
+    "start": 1,
+    "item": 5,
+    "resolve": 4,
+    "reopen": 1,
+    "park": 1,
+    "hook": 1,
+    "stop": 1
+   },
+   "absent": [
+    "end",
+    "complete",
+    "engage",
+    "mismatch",
+    "prompt"
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q4",
+    "kind": "question",
+    "text": "tq4"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "want_tree": "tree",
+    "want_items": "items",
+    "want_last": "last_event"
+   },
+   "assert": [
+    {
+     "path": "hook_health.check_stop",
+     "eq": 1
+    },
+    {
+     "path": "last_event",
+     "ge": 14
+    }
+   ]
+  },
+  {
+   "op": "stop"
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "total": "$want_last",
+   "prefix": "mid",
+   "last": {
+    "kind": "item",
+    "id": "q4",
+    "seq": "$want_last"
+   }
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "write",
+   "form": "v1_all"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-a6b",
+    "prompt": "resume please"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid"
+   },
+   "assert": [
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "last_event",
+     "eq": "$v1_n"
+    },
+    {
+     "path": "items",
+     "eq": "$want_items"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree",
+     "eq": "$want_tree"
+    },
+    {
+     "path": "items",
+     "eq": "$want_items"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    }
+   ]
+  },
+  {
+   "op": "stop"
+  },
+  {
+   "op": "journal",
+   "action": "write",
+   "form": "v1_but_last"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-a6b",
+    "prompt": "resume please"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid"
+   },
+   "assert": [
+    {
+     "path": "last_event",
+     "eq": "$v1_n"
+    },
+    {
+     "path": "items",
+     "eq": "$want_items"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree",
+     "eq": "$want_tree"
+    }
+   ]
+  },
+  {
+   "op": "stop"
+  },
+  {
+   "op": "journal",
+   "action": "write",
+   "form": "orig_plus_v3"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-a6b",
+    "prompt": "resume please"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid"
+   },
+   "expect": "error",
+   "matches": "replay failed at line\\s+${n1}\\b"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree",
+     "len": 0
+    },
+    {
+     "path": "resumable",
+     "len": 1
+    },
+    {
+     "path": "resumable.0.interview_id",
+     "eq": "$iid"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "write",
+   "form": "orig"
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid"
+   },
+   "assert": [
+    {
+     "path": "last_event",
+     "eq": "$want_last"
+    },
+    {
+     "path": "items",
+     "eq": "$want_items"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree",
+     "eq": "$want_tree"
+    },
+    {
+     "path": "last_event",
+     "eq": "$np1"
+    }
+   ]
+  },
+  {
+   "op": "stop"
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "into": "final"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "from": "final",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "from": "final",
+   "last": {
+    "kind": "resume",
+    "session_id": "sess-a6b",
+    "from_seq": "$want_last",
+    "seq": "$np1"
+   }
+  }
+ ]
+}

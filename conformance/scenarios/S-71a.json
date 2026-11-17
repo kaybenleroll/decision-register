@@ -1,0 +1,29 @@
+{
+ "id": "S-71a",
+ "title": "initialize and tools/list expose exactly the contract's tools and input schemas; an unknown tool is a JSON-RPC error",
+ "req": [
+  "REQ-71",
+  "REQ-80",
+  "REQ-40"
+ ],
+ "steps": [
+  {
+   "op": "tools_list"
+  },
+  {
+   "call": "no_such_tool",
+   "args": {},
+   "expect": "protocol_error"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    }
+   ]
+  }
+ ]
+}
