@@ -1,6 +1,6 @@
 {
  "id": "S-32a",
- "title": "a source user answer (resolve or park) is rejected, and changes nothing, when no user prompt has arrived since the prompt's budget was spent, whatever model actions came between; a new prompt allows the next",
+ "title": "a source user answer (resolve) or user park is rejected, and changes nothing, once the current prompt's budget (max(1, p), here 1) is spent, whatever model actions came between; the rejection names the counts used 1 and allowed 1; a new prompt allows the next",
  "req": [
   "REQ-32"
  ],
@@ -103,8 +103,9 @@
     "rationale": "why"
    },
    "expect": "error",
-   "matches": "(?i)budget|prompt",
-   "not_mention": "hooks are not firing"
+   "matches": "budget spent:\\D*1\\D+1",
+   "not_mention": "hooks are not firing",
+   "mention": "user-answer budget spent:"
   },
   {
    "call": "park",
@@ -114,8 +115,9 @@
     "parked_by": "user"
    },
    "expect": "error",
-   "matches": "(?i)budget|prompt",
-   "not_mention": "hooks are not firing"
+   "matches": "budget spent:\\D*1\\D+1",
+   "not_mention": "hooks are not firing",
+   "mention": "user-answer budget spent:"
   },
   {
    "call": "status",
@@ -166,7 +168,8 @@
     "parked_by": "user"
    },
    "expect": "error",
-   "matches": "(?i)budget|prompt"
+   "matches": "budget spent:\\D*1\\D+1",
+   "mention": "user-answer budget spent:"
   },
   {
    "call": "status",
