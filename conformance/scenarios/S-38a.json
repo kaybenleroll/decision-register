@@ -1,0 +1,976 @@
+{
+ "id": "S-38a",
+ "title": "transition table: resolve accepts Open, Stale and Parked (either parker) and rejects Resolved; park accepts Open, Stale and model-Parked and rejects Resolved and user-Parked; reopen accepts Resolved only; each rejection names the id and the current status and changes nothing",
+ "req": [
+  "REQ-38",
+  "REQ-31",
+  "REQ-33"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-38a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "n-resolve-Resolved",
+    "kind": "question",
+    "text": "text-n-resolve-Resolved"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "n-resolve-Resolved",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "n-park-Resolved",
+    "kind": "question",
+    "text": "text-n-park-Resolved"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "n-park-Resolved",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "n-park-ParkedU",
+    "kind": "question",
+    "text": "text-n-park-ParkedU"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-38a",
+    "prompt": "park n-park-ParkedU"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "n-park-ParkedU",
+    "reason": "user park",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "n-reopen-Open",
+    "kind": "question",
+    "text": "text-n-reopen-Open"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "n-reopen-ParkedM",
+    "kind": "question",
+    "text": "text-n-reopen-ParkedM"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "n-reopen-ParkedM",
+    "reason": "model park",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "n-reopen-ParkedU",
+    "kind": "question",
+    "text": "text-n-reopen-ParkedU"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-38a",
+    "prompt": "park n-reopen-ParkedU"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "n-reopen-ParkedU",
+    "reason": "user park",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "n-reopen-Staleb",
+    "kind": "question",
+    "text": "base of n-reopen-Stale"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "n-reopen-Stale",
+    "kind": "question",
+    "text": "text-n-reopen-Stale",
+    "depends_on": [
+     "n-reopen-Staleb"
+    ]
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "n-reopen-Staleb",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "n-reopen-Stale",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "n-reopen-Staleb",
+    "reason": "new-fact"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event",
+    "tree0": "tree"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "n-resolve-Resolved",
+    "answer": "new answer",
+    "source": "model",
+    "rationale": "new why"
+   },
+   "expect": "error",
+   "mention": [
+    "n-resolve-Resolved",
+    "Resolved"
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "n-park-Resolved",
+    "reason": "new reason",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": [
+    "n-park-Resolved",
+    "Resolved"
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "n-park-ParkedU",
+    "reason": "new reason",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": [
+    "n-park-ParkedU",
+    "Parked"
+   ]
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "n-reopen-Open",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": [
+    "n-reopen-Open",
+    "Open"
+   ]
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "n-reopen-ParkedM",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": [
+    "n-reopen-ParkedM",
+    "Parked"
+   ]
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "n-reopen-ParkedU",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": [
+    "n-reopen-ParkedU",
+    "Parked"
+   ]
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "n-reopen-Stale",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": [
+    "n-reopen-Stale",
+    "Stale"
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "last_event",
+     "eq": "$le"
+    },
+    {
+     "path": "tree",
+     "eq": "$tree0"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "y-resolve-Open",
+    "kind": "question",
+    "text": "text-y-resolve-Open"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "y-resolve-Open",
+    "answer": "new answer",
+    "source": "model",
+    "rationale": "new why"
+   },
+   "assert": [
+    {
+     "path": "id",
+     "eq": "y-resolve-Open"
+    },
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "y-resolve-Staleb",
+    "kind": "question",
+    "text": "base of y-resolve-Stale"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "y-resolve-Stale",
+    "kind": "question",
+    "text": "text-y-resolve-Stale",
+    "depends_on": [
+     "y-resolve-Staleb"
+    ]
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "y-resolve-Staleb",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "y-resolve-Stale",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "y-resolve-Staleb",
+    "reason": "new-fact"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "y-resolve-Stale",
+    "answer": "new answer",
+    "source": "model",
+    "rationale": "new why"
+   },
+   "assert": [
+    {
+     "path": "id",
+     "eq": "y-resolve-Stale"
+    },
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "y-resolve-ParkedM",
+    "kind": "question",
+    "text": "text-y-resolve-ParkedM"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "y-resolve-ParkedM",
+    "reason": "model park",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "y-resolve-ParkedM",
+    "answer": "new answer",
+    "source": "model",
+    "rationale": "new why"
+   },
+   "assert": [
+    {
+     "path": "id",
+     "eq": "y-resolve-ParkedM"
+    },
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "y-resolve-ParkedU",
+    "kind": "question",
+    "text": "text-y-resolve-ParkedU"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-38a",
+    "prompt": "park y-resolve-ParkedU"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "y-resolve-ParkedU",
+    "reason": "user park",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "y-resolve-ParkedU",
+    "answer": "new answer",
+    "source": "model",
+    "rationale": "new why"
+   },
+   "assert": [
+    {
+     "path": "id",
+     "eq": "y-resolve-ParkedU"
+    },
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "y-park-Open",
+    "kind": "question",
+    "text": "text-y-park-Open"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "y-park-Open",
+    "reason": "new reason",
+    "parked_by": "model"
+   },
+   "assert": [
+    {
+     "path": "id",
+     "eq": "y-park-Open"
+    },
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "y-park-Staleb",
+    "kind": "question",
+    "text": "base of y-park-Stale"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "y-park-Stale",
+    "kind": "question",
+    "text": "text-y-park-Stale",
+    "depends_on": [
+     "y-park-Staleb"
+    ]
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "y-park-Staleb",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "y-park-Stale",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "y-park-Staleb",
+    "reason": "new-fact"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "y-park-Stale",
+    "reason": "new reason",
+    "parked_by": "model"
+   },
+   "assert": [
+    {
+     "path": "id",
+     "eq": "y-park-Stale"
+    },
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "y-park-ParkedM",
+    "kind": "question",
+    "text": "text-y-park-ParkedM"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "y-park-ParkedM",
+    "reason": "model park",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "y-park-ParkedM",
+    "reason": "new reason",
+    "parked_by": "model"
+   },
+   "assert": [
+    {
+     "path": "id",
+     "eq": "y-park-ParkedM"
+    },
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "y-reopen-Resolved",
+    "kind": "question",
+    "text": "text-y-reopen-Resolved"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "y-reopen-Resolved",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "y-reopen-Resolved",
+    "reason": "new-fact"
+   },
+   "assert": [
+    {
+     "path": "id",
+     "eq": "y-reopen-Resolved"
+    },
+    {
+     "path": "status",
+     "eq": "Open"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree.0.id",
+     "eq": "n-reopen-Open"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.0.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.0.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.0.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "n-reopen-Staleb"
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.1.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.1.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.1.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "y-resolve-Staleb"
+    },
+    {
+     "path": "tree.2.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.2.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.2.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.2.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.3.id",
+     "eq": "y-park-Staleb"
+    },
+    {
+     "path": "tree.3.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.3.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.3.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.3.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.4.id",
+     "eq": "y-reopen-Resolved"
+    },
+    {
+     "path": "tree.4.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.4.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.4.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.4.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.5.id",
+     "eq": "n-reopen-Stale"
+    },
+    {
+     "path": "tree.5.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.5.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.5.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.5.answer",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.6.id",
+     "eq": "n-park-ParkedU"
+    },
+    {
+     "path": "tree.6.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.6.parked_by",
+     "eq": "user"
+    },
+    {
+     "path": "tree.6.park_reason",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.6.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.7.id",
+     "eq": "n-reopen-ParkedM"
+    },
+    {
+     "path": "tree.7.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.7.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.7.park_reason",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.7.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.8.id",
+     "eq": "n-reopen-ParkedU"
+    },
+    {
+     "path": "tree.8.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.8.parked_by",
+     "eq": "user"
+    },
+    {
+     "path": "tree.8.park_reason",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.8.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.9.id",
+     "eq": "y-park-Open"
+    },
+    {
+     "path": "tree.9.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.9.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.9.park_reason",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.9.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.10.id",
+     "eq": "y-park-Stale"
+    },
+    {
+     "path": "tree.10.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.10.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.10.park_reason",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.10.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.11.id",
+     "eq": "y-park-ParkedM"
+    },
+    {
+     "path": "tree.11.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.11.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.11.park_reason",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.11.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.12.id",
+     "eq": "n-resolve-Resolved"
+    },
+    {
+     "path": "tree.12.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.12.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.12.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.12.answer",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.13.id",
+     "eq": "n-park-Resolved"
+    },
+    {
+     "path": "tree.13.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.13.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.13.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.13.answer",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.14.id",
+     "eq": "y-resolve-Open"
+    },
+    {
+     "path": "tree.14.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.14.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.14.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.14.answer",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.15.id",
+     "eq": "y-resolve-Stale"
+    },
+    {
+     "path": "tree.15.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.15.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.15.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.15.answer",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.16.id",
+     "eq": "y-resolve-ParkedM"
+    },
+    {
+     "path": "tree.16.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.16.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.16.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.16.answer",
+     "matches": "\\S"
+    },
+    {
+     "path": "tree.17.id",
+     "eq": "y-resolve-ParkedU"
+    },
+    {
+     "path": "tree.17.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.17.parked_by",
+     "eq": null
+    },
+    {
+     "path": "tree.17.park_reason",
+     "eq": null
+    },
+    {
+     "path": "tree.17.answer",
+     "matches": "\\S"
+    }
+   ]
+  }
+ ]
+}
