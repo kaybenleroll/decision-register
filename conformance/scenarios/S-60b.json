@@ -1,0 +1,278 @@
+{
+ "id": "S-60b",
+ "title": "replay accepts v1 events (no v, ts or seq) and fails resume naming the 1-based line number, with state unchanged and no pid file left, for a v1 line of a kind outside item, resolve, park and reopen or an event with v above 2",
+ "req": [
+  "REQ-60"
+ ],
+ "steps": [
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+   "lines": [
+    {
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    },
+    {
+     "kind": "resolve",
+     "id": "q1",
+     "answer": "an",
+     "source": "model",
+     "rationale": "why"
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "iv-20261116T093015Z-a3f9c2d1"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "iv-20261116T093015Z-a3f9c2d1"
+    },
+    {
+     "path": "last_event",
+     "eq": 2
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "tree.0.answer",
+     "eq": "an"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {}
+  },
+  {
+   "op": "repeat",
+   "rows": [
+    {
+     "lines": [
+      {
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "kind": "stop",
+       "decision": "allow"
+      }
+     ],
+     "ln": 2
+    },
+    {
+     "lines": [
+      {
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1"
+      }
+     ],
+     "ln": 2
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "old",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 3,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "item",
+       "id": "q2",
+       "item_kind": "question",
+       "text": "t",
+       "parent": null,
+       "depends_on": []
+      }
+     ],
+     "ln": 3
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "old",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 3,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "t",
+       "parent": null,
+       "depends_on": []
+      }
+     ],
+     "ln": 2
+    },
+    {
+     "lines": [
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 1,
+       "kind": "start",
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "route": "begin_interview",
+       "skill": "grill-me",
+       "session_id": "old",
+       "implicit": false,
+       "prompt_count": 0
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 2,
+       "kind": "item",
+       "id": "q1",
+       "item_kind": "question",
+       "text": "text-q1",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 2,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 3,
+       "kind": "item",
+       "id": "q2",
+       "item_kind": "question",
+       "text": "text-q2",
+       "parent": null,
+       "depends_on": []
+      },
+      {
+       "v": 99,
+       "ts": "2026-11-16T09:30:15Z",
+       "seq": 4,
+       "kind": "item",
+       "id": "q3",
+       "item_kind": "question",
+       "text": "t",
+       "parent": null,
+       "depends_on": []
+      }
+     ],
+     "ln": 4
+    }
+   ],
+   "steps": [
+    {
+     "op": "seed",
+     "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+     "lines": "$lines"
+    },
+    {
+     "call": "resume",
+     "args": {
+      "id": "iv-20261116T093015Z-a3f9c2d1"
+     },
+     "expect": "error",
+     "matches": "replay failed at line ${ln}(?!\\d)"
+    },
+    {
+     "call": "status",
+     "args": {},
+     "assert": [
+      {
+       "path": "state",
+       "eq": "none"
+      },
+      {
+       "path": "interview_id",
+       "eq": null
+      },
+      {
+       "path": "resumable.0.interview_id",
+       "eq": "iv-20261116T093015Z-a3f9c2d1"
+      }
+     ]
+    },
+    {
+     "op": "fs",
+     "assert": [
+      {
+       "path": "$key/iv-20261116T093015Z-a3f9c2d1.pid",
+       "exists": false
+      },
+      {
+       "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
