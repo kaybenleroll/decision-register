@@ -264,6 +264,14 @@ def check_assert(name, a, body, vars_):
     return "%s=%s" % (where, json.dumps(val)[:60])
 
 
+def repeat_rows(st):
+    """The variable bindings of each pass of a `repeat` step: `count` passes with `var` = 1..count, or one pass
+    per object of `rows` (each key becomes a variable)."""
+    if "count" in st:
+        return [{st["var"]: i} for i in range(1, st["count"] + 1)]
+    return st["rows"]
+
+
 class Run:
     def __init__(self, cmd, scen, tools, validator):
         self.cmd, self.scen, self.tools, self.check = cmd, scen, tools, validator
@@ -357,7 +365,7 @@ class Run:
     def do_fs(self, st):
         root = self.root()
         for a in st["assert"]:
-            rel = a["path"].replace("$key", self.vars["key"]).replace("$iid", self.vars["iid"])
+            rel = a["path"].replace("$key", self.vars["key"]).replace("$iid", self.vars.get("iid", "$iid"))
             p = os.path.join(root, rel) if rel else root
             want = a.get("exists", True)
             if os.path.exists(p) != want:
@@ -396,6 +404,11 @@ class Run:
             self.do_fs(st)
         elif op == "tools_list":
             self.do_tools_list()
+        elif op == "repeat":
+            for row in repeat_rows(st):
+                self.vars.update(row)
+                for sub in st["steps"]:
+                    self.step(sub)
         else:
             raise AssertionError("unknown op %r" % op)
 
@@ -636,7 +649,9 @@ STEP_KEYS = {
     "journal": {"op", "action", "form", "where", "into", "from", "ended", "events", "last", "count", "absent", "total", "prefix"},
     "fs": {"op", "assert"},
     "tools_list": {"op"},
+    "repeat": {"op", "count", "var", "rows", "steps"},
 }
+MAX_REPEAT = 200
 FS_KEYS = {"path", "exists", "mode", "matches", "nonempty"}
 EXPECTS = ("ok", "error", "protocol_error")
 
@@ -669,6 +684,114 @@ def validate_assert(where, a, errs):
             errs.append("%s: bad regex: %s" % (where, e))
 
 
+def validate_step(where, st, tools, validator, errs):
+    op = st.get("op", "call")
+    allowed = STEP_KEYS.get(op)
+    if allowed is None:
+        errs.append("%s: unknown op %r" % (where, op))
+        return
+    for k in st:
+        if allowed is not None and k not in allowed:
+            errs.append("%s: unknown key %r for op %s" % (where, k, op))
+    if op == "repeat":
+        validate_repeat(where, st, tools, validator, errs)
+        return
+    if op == "call":
+        name = st.get("call")
+        expect = st.get("expect", "ok")
+        if expect not in EXPECTS:
+            errs.append("%s: bad expect %r" % (where, expect))
+        if name not in tools["tools"]:
+            if not (expect == "protocol_error" and isinstance(name, str)):
+                errs.append("%s: unknown tool %r" % (where, name))
+            return
+        tool = tools["tools"][name]
+        args = st.get("args", {})
+        if expect == "ok":
+            args = fill_variables(args, tool["input"], tools["$defs"])
+            for e in validator(args, tool["input"], tools["$defs"]):
+                errs.append("%s: %s args violate tools.json: %s" % (where, name, e))
+        if tool["audience"] == "hook" and st.get("meta") not in (None, False) and expect == "ok":
+            errs.append("%s: hook-facing %s sent with _meta must expect error" % (where, name))
+        if expect == "ok":
+            for k in ("mention", "not_mention", "matches"):
+                if k in st:
+                    errs.append("%s: %s only applies to expect error or protocol_error" % (where, k))
+        else:
+            for k in ("save", "assert"):
+                if k in st:
+                    errs.append("%s: %s only applies to expect ok" % (where, k))
+            for rx in as_list(st.get("matches")):
+                try:
+                    re.compile(re.sub(r"\$\{\w+\}", "0", rx))
+                except re.error as e:
+                    errs.append("%s: bad regex: %s" % (where, e))
+        for j, a in enumerate(st.get("assert", [])):
+            validate_assert("%s assert %d" % (where, j + 1), a, errs)
+    elif op == "journal":
+        action = st.get("action")
+        if action not in ("load", "check_events", "assert_events", "write"):
+            errs.append("%s: bad journal action" % where)
+        per_action = {"load": {"where", "into"}, "check_events": {"from", "ended"}, "write": {"form", "from"},
+                      "assert_events": {"from", "events", "last", "count", "absent", "total", "prefix"}}
+        for k in st:
+            if k not in ("op", "action") and k not in per_action.get(action, set()):
+                errs.append("%s: key %r does not apply to journal %s" % (where, k, action))
+        if action == "write" and st.get("form") not in ("orig", "v1_all", "v1_but_last", "orig_plus_v3"):
+            errs.append("%s: journal write needs a known form" % where)
+        if action == "assert_events" and not any(k in st for k in ("events", "last", "count", "absent", "total", "prefix")):
+            errs.append("%s: assert_events asserts nothing" % where)
+        if st.get("where", "active") not in ("active", "archive"):
+            errs.append("%s: where is active or archive" % where)
+    elif op == "fs":
+        if not st.get("assert"):
+            errs.append("%s: fs step needs assert" % where)
+        for a in st.get("assert", []):
+            for k in a:
+                if k not in FS_KEYS:
+                    errs.append("%s: unknown fs assert key %r" % (where, k))
+            if "path" not in a:
+                errs.append("%s: fs assert needs path" % where)
+
+
+def validate_repeat(where, st, tools, validator, errs):
+    """A repeat step has exactly one of `count` (with `var`) or `rows`, and non-empty `steps` that are not
+    themselves repeats. Each pass is validated as the concrete steps it expands to."""
+    has = [k for k in ("count", "rows") if k in st]
+    if len(has) != 1:
+        errs.append("%s: repeat needs exactly one of count and rows" % where)
+        return
+    if has[0] == "count":
+        n = st["count"]
+        if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= MAX_REPEAT:
+            errs.append("%s: repeat count is an integer from 1 to %d" % (where, MAX_REPEAT))
+            return
+        if not isinstance(st.get("var"), str) or not re.match(r"^[A-Za-z_]\w*$", st["var"]):
+            errs.append("%s: repeat count needs var, a variable name" % where)
+            return
+        passes = [{st["var"]: 1}, {st["var"]: n}]  # the first and the last pass
+    else:
+        rows = st["rows"]
+        if "var" in st:
+            errs.append("%s: var applies to count, not rows" % where)
+        if not isinstance(rows, list) or not rows or len(rows) > MAX_REPEAT or \
+                not all(isinstance(r, dict) and r and all(re.match(r"^[A-Za-z_]\w*$", k) for k in r) for r in rows):
+            errs.append("%s: repeat rows is a non-empty list of objects keyed by variable names (at most %d)" % (where, MAX_REPEAT))
+            return
+        passes = rows
+    steps = st.get("steps")
+    if not isinstance(steps, list) or not steps or not all(isinstance(x, dict) for x in steps):
+        errs.append("%s: repeat needs a non-empty steps list of objects" % where)
+        return
+    for j, sub in enumerate(steps):
+        if sub.get("op") == "repeat":
+            errs.append("%s step %d: repeats do not nest" % (where, j + 1))
+            return
+    for n, row in enumerate(passes):
+        for j, sub in enumerate(steps):
+            validate_step("%s pass %d step %d" % (where, n + 1, j + 1), subst(sub, row), tools, validator, errs)
+
+
 def validate(scenarios, tools, validator):
     errs, ids = [], set()
     top = {"id", "title", "req", "steps", "env", "unset_env"}
@@ -686,71 +809,7 @@ def validate(scenarios, tools, validator):
         if s.get("id") and f != s["id"] + ".json":
             errs.append("%s: file name must be <id>.json" % f)
         for i, st in enumerate(s.get("steps", [])):
-            where = "%s step %d" % (f, i + 1)
-            op = st.get("op", "call")
-            allowed = STEP_KEYS.get(op)
-            if allowed is None:
-                errs.append("%s: unknown op %r" % (where, op))
-                continue
-            for k in st:
-                if allowed is not None and k not in allowed:
-                    errs.append("%s: unknown key %r for op %s" % (where, k, op))
-            if op == "call":
-                name = st.get("call")
-                expect = st.get("expect", "ok")
-                if expect not in EXPECTS:
-                    errs.append("%s: bad expect %r" % (where, expect))
-                if name not in tools["tools"]:
-                    if not (expect == "protocol_error" and isinstance(name, str)):
-                        errs.append("%s: unknown tool %r" % (where, name))
-                    continue
-                tool = tools["tools"][name]
-                args = st.get("args", {})
-                if expect == "ok":
-                    args = fill_variables(args, tool["input"], tools["$defs"])
-                    for e in validator(args, tool["input"], tools["$defs"]):
-                        errs.append("%s: %s args violate tools.json: %s" % (where, name, e))
-                if tool["audience"] == "hook" and st.get("meta") not in (None, False) and expect == "ok":
-                    errs.append("%s: hook-facing %s sent with _meta must expect error" % (where, name))
-                if expect == "ok":
-                    for k in ("mention", "not_mention", "matches"):
-                        if k in st:
-                            errs.append("%s: %s only applies to expect error or protocol_error" % (where, k))
-                else:
-                    for k in ("save", "assert"):
-                        if k in st:
-                            errs.append("%s: %s only applies to expect ok" % (where, k))
-                    for rx in as_list(st.get("matches")):
-                        try:
-                            re.compile(re.sub(r"\$\{\w+\}", "0", rx))
-                        except re.error as e:
-                            errs.append("%s: bad regex: %s" % (where, e))
-                for j, a in enumerate(st.get("assert", [])):
-                    validate_assert("%s assert %d" % (where, j + 1), a, errs)
-            elif op == "journal":
-                action = st.get("action")
-                if action not in ("load", "check_events", "assert_events", "write"):
-                    errs.append("%s: bad journal action" % where)
-                per_action = {"load": {"where", "into"}, "check_events": {"from", "ended"}, "write": {"form", "from"},
-                              "assert_events": {"from", "events", "last", "count", "absent", "total", "prefix"}}
-                for k in st:
-                    if k not in ("op", "action") and k not in per_action.get(action, set()):
-                        errs.append("%s: key %r does not apply to journal %s" % (where, k, action))
-                if action == "write" and st.get("form") not in ("orig", "v1_all", "v1_but_last", "orig_plus_v3"):
-                    errs.append("%s: journal write needs a known form" % where)
-                if action == "assert_events" and not any(k in st for k in ("events", "last", "count", "absent", "total", "prefix")):
-                    errs.append("%s: assert_events asserts nothing" % where)
-                if st.get("where", "active") not in ("active", "archive"):
-                    errs.append("%s: where is active or archive" % where)
-            elif op == "fs":
-                if not st.get("assert"):
-                    errs.append("%s: fs step needs assert" % where)
-                for a in st.get("assert", []):
-                    for k in a:
-                        if k not in FS_KEYS:
-                            errs.append("%s: unknown fs assert key %r" % (where, k))
-                    if "path" not in a:
-                        errs.append("%s: fs assert needs path" % where)
+            validate_step("%s step %d" % (f, i + 1), st, tools, validator, errs)
     return errs
 
 
