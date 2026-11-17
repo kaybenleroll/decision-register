@@ -1,0 +1,211 @@
+{
+ "id": "S-32a",
+ "title": "a source user answer (resolve or park) is rejected, and changes nothing, when no user prompt has arrived since the prompt's budget was spent, whatever model actions came between; a new prompt allows the next",
+ "req": [
+  "REQ-32"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-q1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "text-q2"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q3",
+    "kind": "question",
+    "text": "text-q3"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q4",
+    "kind": "question",
+    "text": "text-q4"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q5",
+    "kind": "question",
+    "text": "text-q5"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q5",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "matches": "(?i)budget|prompt",
+   "not_mention": "hooks are not firing"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q3",
+    "reason": "rs",
+    "parked_by": "user"
+   },
+   "expect": "error",
+   "matches": "(?i)budget|prompt",
+   "not_mention": "hooks are not firing"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 3,
+      "resolved": 2,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32a",
+    "prompt": "now q2"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q3",
+    "reason": "rs",
+    "parked_by": "user"
+   },
+   "expect": "error",
+   "matches": "(?i)budget|prompt"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 3,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-32a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "resolve": 3,
+    "park": 0
+   }
+  }
+ ]
+}

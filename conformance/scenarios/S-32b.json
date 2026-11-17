@@ -1,0 +1,248 @@
+{
+ "id": "S-32b",
+ "title": "a volunteered user decision in log_item (answer, source user, rationale) is accepted only if a user prompt arrived since the previous Stop-hook call; a model-sourced volunteered answer needs no prompt; a rejection changes nothing",
+ "req": [
+  "REQ-32"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-q1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "v1",
+    "kind": "question",
+    "text": "text-v1",
+    "answer": "ans-v1",
+    "source": "user",
+    "rationale": "why-v1"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-32b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "v2",
+    "kind": "question",
+    "text": "text-v2",
+    "answer": "ans-v2",
+    "source": "user",
+    "rationale": "why-v2"
+   },
+   "expect": "error",
+   "matches": "(?i)prompt",
+   "not_mention": "hooks are not firing"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "v3",
+    "kind": "question",
+    "text": "text-v3",
+    "answer": "ans-v3",
+    "source": "model",
+    "rationale": "why-v3"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32b",
+    "prompt": "v2 is answered"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "v2",
+    "kind": "question",
+    "text": "text-v2",
+    "answer": "ans-v2",
+    "source": "user",
+    "rationale": "why-v2"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-32b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "v4",
+    "kind": "question",
+    "text": "text-v4",
+    "answer": "ans-v4",
+    "source": "user",
+    "rationale": "why-v4"
+   },
+   "expect": "error",
+   "matches": "(?i)prompt"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32b",
+    "prompt": "v4 too"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "v4",
+    "kind": "question",
+    "text": "text-v4",
+    "answer": "ans-v4",
+    "source": "user",
+    "rationale": "why-v4"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 4,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32b",
+    "prompt": "flush"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-32b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "item": 5,
+    "resolve": 4
+   }
+  }
+ ]
+}
