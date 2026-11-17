@@ -29,6 +29,9 @@ Entries are appended as the decisions land; all belong to this one bump.
   but fewer than N (REQ-35), not to a parent with zero children, which is an
   ordinary item (user decision 2026-11-17). Wording fix in the resolve error
   row and the kind-rules summary; the behaviour was already so in S-35c.
+- check_stop overflow wording pinned (REQ-45): after the first 10 open items the
+  reason says `N more` (N = open items not listed); nothing when 10 or fewer.
+  S-45c already pinned it.
 
 tool_schema 3  (review fixes after the three independent reviews, 2026-11-16)
 Entries are appended as the fixes land; all belong to this one bump.
