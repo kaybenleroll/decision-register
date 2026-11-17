@@ -1,0 +1,156 @@
+{
+ "id": "S-35d",
+ "title": "a parent with no children is not a branch: the model may resolve it and the finish gate does not flag it; once it gets one child the gate flags it, and with two children the gate allows",
+ "req": [
+  "REQ-35",
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-35d",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "z1",
+    "kind": "question",
+    "text": "a question that nothing is asked under"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "z1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-35d",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "zc1",
+    "kind": "subquestion",
+    "text": "first child added after the resolve",
+    "parent": "z1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "zc1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-35d",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "z1"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "zc2",
+    "kind": "subquestion",
+    "text": "second child",
+    "parent": "z1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "zc2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-35d",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 3,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}
