@@ -1,0 +1,103 @@
+{
+ "id": "S-61a",
+ "title": "a data directory named by CLAUDE_PLUGIN_DATA that does not exist yet is created (mode 0700 for every directory the server creates, 0600 for the journal and pid file) and the journal and archive land below it",
+ "req": [
+  "REQ-61",
+  "REQ-91"
+ ],
+ "env": {
+  "CLAUDE_PLUGIN_DATA": "$dir/data/not/yet/there"
+ },
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-61a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "text"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-61a",
+    "last_assistant_message": "Q1: text?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "",
+     "mode": "700"
+    },
+    {
+     "path": "$key",
+     "mode": "700"
+    },
+    {
+     "path": "$key/${iid}.jsonl",
+     "mode": "600",
+     "nonempty": true
+    },
+    {
+     "path": "$key/${iid}.pid",
+     "mode": "600"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {}
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/archive",
+     "mode": "700"
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "mode": "600",
+     "nonempty": true
+    },
+    {
+     "path": "$key/${iid}.jsonl",
+     "exists": false
+    }
+   ]
+  }
+ ]
+}
