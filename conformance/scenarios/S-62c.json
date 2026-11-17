@@ -1,0 +1,237 @@
+{
+ "id": "S-62c",
+ "title": "end_interview.decision_log and status.decision_log return the absolute log path (decision-<interview_id>.md) and the header lines interview_id, journal_position, state, mode, end_kind and implicit_start carry the pinned strings, in that order, for register, plain and not engaged interviews",
+ "req": [
+  "REQ-62",
+  "REQ-63"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-62c",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "x"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-62c",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "decision_log",
+     "eq": "${proj}/decision-logs/decision-${iid}.md"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "decision_log",
+     "eq": "${proj}/decision-logs/decision-${iid}.md"
+    },
+    {
+     "path": "end_kind",
+     "eq": "ended_after_completion"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: \\d+\nstate: ended\nmode: register\nend_kind: ended_after_completion\nimplicit_start: false\n"
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-62c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "mode": "plain"
+   },
+   "assert": [
+    {
+     "path": "decision_log",
+     "eq": "${proj}/decision-logs/decision-${iid}.md"
+    },
+    {
+     "path": "end_kind",
+     "eq": "stood_down"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: \\d+\nstate: ended\nmode: plain\nend_kind: stood_down\nimplicit_start: false\n"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "implicit"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "decision_log",
+     "eq": "${proj}/decision-logs/decision-${iid}.md"
+    },
+    {
+     "path": "end_kind",
+     "eq": "normal"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: \\d+\nstate: ended\nmode: register\nend_kind: normal\nimplicit_start: true\n"
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-62c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-62c",
+    "last_assistant_message": "x"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-62c",
+    "last_assistant_message": "x"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: \\d+\nstate: ended\nmode: not engaged\nend_kind: stood_down\nimplicit_start: false\n"
+    }
+   ]
+  }
+ ]
+}
