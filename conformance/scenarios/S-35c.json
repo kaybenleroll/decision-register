@@ -1,0 +1,327 @@
+{
+ "id": "S-35c",
+ "title": "a parent parked by the user is not flagged by the gate; children of any kind and any status count toward N; resolving an under-sized parent is accepted for source user and rejected for source model",
+ "req": [
+  "REQ-35",
+  "REQ-33",
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-35c",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "up",
+    "kind": "question",
+    "text": "user-parked parent"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "uc",
+    "kind": "subquestion",
+    "text": "its only child",
+    "parent": "up"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "uc",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-35c",
+    "prompt": "skip that branch"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "up",
+    "reason": "branch is moot",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-35c",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "cp1",
+    "kind": "question",
+    "text": "parent resolved before its children"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "cp1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "ck1",
+    "kind": "subquestion",
+    "text": "a subquestion child",
+    "parent": "cp1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "ck1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "ck2",
+    "kind": "decision",
+    "text": "a decision child",
+    "parent": "cp1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "cp2",
+    "kind": "question",
+    "text": "second parent resolved before its children"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "cp2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "ck3",
+    "kind": "question",
+    "text": "a question child",
+    "parent": "cp2"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "ck3",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "ck4",
+    "kind": "decision",
+    "text": "a decision child",
+    "parent": "cp2"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-35c",
+    "prompt": "park ck2"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "ck2",
+    "reason": "later",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-35c",
+    "prompt": "park ck4"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "ck4",
+    "reason": "later",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 5,
+      "parked": 3,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-35c",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "ps",
+    "kind": "question",
+    "text": "under-sized parent"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "sc",
+    "kind": "subquestion",
+    "text": "its only child",
+    "parent": "ps"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "ps",
+    "answer": "moot",
+    "source": "model",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "mention": "ps"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-35c",
+    "prompt": "that branch is moot, drop it"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "ps",
+    "answer": "moot",
+    "source": "user",
+    "rationale": "user says the branch is moot"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree.0.id",
+     "eq": "sc"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.9.id",
+     "eq": "ps"
+    },
+    {
+     "path": "tree.9.status",
+     "eq": "Resolved"
+    },
+    {
+     "path": "tree.9.source",
+     "eq": "user"
+    },
+    {
+     "path": "tree.9.answer",
+     "eq": "moot"
+    }
+   ]
+  }
+ ]
+}
