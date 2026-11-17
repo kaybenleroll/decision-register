@@ -1,0 +1,523 @@
+{
+ "id": "S-52h",
+ "title": "discard archives the named or only unfinished journal and starts nothing (state stays none, a pending interview stays pending); no journal, an unknown or archived id, a live-owned journal, several journals without an id, and the states active and complete are errors as the contract lists them, and resume refuses the first four the same way",
+ "req": [
+  "REQ-52"
+ ],
+ "steps": [
+  {
+   "call": "discard",
+   "args": {},
+   "expect": "error",
+   "mention": "no unfinished journal"
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "expect": "error",
+   "mention": "no unfinished journal"
+  },
+  {
+   "op": "start",
+   "server": "b"
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    }
+   ]
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+   "age_seconds": 300
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093016Z-b4a0d3e2.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093016Z-b4a0d3e2",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    }
+   ]
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093016Z-b4a0d3e2.jsonl",
+   "age_seconds": 200
+  },
+  {
+   "op": "seed",
+   "path": "$key/archive/iv-20261116T093018Z-d6c2f5a4.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093018Z-d6c2f5a4",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "end",
+     "end_kind": "normal",
+     "mode": "register",
+     "reason": null
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093017Z-c5b1e4f3.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093017Z-c5b1e4f3",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    }
+   ]
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093017Z-c5b1e4f3.pid",
+   "json": {
+    "pid": "$pid_b",
+    "start": "$start_b",
+    "interview_id": "iv-20261116T093017Z-c5b1e4f3"
+   }
+  },
+  {
+   "op": "utime",
+   "path": "$key/iv-20261116T093017Z-c5b1e4f3.jsonl",
+   "age_seconds": 100
+  },
+  {
+   "call": "discard",
+   "args": {
+    "id": "iv-20261116T000000Z-00000000"
+   },
+   "expect": "error",
+   "mention": "unknown interview id"
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "iv-20261116T000000Z-00000000"
+   },
+   "expect": "error",
+   "mention": "unknown interview id"
+  },
+  {
+   "call": "discard",
+   "args": {
+    "id": "iv-20261116T093018Z-d6c2f5a4"
+   },
+   "expect": "error",
+   "mention": "unknown interview id"
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "iv-20261116T093018Z-d6c2f5a4"
+   },
+   "expect": "error",
+   "mention": "unknown interview id"
+  },
+  {
+   "call": "discard",
+   "args": {
+    "id": "iv-20261116T093017Z-c5b1e4f3"
+   },
+   "expect": "error",
+   "mention": "live-owned"
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "iv-20261116T093017Z-c5b1e4f3"
+   },
+   "expect": "error",
+   "mention": "live-owned"
+  },
+  {
+   "call": "discard",
+   "args": {},
+   "expect": "error",
+   "mention": [
+    "several unfinished journals",
+    "iv-20261116T093015Z-a3f9c2d1",
+    "iv-20261116T093016Z-b4a0d3e2"
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "expect": "error",
+   "mention": [
+    "several unfinished journals",
+    "iv-20261116T093015Z-a3f9c2d1",
+    "iv-20261116T093016Z-b4a0d3e2"
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "resumable",
+     "eq": [
+      {
+       "interview_id": "iv-20261116T093016Z-b4a0d3e2",
+       "last_event": 2
+      },
+      {
+       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+       "last_event": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl"
+    },
+    {
+     "path": "$key/iv-20261116T093016Z-b4a0d3e2.jsonl"
+    },
+    {
+     "path": "$key/iv-20261116T093017Z-c5b1e4f3.jsonl"
+    },
+    {
+     "path": "$key/archive/iv-20261116T093015Z-a3f9c2d1.jsonl",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "call": "discard",
+   "args": {
+    "id": "iv-20261116T093015Z-a3f9c2d1"
+   },
+   "assert": [
+    {
+     "path": "interview_id",
+     "eq": "iv-20261116T093015Z-a3f9c2d1"
+    },
+    {
+     "path": "archived",
+     "eq": true
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    },
+    {
+     "path": "resumable",
+     "eq": [
+      {
+       "interview_id": "iv-20261116T093016Z-b4a0d3e2",
+       "last_event": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/iv-20261116T093015Z-a3f9c2d1.pid",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/iv-20261116T093015Z-a3f9c2d1.jsonl",
+     "nonempty": true
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52h",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-52h",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid_p": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "call": "discard",
+   "args": {},
+   "assert": [
+    {
+     "path": "interview_id",
+     "eq": "iv-20261116T093016Z-b4a0d3e2"
+    },
+    {
+     "path": "archived",
+     "eq": true
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_p"
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/archive/iv-20261116T093016Z-b4a0d3e2.jsonl",
+     "nonempty": true
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "op": "seed",
+   "path": "$key/iv-20261116T093015Z-a3f9c2d1.jsonl",
+   "lines": [
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 1,
+     "kind": "start",
+     "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+     "route": "begin_interview",
+     "skill": "grill-me",
+     "session_id": "old",
+     "implicit": false,
+     "prompt_count": 0
+    },
+    {
+     "v": 2,
+     "ts": "2026-11-16T09:30:15Z",
+     "seq": 2,
+     "kind": "item",
+     "id": "q1",
+     "item_kind": "question",
+     "text": "text-q1",
+     "parent": null,
+     "depends_on": []
+    }
+   ]
+  },
+  {
+   "call": "discard",
+   "args": {},
+   "expect": "error",
+   "mention": "wrong state: active"
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "expect": "error",
+   "mention": "wrong state: active"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_p"
+    },
+    {
+     "path": "resumable",
+     "len": 1
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-52h",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "call": "discard",
+   "args": {},
+   "expect": "error",
+   "mention": "wrong state: complete"
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "expect": "error",
+   "mention": "wrong state: complete"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_p"
+    }
+   ]
+  },
+  {
+   "op": "stop",
+   "server": "b"
+  }
+ ]
+}
