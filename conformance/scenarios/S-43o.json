@@ -247,6 +247,147 @@
    ]
   },
   {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43o",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43o",
+    "last_assistant_message": "```x```Q1) go"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43o",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43o",
+    "last_assistant_message": "```x```q1) go"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43o",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43o",
+    "last_assistant_message": "https://x.org Q1) go"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43o",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43o",
+    "last_assistant_message": "Q1: go\nhttps://x.org"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43o",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43o",
+    "last_assistant_message": "`Q1:` please decide"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43o",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43o",
+    "last_assistant_message": "Q1: go\nand more"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43o",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43o",
+    "last_assistant_message": "Q3: go"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
    "op": "journal",
    "action": "load"
   },
@@ -341,10 +482,60 @@
      "presented": [
       "Q1"
      ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "question",
+     "decision": "allow",
+     "presented": [
+      "Q1"
+     ]
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
     }
    ],
    "count": {
-    "stop": 11
+    "stop": 18
    },
    "absent": [
     "complete"
