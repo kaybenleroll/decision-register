@@ -538,7 +538,9 @@ class Run:
     def assert_events(self, st):
         """Assertions on a loaded journal: `events` (partial objects matching distinct events in order),
         `last` (the final event), `count` ({kind: n}), `absent` (kinds that must not occur), `total` (line count),
-        `prefix` (the lines of another loaded journal are the first lines of this one)."""
+        `prefix` (the lines of another loaded journal are the first lines of this one), `at` ({position: partial object};
+        positions count from 1, negative ones from the end) and `each` ({kind or "*": partial object} that every event
+        of that kind, at least one, must match)."""
         name = st.get("from", "main")
         lines = self.journal_lines(name)
         evs = [json.loads(l) for l in lines]
@@ -564,6 +566,20 @@ class Run:
         for kind in st.get("absent", []):
             if any(e["kind"] == kind for e in evs):
                 raise AssertionError("journal %s has a %s event" % (name, kind))
+        for key, part in st.get("at", {}).items():
+            n = int(key)
+            if not 1 <= abs(n) <= len(evs):
+                raise AssertionError("journal %s has %d events, none at position %s" % (name, len(evs), key))
+            e = evs[n - 1 if n > 0 else n]
+            if not match(e, part):
+                raise AssertionError("journal %s event %s is %s, expected %s" % (name, key, json.dumps(e)[:150], json.dumps(subst(part, self.vars))))
+        for kind, part in st.get("each", {}).items():
+            of = [e for e in evs if kind == "*" or e["kind"] == kind]
+            if not of:
+                raise AssertionError("journal %s has no %s event to check" % (name, kind))
+            for e in of:
+                if not match(e, part):
+                    raise AssertionError("journal %s %s event %s does not match %s" % (name, kind, json.dumps(e)[:150], json.dumps(subst(part, self.vars))))
         if "prefix" in st:
             pre = self.journal_lines(st["prefix"])
             if lines[:len(pre)] != pre:
@@ -646,7 +662,7 @@ def fill_variables(args, schema, defs):
 STEP_KEYS = {
     "call": {"op", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert"},
     "restart": {"op"}, "stop": {"op"}, "start": {"op"},
-    "journal": {"op", "action", "form", "where", "into", "from", "ended", "events", "last", "count", "absent", "total", "prefix"},
+    "journal": {"op", "action", "form", "where", "into", "from", "ended", "events", "last", "count", "absent", "total", "prefix", "at", "each"},
     "fs": {"op", "assert"},
     "tools_list": {"op"},
     "repeat": {"op", "count", "var", "rows", "steps"},
@@ -733,14 +749,29 @@ def validate_step(where, st, tools, validator, errs):
         if action not in ("load", "check_events", "assert_events", "write"):
             errs.append("%s: bad journal action" % where)
         per_action = {"load": {"where", "into"}, "check_events": {"from", "ended"}, "write": {"form", "from"},
-                      "assert_events": {"from", "events", "last", "count", "absent", "total", "prefix"}}
+                      "assert_events": {"from", "events", "last", "count", "absent", "total", "prefix", "at", "each"}}
         for k in st:
             if k not in ("op", "action") and k not in per_action.get(action, set()):
                 errs.append("%s: key %r does not apply to journal %s" % (where, k, action))
         if action == "write" and st.get("form") not in ("orig", "v1_all", "v1_but_last", "orig_plus_v3"):
             errs.append("%s: journal write needs a known form" % where)
-        if action == "assert_events" and not any(k in st for k in ("events", "last", "count", "absent", "total", "prefix")):
+        if action == "assert_events" and not any(k in st for k in ("events", "last", "count", "absent", "total", "prefix", "at", "each")):
             errs.append("%s: assert_events asserts nothing" % where)
+        if action == "assert_events":
+            kinds = tools["journal"]["kinds"]
+            for key, label in (("at", "position"), ("each", "kind")):
+                if key not in st:
+                    continue
+                if not isinstance(st[key], dict) or not st[key]:
+                    errs.append("%s: %s is a non-empty object keyed by %s" % (where, key, label))
+                    continue
+                for k, part in st[key].items():
+                    if key == "at" and not re.match(r"^-?[1-9]\d*$", k):
+                        errs.append("%s: at position %r is a non-zero integer" % (where, k))
+                    if key == "each" and k != "*" and k not in kinds:
+                        errs.append("%s: each names unknown journal kind %r" % (where, k))
+                    if not isinstance(part, dict) or not part:
+                        errs.append("%s: %s %r needs a non-empty object of fields to match" % (where, key, k))
         if st.get("where", "active") not in ("active", "archive"):
             errs.append("%s: where is active or archive" % where)
     elif op == "fs":

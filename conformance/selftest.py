@@ -148,6 +148,56 @@ def repeat_binds_its_variable():
           {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\A(note_prompt\n){3}\Z"}]})
 
 
+# ---------------------------------------------------------------- per-event journal assertions
+
+def journal_asserts(**kw):
+    return {"op": "journal", "action": "assert_events", **kw}
+
+
+def assert_events_on(lines, **kw):
+    """Run an assert_events step on a journal given as lines (no server involved)."""
+    play()  # sets up the scratch directory
+    r = run.Run(FAKE, scen(), TOOLS, VALIDATOR)
+    r.jl["main"] = [json.dumps(e) for e in lines]
+    r.assert_events(journal_asserts(**kw))
+
+
+EVS = [{"v": 2, "seq": 1, "kind": "start"}, {"v": 2, "seq": 2, "kind": "item", "id": "q1"},
+       {"v": 2, "seq": 3, "kind": "item", "id": "q2"}, {"v": 2, "seq": 4, "kind": "end"}]
+
+
+@test
+def per_event_assertions_parsed():
+    accepts(BEGIN, journal_asserts(at={"1": {"kind": "start"}, "-1": {"kind": "end"}}, each={"item": {"v": 2}, "*": {"v": 2}}))
+
+
+@test
+def per_event_assertions_rejected_when_malformed():
+    rejects("non-empty object keyed by position", BEGIN, journal_asserts(at={}))
+    rejects("non-zero integer", BEGIN, journal_asserts(at={"0": {"kind": "start"}}))
+    rejects("non-zero integer", BEGIN, journal_asserts(at={"first": {"kind": "start"}}))
+    rejects("non-empty object of fields", BEGIN, journal_asserts(at={"1": {}}))
+    rejects("non-empty object keyed by kind", BEGIN, journal_asserts(each=[]))
+    rejects("unknown journal kind", BEGIN, journal_asserts(each={"nope": {"v": 2}}))
+    rejects("non-empty object of fields", BEGIN, journal_asserts(each={"item": "x"}))
+    rejects("asserts nothing", BEGIN, journal_asserts())
+
+
+@test
+def per_event_assertions_run():
+    assert_events_on(EVS, at={"1": {"kind": "start"}, "3": {"id": "q2"}, "-1": {"kind": "end"}, "-2": {"id": "q2"}},
+                     each={"item": {"v": 2}, "*": {"v": 2}})
+    for kw, frag in (({"at": {"2": {"id": "q2"}}}, "event 2 is"), ({"at": {"5": {"kind": "end"}}}, "none at position 5"),
+                     ({"at": {"-5": {"kind": "end"}}}, "none at position -5"), ({"each": {"item": {"id": "q1"}}}, "does not match"),
+                     ({"each": {"park": {"v": 2}}}, "no park event")):
+        try:
+            assert_events_on(EVS, **kw)
+        except AssertionError as e:
+            assert frag in str(e), "wrong failure for %s: %s" % (kw, e)
+        else:
+            raise AssertionError("%s should have failed" % kw)
+
+
 def main():
     if "--fake" in sys.argv:
         return fake_server()
