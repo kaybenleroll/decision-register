@@ -1,6 +1,6 @@
 {
  "id": "S-52f",
- "title": "resume claims the journal with its own pid file: a second server is refused (journal is live-owned) and finds nothing to resume, and resume and discard are refused in active and in complete (wrong state)",
+ "title": "resume claims the journal with its own pid file: a second server is refused (journal is live-owned) and finds nothing to resume, and resume and discard are refused in active and in complete (wrong state); discard of that id is journal is live-owned too (it wins over no unfinished journal)",
  "req": [
   "REQ-52",
   "REQ-27"
@@ -105,6 +105,15 @@
    },
    "expect": "error",
    "matches": "live-owned|already claimed",
+   "server": "b"
+  },
+  {
+   "call": "discard",
+   "args": {
+    "id": "$iid_c"
+   },
+   "expect": "error",
+   "mention": "journal is live-owned",
    "server": "b"
   },
   {

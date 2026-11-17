@@ -1,6 +1,6 @@
 {
  "id": "S-52h",
- "title": "discard archives the named or only unfinished journal and starts nothing (state stays none, a pending interview stays pending); no journal, an unknown or archived id, a live-owned journal, several journals without an id, and the states active and complete are errors as the contract lists them, and resume refuses the first four the same way",
+ "title": "discard archives the named or only unfinished journal and starts nothing (state stays none, a pending interview stays pending); no journal, an unknown or archived id, a live-owned journal, several journals without an id, and the states active and complete are errors as the contract lists them, and resume refuses the first four the same way; with no unfinished journal left, an id naming a live-owned journal is still journal is live-owned (it wins over no unfinished journal) while no id is no unfinished journal",
  "req": [
   "REQ-52"
  ],
@@ -453,6 +453,34 @@
      "nonempty": true
     }
    ]
+  },
+  {
+   "call": "discard",
+   "args": {
+    "id": "iv-20261116T093017Z-c5b1e4f3"
+   },
+   "expect": "error",
+   "mention": "journal is live-owned: iv-20261116T093017Z-c5b1e4f3"
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "iv-20261116T093017Z-c5b1e4f3"
+   },
+   "expect": "error",
+   "mention": "journal is live-owned: iv-20261116T093017Z-c5b1e4f3"
+  },
+  {
+   "call": "discard",
+   "args": {},
+   "expect": "error",
+   "mention": "no unfinished journal"
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "expect": "error",
+   "mention": "no unfinished journal"
   },
   {
    "call": "begin_interview",

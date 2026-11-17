@@ -1,6 +1,6 @@
 {
  "id": "S-77b",
- "title": "begin_interview with a tool_schema different from the server's is an error naming both values and starts or engages nothing",
+ "title": "begin_interview with a tool_schema different from the server's is an error naming both values, starts or engages nothing and writes no journal event (even with a pending interview); it only sets status.version_mismatch, which a matching call clears",
  "req": [
   "REQ-77"
  ],
@@ -46,6 +46,13 @@
     {
      "path": "last_event",
      "eq": 0
+    },
+    {
+     "path": "version_mismatch",
+     "eq": {
+      "plugin_tool_schema": 5,
+      "server_tool_schema": 4
+     }
     }
    ]
   },
@@ -103,8 +110,27 @@
       "parked": 0,
       "stale": 0
      }
+    },
+    {
+     "path": "version_mismatch",
+     "eq": {
+      "plugin_tool_schema": 3,
+      "server_tool_schema": 4
+     }
     }
    ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "start": 1,
+    "mismatch": 0
+   }
   },
   {
    "call": "begin_interview",
@@ -128,6 +154,10 @@
     {
      "path": "interview_id",
      "eq": "$iid"
+    },
+    {
+     "path": "version_mismatch",
+     "eq": null
     }
    ]
   }
