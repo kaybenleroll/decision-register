@@ -1,0 +1,325 @@
+{
+ "id": "S-22d",
+ "title": "interview ids match iv-<UTC timestamp>-<8 hex> and servers started in turn on one project never reuse one; server-assigned item ids are Q<n> (the next unused number, from Q1 in every interview) and caller-supplied ids are kept verbatim",
+ "req": [
+  "REQ-22",
+  "REQ-23",
+  "REQ-30"
+ ],
+ "steps": [
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "i1": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "interview_id",
+     "matches": "^iv-\\d{8}T\\d{6}Z-[0-9a-f]{8}$"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "auto item"
+   },
+   "save": {
+    "a1": "id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "Q2",
+    "kind": "question",
+    "text": "caller id kept"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "second auto"
+   },
+   "save": {
+    "b1": "id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "my.id-1",
+    "kind": "question",
+    "text": "caller id kept"
+   },
+   "save": {
+    "c1": "id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree.0.id",
+     "eq": "Q1"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "Q2"
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "Q3"
+    },
+    {
+     "path": "tree.3.id",
+     "eq": "my.id-1"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "next"
+   }
+  },
+  {
+   "op": "restart"
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "i2": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "interview_id",
+     "matches": "^iv-\\d{8}T\\d{6}Z-[0-9a-f]{8}$"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "auto item"
+   },
+   "save": {
+    "a2": "id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "Q2",
+    "kind": "question",
+    "text": "caller id kept"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "second auto"
+   },
+   "save": {
+    "b2": "id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "my.id-1",
+    "kind": "question",
+    "text": "caller id kept"
+   },
+   "save": {
+    "c2": "id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree.0.id",
+     "eq": "Q1"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "Q2"
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "Q3"
+    },
+    {
+     "path": "tree.3.id",
+     "eq": "my.id-1"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "next"
+   }
+  },
+  {
+   "op": "restart"
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "i3": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "interview_id",
+     "matches": "^iv-\\d{8}T\\d{6}Z-[0-9a-f]{8}$"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "auto item"
+   },
+   "save": {
+    "a3": "id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "Q2",
+    "kind": "question",
+    "text": "caller id kept"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "second auto"
+   },
+   "save": {
+    "b3": "id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "my.id-1",
+    "kind": "question",
+    "text": "caller id kept"
+   },
+   "save": {
+    "c3": "id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "tree.0.id",
+     "eq": "Q1"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "Q2"
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "Q3"
+    },
+    {
+     "path": "tree.3.id",
+     "eq": "my.id-1"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {
+    "abandon": true,
+    "reason": "next"
+   }
+  },
+  {
+   "op": "restart"
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "interview_id",
+     "ne": "$i1"
+    },
+    {
+     "path": "interview_id",
+     "ne": "$i2"
+    },
+    {
+     "path": "interview_id",
+     "ne": "$i3"
+    }
+   ]
+  }
+ ]
+}
