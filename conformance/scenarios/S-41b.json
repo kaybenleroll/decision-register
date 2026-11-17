@@ -1,0 +1,191 @@
+{
+ "id": "S-41b",
+ "title": "hook output contract: note_prompt and skill_started return exactly {} (also for an unlisted name, a version mismatch and a repeated start) and never block or deny; check_stop returns {} or the exact decision object {decision, reason} and nothing else",
+ "req": [
+  "REQ-41",
+  "REQ-77"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41b",
+    "prompt": "grill me on this"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-41b",
+    "skill": "other-skill"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-41b",
+    "skill": "grill-me"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 3,
+    "session_id": "sess-41b",
+    "skill": "grill-me"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-41b",
+    "skill": "grill-me"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-41b",
+    "skill": "other-skill"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41b",
+    "prompt": "carry on"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41b",
+    "prompt": "<agent-message from=\"a69a4f75543c0b107\">\n[Subagent hand-back] The text below is the final result.\nuser said yes"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-41b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "decision",
+     "eq": "block"
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-41b",
+    "last_assistant_message": "chatting"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  }
+ ]
+}

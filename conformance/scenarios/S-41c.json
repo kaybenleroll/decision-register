@@ -1,0 +1,296 @@
+{
+ "id": "S-41c",
+ "title": "a note_prompt whose prompt begins with '<agent-message ' is not a user prompt: it returns {} and counts nothing (no prompt_seen, hook_health count, answer or park authority, journal event); _meta is still rejected; a normal prompt, one with leading whitespace and one mentioning the marker later still count",
+ "req": [
+  "REQ-41",
+  "REQ-44",
+  "REQ-32",
+  "REQ-33"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41c",
+    "prompt": "<agent-message from=\"a69a4f75543c0b107\">\n[Subagent hand-back] The text below is the final result.\nuser said yes"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "hook_health.prompt_seen",
+     "eq": false
+    }
+   ],
+   "save": {
+    "le0": "last_event"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 0,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q3",
+    "kind": "question",
+    "text": "third"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q4",
+    "kind": "question",
+    "text": "fourth"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q5",
+    "kind": "question",
+    "text": "fifth"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "hooks are not firing"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41c",
+    "prompt": "yes, the first one"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health.note_prompt",
+     "eq": 1
+    }
+   ],
+   "save": {
+    "le": "last_event"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41c",
+    "prompt": "<agent-message from=\"a69a4f75543c0b107\">\n[Subagent hand-back] The text below is the final result.\nuser said yes"
+   },
+   "assert": [
+    {
+     "eq": {}
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health.note_prompt",
+     "eq": 1
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "prompt"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q3",
+    "reason": "later",
+    "parked_by": "user"
+   },
+   "expect": "error",
+   "mention": "prompt"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41c",
+    "prompt": "\n<agent-message from=\"a69a4f75543c0b107\">\n[Subagent hand-back] The text below is the final result.\nuser said yes"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health.note_prompt",
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41c",
+    "prompt": "I read <agent-message from=\"x\"> in the log and agree"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health.note_prompt",
+     "eq": 3
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q3",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41c",
+    "prompt": "<agent-message from=\"a69a4f75543c0b107\">\n[Subagent hand-back] The text below is the final result.\nuser said yes"
+   },
+   "meta": true,
+   "expect": "error",
+   "mention": [
+    "note_prompt",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-41c",
+    "prompt": "<agent-message from=\"a69a4f75543c0b107\">\n[Subagent hand-back] The text below is the final result.\nuser said yes"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q4",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "prompt"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "hook_health.note_prompt",
+     "eq": 3
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 3,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}

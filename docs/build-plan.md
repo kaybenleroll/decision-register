@@ -133,6 +133,7 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-40d the `_meta` test is the presence of `claudecode/toolUseId`: a `_meta` holding only `progressToken` is hook-style (accepted by hook tools), an empty-valued `claudecode/toolUseId` is model-style (rejected); every domain failure is a result with `isError: true`, never a JSON-RPC error | REQ-40 |
 | S-40c forged `note_prompt` does not enable `source=user` | REQ-32, REQ-40 |
 | S-41a prompt counter advances per `note_prompt` | REQ-41, REQ-44 |
+| S-41c a `note_prompt` whose prompt begins with `<agent-message ` is a complete no-op returning `{}` (no count, no `prompt_seen`, no answer or park authority, no journal event, `_meta` still rejected); other prompts, including ones with leading whitespace or a later mention of the marker, count | REQ-41, REQ-44, REQ-32, REQ-33 |
 | S-41b hook output contract: `note_prompt` and `skill_started` return empty text or exactly `{}` (also for an unlisted name and for a version mismatch) and never block or deny; only `check_stop` returns a decision | REQ-41, REQ-77 |
 | S-42a caps: 2 blocks per prompt, 8 to finish, 12 unlogged; fail open after; counters per interview | REQ-42 |
 | S-43a finish attempt (no `?`) with Open, Stale, model-parked item or under-sized branch: block; none open: allow | REQ-43 |
