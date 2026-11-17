@@ -1,0 +1,224 @@
+{
+ "id": "S-52f",
+ "title": "resume claims the journal with its own pid file: a second server is refused (journal is live-owned) and finds nothing to resume, and resume and discard are refused in active and in complete (wrong state)",
+ "req": [
+  "REQ-52",
+  "REQ-27"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52f",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid_c": "interview_id",
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "open 1"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-52f",
+    "last_assistant_message": "Q1: open 1?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    }
+   ]
+  },
+  {
+   "op": "kill"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "op": "start",
+   "server": "b"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-52f-2",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_c"
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid_c}.pid",
+     "mode": "600",
+     "matches": "\\A\\{\\s*\"pid\"\\s*:\\s*${pid}\\s*,\\s*\"start\"\\s*:\\s*(\\d+|null)\\s*,\\s*\"interview_id\"\\s*:\\s*\"${iid_c}\"\\s*\\}\\s*\\n\\Z"
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid_c"
+   },
+   "expect": "error",
+   "matches": "live-owned|already claimed",
+   "server": "b"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ],
+   "server": "b"
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "expect": "error",
+   "mention": "wrong state: active"
+  },
+  {
+   "call": "resume",
+   "args": {
+    "id": "$iid_c"
+   },
+   "expect": "error",
+   "mention": "wrong state: active"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_c"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-52f-2",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "expect": "error",
+   "mention": "wrong state: complete"
+  },
+  {
+   "call": "discard",
+   "args": {},
+   "expect": "error",
+   "mention": "wrong state: complete"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid_c"
+    }
+   ]
+  },
+  {
+   "op": "stop",
+   "server": "b"
+  }
+ ]
+}
