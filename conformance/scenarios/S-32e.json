@@ -1,0 +1,227 @@
+{
+ "id": "S-32e",
+ "title": "volunteered log_item answers do not draw on the budget of S-32c (a resolve is still accepted after four, and four volunteered answers after a resolve spent the budget); four per prompt are accepted, the fifth is rejected as a volunteered-answer cap, and a new prompt allows four more",
+ "req": [
+  "REQ-32"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32e",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q0",
+    "kind": "question",
+    "text": "text-q0"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q9",
+    "kind": "question",
+    "text": "text-q9"
+   }
+  },
+  {
+   "op": "repeat",
+   "count": 4,
+   "var": "i",
+   "steps": [
+    {
+     "call": "log_item",
+     "args": {
+      "id": "v${i}",
+      "kind": "question",
+      "text": "text-v${i}",
+      "answer": "ans-v${i}",
+      "source": "user",
+      "rationale": "why-v${i}"
+     },
+     "assert": [
+      {
+       "path": "status",
+       "eq": "Resolved"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "v5",
+    "kind": "question",
+    "text": "text-v5",
+    "answer": "ans-v5",
+    "source": "user",
+    "rationale": "why-v5"
+   },
+   "expect": "error",
+   "mention": "volunteered-answer cap reached"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 4,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q0",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q9",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "user-answer budget spent:",
+   "matches": "budget spent:\\D*1\\D+1"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "v5",
+    "kind": "question",
+    "text": "text-v5",
+    "answer": "ans-v5",
+    "source": "user",
+    "rationale": "why-v5"
+   },
+   "expect": "error",
+   "mention": "volunteered-answer cap reached"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-32e",
+    "prompt": "next prompt"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q9",
+    "answer": "an",
+    "source": "user",
+    "rationale": "why"
+   }
+  },
+  {
+   "op": "repeat",
+   "count": 4,
+   "var": "i",
+   "steps": [
+    {
+     "call": "log_item",
+     "args": {
+      "id": "w${i}",
+      "kind": "question",
+      "text": "text-w${i}",
+      "answer": "ans-w${i}",
+      "source": "user",
+      "rationale": "why-w${i}"
+     },
+     "assert": [
+      {
+       "path": "status",
+       "eq": "Resolved"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "w5",
+    "kind": "question",
+    "text": "text-w5",
+    "answer": "ans-w5",
+    "source": "user",
+    "rationale": "why-w5"
+   },
+   "expect": "error",
+   "mention": "volunteered-answer cap reached"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 10,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-32e",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "item": 10,
+    "resolve": 10
+   }
+  }
+ ]
+}
