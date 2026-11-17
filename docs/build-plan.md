@@ -114,7 +114,7 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-32a `source=user` rejected with no prompt since last model action | REQ-32 |
 | S-32b volunteered decision in `log_item` accepted only after a prompt since previous Stop call | REQ-32 |
 | S-32c budget max(1, p): after a turn presenting p distinct items and one prompt, p `source=user` answers are accepted and the (p+1)th rejected; an empty list (p = 0) allows 1 | REQ-32, REQ-43 |
-| S-32d fallback: when the classifier returns `unknown` (error, timeout, unparseable), 4 `source=user` answers are accepted after one prompt and the 5th rejected; an empty list is not `unknown` (S-32c) | REQ-32, REQ-43 |
+| S-32d (not authored: `unknown` has no natural message form, so it is covered by each implementation's unit tests only, REQ-81; contract/classifier.md, decided 2026-11-17) fallback: when the classifier returns `unknown`, 4 `source=user` answers are accepted after one prompt and the 5th rejected; an empty list is not `unknown` (S-32c) | REQ-32, REQ-43 |
 | S-32e volunteered `log_item` answers do not draw on the budget of S-32c; 4 per prompt are accepted and the 5th rejected | REQ-32 |
 | S-33a park records `parked_by` and reason; model park keeps blocking; user park does not | REQ-33 |
 | S-33b `parked_by=user` without a prompt rejected | REQ-33 |
@@ -140,8 +140,18 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-43b question turn about a logged open item: allow; about an unlogged question: block | REQ-43 |
 | S-43c classifier table (5.1), including empty and very long messages | REQ-43 |
 | S-43d no interview active, or pending, or complete: the gate always allows without classifying | REQ-13, REQ-27, REQ-43 |
-| S-43e classifier returns either a list of presented item ids (possibly empty) or `unknown`; these are distinct and feed S-32c and S-32d | REQ-43, REQ-32 |
+| S-43e classifier returns a list of presented item ids (possibly empty), never null; the `unknown` half is covered by unit tests only (see S-32d) and feeds S-32c | REQ-43, REQ-32 |
 | S-43f classifier parity: a question citing an open item's id label concerns it; otherwise at least 3 shared content words are required; a single labelled one-line request for an open item is not a finish attempt, while the same text on two lines is | REQ-43 |
+| S-43g empty or whitespace-only message: allowed, not a finish attempt, journalled as `question`/`allow` with `presented` `[]` | REQ-43 |
+| S-43h label forms: `Q<n>:` anywhere in a line; `Q<n>.` and `Q<n>)` at line start only; non-labels | REQ-43 |
+| S-43i label identity: case-insensitive Q, digits exact (Q01, Q10 are not Q1), items cited once each in creation order | REQ-43 |
+| S-43j `?` test ignores code, URLs and quoted lines; labels and word overlap read the unstripped message | REQ-43 |
+| S-43k resolved, model-parked and user-parked items are never concerned (label or overlap): unlogged question blocked, `presented` `[]` | REQ-43 |
+| S-43l three-distinct-content-word threshold: case, repeats, separators, non-ASCII | REQ-43 |
+| S-43m the 88 stop words are not content words | REQ-43 |
+| S-43n the listed non-stop words (first, key, use, ...) are content words | REQ-43 |
+| S-43o single labelled request without `?`: accepted line-start forms, case-insensitive Q | REQ-43 |
+| S-43p not a single labelled request: finish attempt | REQ-43 |
 | S-44a user-sourced answer with zero hook calls seen (counting calls made while inactive): error says hooks are not firing | REQ-44, REQ-27 |
 | S-45a `status` returns the full tree: every item with id, text, parent, status, answer, `parked_by`; order Open, Stale, Parked, Resolved, creation order within a group; Resolved items carry non-null answer, source and rationale, Parked items a reason | REQ-45, REQ-31 |
 | S-45b Stop block reason names each open item with id and text | REQ-45, REQ-43 |

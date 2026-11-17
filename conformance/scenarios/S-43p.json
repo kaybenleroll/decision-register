@@ -1,0 +1,329 @@
+{
+ "id": "S-43p",
+ "title": "text that is not a single labelled request for an open item is a finish attempt: a label mid-line, Q<n> with no punctuation or other punctuation, Q01, the label of a resolved item, a second non-blank line (a quoted line counts) are all blocked with the open items named",
+ "req": [
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43p",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "storage engine choice"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "retention period policy"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "backup schedule frequency"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q3",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43p",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43p",
+    "last_assistant_message": "As for Q1: please decide the storage engine"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "Q3"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43p",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43p",
+    "last_assistant_message": "see Q1. please decide the storage engine"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "Q3"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43p",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43p",
+    "last_assistant_message": "Q01: please decide the storage engine"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "Q3"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43p",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43p",
+    "last_assistant_message": "Q1 please decide the storage engine"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "Q3"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43p",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43p",
+    "last_assistant_message": "Q1, please decide the storage engine"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "Q3"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43p",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43p",
+    "last_assistant_message": "Q3: please decide the backup schedule"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "Q3"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43p",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43p",
+    "last_assistant_message": "Q1: please decide the storage engine\nQ2: and the retention period"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "Q3"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43p",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43p",
+    "last_assistant_message": "Q1: please decide the storage engine\n> a quoted line"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "Q3"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    }
+   ],
+   "count": {
+    "stop": 8
+   },
+   "absent": [
+    "complete"
+   ]
+  }
+ ]
+}
