@@ -188,6 +188,32 @@ def servers_a_stopped_one_cannot_be_called():
     fails("already running", {"op": "start", "server": "b"}, {"op": "start", "server": "b"})
 
 
+# ---------------------------------------------------------------- SIGKILL
+
+@test
+def kill_parsed():
+    accepts({"op": "kill"}, {"op": "start"})
+    accepts({"op": "start", "server": "b"}, {"op": "kill", "server": "b"}, {"op": "start", "server": "b"})
+
+
+@test
+def kill_rejected_when_malformed():
+    rejects("server b is not running", {"op": "kill", "server": "b"})
+    rejects("server main is not running", {"op": "kill"}, {"op": "kill"})
+    rejects("server main is not running", {"op": "kill"}, NOTE)
+    rejects("unknown key", {"op": "kill", "signal": 9})
+    rejects("server is a lower-case name", {"op": "kill", "server": "Main"})
+
+
+@test
+def kill_runs_without_a_graceful_exit():
+    # a server that ignores stdin EOF would fail a stop; a kill does not wait for it, and the name can start again
+    plays({"op": "kill"}, {"op": "start"}, NOTE,
+          {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\Anote_prompt ${pid}\n\Z"}]})
+    fails("not running", {"op": "kill"}, NOTE)
+    fails("not running", {"op": "kill"}, {"op": "stop"})
+
+
 # ---------------------------------------------------------------- per-event journal assertions
 
 def journal_asserts(**kw):

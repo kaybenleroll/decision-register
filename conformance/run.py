@@ -322,6 +322,13 @@ class Run:
             raise AssertionError("server %s did not exit within %d s of stdin EOF (runtime.md: exits on stdin EOF)"
                                  % (name, EXIT_WAIT))
 
+    def kill_server(self, name="main"):
+        """SIGKILL the named server's process group: no flush, no clean-up, pid file and journal as they were."""
+        srv = self.server(name)
+        del self.servers[name]
+        srv.kill()
+        srv.errf.close()
+
     def journal_path(self, where="active"):
         """Journal path per contract/runtime.md: <data>/<project key>/<id>.jsonl (active) or
         <data>/<project key>/archive/<id>.jsonl (archived); data is the temp fallback when
@@ -409,6 +416,8 @@ class Run:
             self.stop_server(name)
         elif op == "start":
             self.start(name)
+        elif op == "kill":
+            self.kill_server(name)
         elif op == "journal":
             self.do_journal(st)
         elif op == "fs":
@@ -673,7 +682,7 @@ def fill_variables(args, schema, defs):
 
 STEP_KEYS = {
     "call": {"op", "server", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert"},
-    "restart": {"op", "server"}, "stop": {"op", "server"}, "start": {"op", "server"},
+    "restart": {"op", "server"}, "stop": {"op", "server"}, "start": {"op", "server"}, "kill": {"op", "server"},
     "journal": {"op", "action", "form", "where", "into", "from", "ended", "events", "last", "count", "absent", "total", "prefix", "at", "each"},
     "fs": {"op", "assert"},
     "tools_list": {"op", "server"},
@@ -838,7 +847,7 @@ def validate_repeat(where, st, tools, validator, errs):
 
 
 def track_servers(where, steps, running, errs):
-    """Follow which servers run, from the one the driver starts ("main"): start needs a stopped name; stop,
+    """Follow which servers run, from the one the driver starts ("main"): start needs a stopped name; stop, kill,
     restart, tools_list and a call need a running one. A repeat must leave the running set as it found it.
     Returns the running set after the steps."""
     running = set(running)
@@ -853,10 +862,10 @@ def track_servers(where, steps, running, errs):
             if name in running:
                 errs.append("%s: server %s is already running" % (at, name))
             running.add(name)
-        elif op in ("stop", "restart", "tools_list", "call"):
+        elif op in ("stop", "kill", "restart", "tools_list", "call"):
             if name not in running:
                 errs.append("%s: server %s is not running" % (at, name))
-            elif op == "stop":
+            elif op in ("stop", "kill"):
                 running.discard(name)
         elif op == "repeat" and isinstance(st.get("steps"), list):
             if track_servers(at, st["steps"], running, errs) != running:
