@@ -79,6 +79,10 @@ fn id_value(name: &str, s: &str) -> Result<String, String> {
     }
 }
 
+fn id_arg(args: &Args, name: &str) -> Result<String, String> {
+    id_value(name, required(name, str_arg(args, name)?)?)
+}
+
 fn opt_id_arg(args: &Args, name: &str) -> Result<Option<String>, String> {
     str_arg(args, name)?.map(|s| id_value(name, s)).transpose()
 }
@@ -229,7 +233,9 @@ impl App {
         match name {
             "begin_interview" => self.begin_interview(args),
             "log_item" => self.log_item(args),
-            //@@R-DISPATCH
+            "resolve" => self.resolve(args),
+            "park" => self.park(args),
+            "reopen" => self.reopen(args),
             "status" => self.status(args),
             "note_prompt" => self.note_prompt(args),
             _ => Err(format!("tool not implemented: {name}")),
@@ -320,7 +326,38 @@ impl App {
         Ok(json!({"id": id, "status": status}))
     }
 
-    //@@R-HANDLERS
+    fn resolve(&mut self, args: &Args) -> Result<Value, String> {
+        check_known(args, &["id", "answer", "source", "rationale"])?;
+        let id = id_arg(args, "id")?;
+        let answer = answer_group(args, true)?
+            .ok_or_else(|| bad("answer, source and rationale are required"))?;
+        self.register
+            .resolve(&id, answer)
+            .map_err(|e| e.to_string())?;
+        self.events += 1;
+        Ok(json!({"id": id, "status": "Resolved"}))
+    }
+
+    fn park(&mut self, args: &Args) -> Result<Value, String> {
+        check_known(args, &["id", "reason", "parked_by"])?;
+        let id = id_arg(args, "id")?;
+        let reason = text_arg(args, "reason")?;
+        let by = required("parked_by", actor_arg(args, "parked_by")?)?;
+        self.register
+            .park(&id, by, &reason)
+            .map_err(|e| e.to_string())?;
+        self.events += 1;
+        Ok(json!({"id": id, "status": "Parked"}))
+    }
+
+    fn reopen(&mut self, args: &Args) -> Result<Value, String> {
+        check_known(args, &["id", "reason"])?;
+        let id = id_arg(args, "id")?;
+        text_arg(args, "reason")?; // required now; kept once the journal exists
+        let stale = self.register.reopen(&id).map_err(|e| e.to_string())?;
+        self.events += 1;
+        Ok(json!({"id": id, "status": "Open", "stale": stale}))
+    }
 
     fn status(&self, args: &Args) -> Result<Value, String> {
         check_known(args, &[])?;
@@ -500,5 +537,62 @@ mod tests {
         assert!(call(&mut app, "note_prompt", json!({"prompt": "x"})).is_err());
     }
 
-    //@@R-TESTS
+    fn resolve_args(id: &str) -> Value {
+        json!({"id": id, "answer": "an", "source": "model", "rationale": "why"})
+    }
+
+    #[test]
+    fn resolve_park_reopen_flow() {
+        let mut app = started();
+        q(&mut app, "a");
+        let dep = json!({"id": "b", "kind": "question", "text": "t", "depends_on": ["a"]});
+        call(&mut app, "log_item", dep).unwrap();
+        call(&mut app, "resolve", resolve_args("a")).unwrap();
+        call(&mut app, "resolve", resolve_args("b")).unwrap();
+        let r = call(&mut app, "reopen", json!({"id": "a", "reason": "new fact"})).unwrap();
+        assert_eq!(r, json!({"id": "a", "status": "Open", "stale": ["b"]}));
+        let p = json!({"id": "b", "reason": "later", "parked_by": "user"});
+        assert_eq!(call(&mut app, "park", p).unwrap()["status"], "Parked");
+        let s = call(&mut app, "status", json!({})).unwrap();
+        assert_eq!(
+            s["items"],
+            json!({"open": 1, "resolved": 0, "parked": 1, "stale": 0})
+        );
+        assert_eq!(s["tree"][1]["parked_by"], "user");
+        assert_eq!(s["tree"][1]["answer"], Value::Null);
+    }
+
+    #[test]
+    fn rejections_name_id_and_status_and_change_nothing() {
+        let mut app = started();
+        q(&mut app, "a");
+        call(&mut app, "resolve", resolve_args("a")).unwrap();
+        let before = call(&mut app, "status", json!({})).unwrap();
+        let e = call(&mut app, "resolve", resolve_args("a")).unwrap_err();
+        assert!(e.contains('a') && e.contains("Resolved"));
+        let p = json!({"id": "a", "reason": "r", "parked_by": "model"});
+        assert!(call(&mut app, "park", p).unwrap_err().contains("Resolved"));
+        let e = call(&mut app, "resolve", resolve_args("zz")).unwrap_err();
+        assert!(e.contains("no such item: zz"));
+        let bad_source = json!({"id": "a", "answer": "x", "source": "robot", "rationale": "r"});
+        assert!(
+            call(&mut app, "resolve", bad_source)
+                .unwrap_err()
+                .contains("source")
+        );
+        assert_eq!(call(&mut app, "status", json!({})).unwrap(), before);
+    }
+
+    #[test]
+    fn tools_without_an_interview_find_no_item() {
+        let mut app = App::new();
+        let e = call(&mut app, "resolve", resolve_args("q1")).unwrap_err();
+        assert!(e.contains("no such item: q1"));
+        let e = call(&mut app, "reopen", json!({"id": "q1", "reason": "r"})).unwrap_err();
+        assert!(e.contains("no such item: q1"));
+        assert_eq!(
+            call(&mut app, "status", json!({})).unwrap()["state"],
+            "none"
+        );
+    }
 }
