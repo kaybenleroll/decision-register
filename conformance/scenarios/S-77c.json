@@ -1,0 +1,96 @@
+{
+ "id": "S-77c",
+ "title": "skill_started with a different tool_schema returns the empty hook result and does not block (no error); status reports the recorded mismatch with both values and a later matching call clears it",
+ "req": [
+  "REQ-77",
+  "REQ-41"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-77c",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 3,
+    "session_id": "sess-77c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "version_mismatch",
+     "eq": {
+      "plugin_tool_schema": 3,
+      "server_tool_schema": 4
+     }
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 9,
+    "session_id": "sess-77c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "version_mismatch",
+     "eq": {
+      "plugin_tool_schema": 9,
+      "server_tool_schema": 4
+     }
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-77c",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "version_mismatch",
+     "eq": null
+    },
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  }
+ ]
+}
