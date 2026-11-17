@@ -1,0 +1,238 @@
+{
+ "id": "S-35a",
+ "title": "log_item never rejects on branch size; resolve of a parent with exactly one child is rejected for source model and accepted with two; the finish gate flags a resolved parent left with one child and allows with two",
+ "req": [
+  "REQ-35",
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-35a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "P",
+    "kind": "question",
+    "text": "branch parent"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "c1",
+    "kind": "subquestion",
+    "text": "first child",
+    "parent": "P"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "P",
+    "answer": "done",
+    "source": "model",
+    "rationale": "r"
+   },
+   "expect": "error",
+   "mention": "P"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "P"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "c2",
+    "kind": "subquestion",
+    "text": "second child",
+    "parent": "P"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "P",
+    "answer": "done",
+    "source": "model",
+    "rationale": "r"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "c1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "c2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "B",
+    "kind": "question",
+    "text": "a parent with no children yet"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "B",
+    "answer": "no sub-questions needed",
+    "source": "model",
+    "rationale": "r"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "b1",
+    "kind": "subquestion",
+    "text": "only child",
+    "parent": "B"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "b1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 5,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-35a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "b2",
+    "kind": "subquestion",
+    "text": "second child",
+    "parent": "B"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "b2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-35a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 6,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}
