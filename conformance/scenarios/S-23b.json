@@ -1,0 +1,428 @@
+{
+ "id": "S-23b",
+ "title": "reopen, log_item and resolve (of a parked item) return a complete interview to active without a new start; park cannot apply to a complete register, and failing calls leave it complete",
+ "req": [
+  "REQ-21",
+  "REQ-23",
+  "REQ-27"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-23b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text one"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "text two"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q2",
+    "reason": "rs",
+    "parked_by": "user"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-23b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "le": "last_event"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q1",
+    "reason": "rs",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": "q1"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "q1"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    }
+   ]
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "q2",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": "q2"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "nope",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   },
+   "expect": "error",
+   "mention": "no such item"
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "nope",
+    "reason": "rs",
+    "parked_by": "model"
+   },
+   "expect": "error",
+   "mention": "no such item"
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "nope",
+    "reason": "new-fact"
+   },
+   "expect": "error",
+   "mention": "no such item"
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "subquestion",
+    "text": "t",
+    "parent": "nope"
+   },
+   "expect": "error",
+   "mention": "missing item"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "last_event",
+     "eq": "$le"
+    }
+   ]
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "q1",
+    "reason": "new-fact"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-23b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q3",
+    "kind": "question",
+    "text": "text three"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 1,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q3",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-23b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "q2",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 3,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-23b",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "start": 1,
+    "complete": 4,
+    "engage": 0
+   }
+  }
+ ]
+}
