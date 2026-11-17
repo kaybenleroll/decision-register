@@ -1,0 +1,226 @@
+{
+ "id": "S-40d",
+ "title": "the _meta test is the presence of the key claudecode/toolUseId: a _meta holding only progressToken, an empty object or none is hook-style (accepted by hook tools); a null or empty-string value is still model-style (rejected as an isError result, never a JSON-RPC error); model-facing tools accept a hook-style _meta",
+ "req": [
+  "REQ-40"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40d",
+    "prompt": "my answer is below"
+   },
+   "meta": {
+    "progressToken": "tok-1"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40d",
+    "prompt": "my answer is below"
+   },
+   "meta": {}
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40d",
+    "prompt": "my answer is below"
+   },
+   "meta": false
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40d",
+    "prompt": "my answer is below"
+   },
+   "meta": {
+    "claudecode/toolUseId": ""
+   },
+   "expect": "error",
+   "mention": [
+    "note_prompt",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40d",
+    "prompt": "my answer is below"
+   },
+   "meta": {
+    "claudecode/toolUseId": null
+   },
+   "expect": "error",
+   "mention": [
+    "note_prompt",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-40d",
+    "prompt": "my answer is below"
+   },
+   "meta": {
+    "progressToken": "tok-1",
+    "claudecode/toolUseId": ""
+   },
+   "expect": "error",
+   "mention": [
+    "note_prompt",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "hook_health.prompt_seen",
+     "eq": true
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-40d",
+    "skill": "grill-me"
+   },
+   "meta": {
+    "progressToken": "tok-1"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-40d",
+    "skill": "grill-me"
+   },
+   "meta": {
+    "claudecode/toolUseId": ""
+   },
+   "expect": "error",
+   "mention": [
+    "skill_started",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-40d",
+    "last_assistant_message": "all done"
+   },
+   "meta": {
+    "progressToken": "tok-1"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-40d",
+    "last_assistant_message": "all done"
+   },
+   "meta": {
+    "claudecode/toolUseId": ""
+   },
+   "expect": "error",
+   "mention": [
+    "check_stop",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-40d",
+    "last_assistant_message": "all done"
+   },
+   "meta": {
+    "claudecode/toolUseId": null
+   },
+   "expect": "error",
+   "mention": [
+    "check_stop",
+    "hook-facing"
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "meta": {
+    "progressToken": "tok-1"
+   },
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "existing",
+     "eq": true
+    },
+    {
+     "path": "state",
+     "eq": "active"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-40d",
+    "last_assistant_message": "all done"
+   },
+   "meta": {},
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "q1"
+    }
+   ]
+  }
+ ]
+}
