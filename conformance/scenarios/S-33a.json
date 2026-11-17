@@ -1,0 +1,314 @@
+{
+ "id": "S-33a",
+ "title": "park records parked_by and reason; a model park keeps blocking the finish gate, a user park (after a prompt) does not",
+ "req": [
+  "REQ-33",
+  "REQ-45",
+  "REQ-43"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-33a",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 3,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "mp1",
+    "kind": "question",
+    "text": "text-mp1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "up1",
+    "kind": "question",
+    "text": "text-up1"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "r1",
+    "kind": "question",
+    "text": "text-r1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "r1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "mp1",
+    "reason": "waiting for infra",
+    "parked_by": "model"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 1,
+      "parked": 1,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "mp1"
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.1.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.1.park_reason",
+     "eq": "waiting for infra"
+    },
+    {
+     "path": "tree.1.answer",
+     "eq": null
+    },
+    {
+     "path": "tree.1.source",
+     "eq": null
+    },
+    {
+     "path": "tree.1.rationale",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-33a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "mp1"
+    },
+    {
+     "path": "reason",
+     "contains": "text-mp1"
+    },
+    {
+     "path": "reason",
+     "contains": "up1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "r1"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-33a",
+    "prompt": "skip up1, it is not needed"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "up1",
+    "reason": "user said skip it",
+    "parked_by": "user"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Parked"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 2,
+      "stale": 0
+     }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "mp1"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.0.parked_by",
+     "eq": "model"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "up1"
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.1.parked_by",
+     "eq": "user"
+    },
+    {
+     "path": "tree.1.park_reason",
+     "eq": "user said skip it"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-33a",
+    "prompt": "go on"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-33a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "mp1"
+    },
+    {
+     "path": "reason",
+     "not_contains": "up1"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "mp1",
+    "answer": "decided",
+    "source": "model",
+    "rationale": "after all"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Resolved"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-33a",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 2,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "park",
+     "id": "mp1",
+     "reason": "waiting for infra",
+     "parked_by": "model"
+    },
+    {
+     "kind": "park",
+     "id": "up1",
+     "reason": "user said skip it",
+     "parked_by": "user"
+    }
+   ],
+   "count": {
+    "park": 2
+   }
+  }
+ ]
+}
