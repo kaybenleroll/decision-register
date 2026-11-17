@@ -379,9 +379,13 @@ class Run:
                 raise AssertionError("tools/list inputSchema of %s differs from tools.json: %s" % (n, json.dumps(got, sort_keys=True)[:200]))
         self.obs.append("%d tools, input schemas equal tools.json" % len(tools))
 
+    def project_root(self):
+        """The project path of contract/runtime.md: CLAUDE_PROJECT_DIR if set and non-empty, else the working directory."""
+        return self.env.get("CLAUDE_PROJECT_DIR") or os.path.realpath(self.cwd)
+
     def do_fs(self, st):
-        root = self.root()
         for a in st["assert"]:
+            root = self.project_root() if a.get("root") == "project" else self.root()
             rel = a["path"].replace("$key", self.vars["key"]).replace("$iid", self.vars.get("iid", "$iid"))
             p = os.path.join(root, rel) if rel else root
             want = a.get("exists", True)
@@ -689,7 +693,8 @@ STEP_KEYS = {
     "repeat": {"op", "count", "var", "rows", "steps"},
 }
 MAX_REPEAT = 200
-FS_KEYS = {"path", "exists", "mode", "matches", "nonempty"}
+FS_KEYS = {"path", "root", "exists", "mode", "matches", "nonempty"}
+FS_ROOTS = ("data", "project")
 EXPECTS = ("ok", "error", "protocol_error")
 
 
@@ -806,6 +811,10 @@ def validate_step(where, st, tools, validator, errs):
                     errs.append("%s: unknown fs assert key %r" % (where, k))
             if "path" not in a:
                 errs.append("%s: fs assert needs path" % where)
+            elif not isinstance(a["path"], str) or a["path"].startswith("/") or ".." in a["path"].split("/"):
+                errs.append("%s: fs path is relative to its root and stays inside it" % where)
+            if a.get("root", "data") not in FS_ROOTS:
+                errs.append("%s: fs root is one of %s" % (where, ", ".join(FS_ROOTS)))
 
 
 def validate_repeat(where, st, tools, validator, errs):

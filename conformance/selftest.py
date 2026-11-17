@@ -51,6 +51,10 @@ def fake_server():
         if m["method"] == "tools/call":
             with open(os.path.join(data, "calls.log"), "a") as f:
                 f.write("%s %d\n" % (m["params"]["name"], os.getpid()))
+            if os.environ.get("FAKE_PROJECT_FILE"):  # a stand-in for the decision log, below the project path
+                path = os.path.join(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd(), os.environ["FAKE_PROJECT_FILE"])
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                open(path, "w").write("hello\n")
             res = {"content": [{"type": "text", "text": ""}]}
         else:
             res = {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}}, "serverInfo": {"name": "fake", "version": "0"}}
@@ -186,6 +190,35 @@ def servers_run_side_by_side():
 def servers_a_stopped_one_cannot_be_called():
     fails("not running", {"op": "start", "server": "b"}, {"op": "stop", "server": "b"}, on("b", NOTE))
     fails("already running", {"op": "start", "server": "b"}, {"op": "start", "server": "b"})
+
+
+# ---------------------------------------------------------------- fs root (decision log below the project path)
+
+@test
+def fs_root_parsed():
+    accepts({"op": "fs", "assert": [{"path": "decision-logs/d.md", "root": "project", "mode": "600"},
+                                    {"path": "x", "root": "data", "exists": False}]})
+
+
+@test
+def fs_root_rejected_when_malformed():
+    rejects("fs root is one of", {"op": "fs", "assert": [{"path": "a", "root": "home"}]})
+    rejects("fs root is one of", {"op": "fs", "assert": [{"path": "a", "root": None}]})
+    rejects("relative to its root", {"op": "fs", "assert": [{"path": "/etc/passwd", "root": "project"}]})
+    rejects("relative to its root", {"op": "fs", "assert": [{"path": "a/../../b"}]})
+    rejects("unknown fs assert key", {"op": "fs", "assert": [{"path": "a", "base": "project"}]})
+
+
+@test
+def fs_root_selects_the_directory():
+    file = {"FAKE_PROJECT_FILE": "decision-logs/d.md"}
+    plays(NOTE, {"op": "fs", "assert": [{"path": "decision-logs/d.md", "root": "project", "matches": "^hello"},
+                                        {"path": "decision-logs/d.md", "exists": False},
+                                        {"path": "decision-logs/d.md", "root": "data", "exists": False}]}, env=file)
+    # no CLAUDE_PROJECT_DIR: the project path is the working directory
+    plays(NOTE, {"op": "fs", "assert": [{"path": "decision-logs/d.md", "root": "project", "nonempty": True}]},
+          env=file, unset_env=["CLAUDE_PROJECT_DIR"])
+    fails("missing", NOTE, {"op": "fs", "assert": [{"path": "decision-logs/d.md", "root": "project"}]})
 
 
 # ---------------------------------------------------------------- SIGKILL
