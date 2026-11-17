@@ -431,6 +431,16 @@ class Run:
         os.chmod(p, mode)
         self.obs.append("seeded %s (%d bytes)" % (st["path"], len(text)))
 
+    def do_utime(self, st):
+        """Set the access and modification times of an existing file or directory to `age_seconds` ago, so that
+        the age rules of contract/runtime.md (pruning after 30 days, stale files after an hour) can be exercised."""
+        p = self.fs_path(st)
+        if not os.path.exists(p):
+            raise AssertionError("utime: %s does not exist" % p)
+        t = time.time() - st["age_seconds"]
+        os.utime(p, (t, t))
+        self.obs.append("%s aged %s s" % (st["path"], st["age_seconds"]))
+
     def do_stderr(self, st):
         """Assertions on what the server processes wrote to standard error so far (server.stderr.log, shared by
         every named server): `empty`, `contains`, `not_contains`, `matches`, `not_matches`."""
@@ -457,6 +467,13 @@ class Run:
             want = a.get("exists", True)
             if os.path.exists(p) != want:
                 raise AssertionError("%s %s" % (p, "missing" if want else "should not exist"))
+            if want and ("age_ge" in a or "age_le" in a):
+                age = time.time() - os.stat(p).st_mtime
+                if "age_ge" in a and age < a["age_ge"]:
+                    raise AssertionError("%s was modified %.1f s ago, expected at least %s s" % (p, age, a["age_ge"]))
+                if "age_le" in a and age > a["age_le"]:
+                    raise AssertionError("%s was modified %.1f s ago, expected at most %s s" % (p, age, a["age_le"]))
+                self.obs.append("%s modified %.0f s ago" % (a["path"] or "<root>", age))
             if want and "mode" in a:
                 got = "%o" % (os.stat(p).st_mode & 0o777)
                 if got != a["mode"]:
@@ -496,6 +513,8 @@ class Run:
             self.do_seed(st)
         elif op == "stderr":
             self.do_stderr(st)
+        elif op == "utime":
+            self.do_utime(st)
         elif op == "tools_list":
             self.do_tools_list(st)
         elif op == "repeat":
@@ -762,10 +781,11 @@ STEP_KEYS = {
     "tools_list": {"op", "server"},
     "repeat": {"op", "count", "var", "rows", "steps"},
     "stderr": {"op", "assert"},
+    "utime": {"op", "path", "root", "age_seconds"},
     "seed": {"op", "path", "root", "content", "lines", "json", "mkdir", "mode"},
 }
 MAX_REPEAT = 200
-FS_KEYS = {"path", "root", "exists", "mode", "matches", "nonempty"}
+FS_KEYS = {"path", "root", "exists", "mode", "matches", "nonempty", "age_ge", "age_le"}
 FS_ROOTS = ("data", "project")
 STDERR_OPS = ("empty", "contains", "not_contains", "matches", "not_matches")
 EXPECTS = ("ok", "error", "protocol_error")
@@ -797,6 +817,10 @@ def validate_assert(where, a, errs):
             re.compile(re.sub(r"\$\{\w+\}", "0", a[op]))
         except (re.error, TypeError) as e:
             errs.append("%s: bad regex: %s" % (where, e))
+
+
+def is_seconds(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
 
 
 def check_path(where, a, errs):
@@ -893,6 +917,17 @@ def validate_step(where, st, tools, validator, errs):
             if "path" not in a:
                 errs.append("%s: fs assert needs path" % where)
             check_path(where, a, errs)
+            for k in ("age_ge", "age_le"):
+                if k in a and not is_seconds(a[k]):
+                    errs.append("%s: fs %s is a number of seconds, zero or more" % (where, k))
+            if a.get("exists", True) is not True and ("age_ge" in a or "age_le" in a):
+                errs.append("%s: fs age applies to a file that exists" % where)
+    elif op == "utime":
+        check_path(where, st, errs)
+        if not st.get("path"):
+            errs.append("%s: utime needs a path" % where)
+        if not is_seconds(st.get("age_seconds")):
+            errs.append("%s: utime needs age_seconds, a number of seconds, zero or more" % where)
     elif op == "stderr":
         if not isinstance(st.get("assert"), list) or not st["assert"]:
             errs.append("%s: stderr step needs a non-empty assert list" % where)

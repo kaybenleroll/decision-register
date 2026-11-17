@@ -313,6 +313,48 @@ def stderr_runs():
     fails("stderr is not empty", NOTE, {"op": "stderr", "assert": [{"empty": True}]}, env={"FAKE_STDERR": "boom 1"})
 
 
+# ---------------------------------------------------------------- mtimes
+
+DAY = 86400
+
+
+@test
+def mtimes_parsed():
+    accepts({"op": "utime", "path": "$key/i1.pid", "age_seconds": 31 * DAY},
+            {"op": "utime", "path": "decision-logs", "root": "project", "age_seconds": 0.5},
+            {"op": "fs", "assert": [{"path": "a", "age_ge": 3600}, {"path": "b", "age_le": 5.5}, {"path": "c", "age_ge": 1, "age_le": 9}]})
+
+
+@test
+def mtimes_rejected_when_malformed():
+    rejects("utime needs age_seconds", {"op": "utime", "path": "a"})
+    rejects("utime needs age_seconds", {"op": "utime", "path": "a", "age_seconds": -1})
+    rejects("utime needs age_seconds", {"op": "utime", "path": "a", "age_seconds": "31d"})
+    rejects("utime needs age_seconds", {"op": "utime", "path": "a", "age_seconds": True})
+    rejects("utime needs a path", {"op": "utime", "age_seconds": 5})
+    rejects("stays inside", {"op": "utime", "path": "../a", "age_seconds": 5})
+    rejects("unknown key", {"op": "utime", "path": "a", "age_seconds": 5, "mtime": 1})
+    rejects("fs age_ge is a number", {"op": "fs", "assert": [{"path": "a", "age_ge": -1}]})
+    rejects("fs age_le is a number", {"op": "fs", "assert": [{"path": "a", "age_le": "1h"}]})
+    rejects("age applies to a file that exists", {"op": "fs", "assert": [{"path": "a", "exists": False, "age_le": 1}]})
+
+
+@test
+def mtimes_run():
+    plays({"op": "seed", "path": "old.txt", "content": "x"}, {"op": "seed", "path": "new.txt", "content": "x"},
+          {"op": "fs", "assert": [{"path": "old.txt", "age_le": 30}]},
+          {"op": "utime", "path": "old.txt", "age_seconds": 31 * DAY},
+          {"op": "fs", "assert": [{"path": "old.txt", "age_ge": 30 * DAY}, {"path": "new.txt", "age_le": 30},
+                                  {"path": "new.txt", "age_ge": 0}]})
+    plays({"op": "seed", "path": "d", "mkdir": True, "root": "project"},
+          {"op": "utime", "path": "d", "root": "project", "age_seconds": 7200},
+          {"op": "fs", "assert": [{"path": "d", "root": "project", "age_ge": 3600, "age_le": 7300}]})
+    fails("was modified", {"op": "seed", "path": "f", "content": "x"}, {"op": "utime", "path": "f", "age_seconds": 100},
+          {"op": "fs", "assert": [{"path": "f", "age_le": 50}]})
+    fails("was modified", {"op": "seed", "path": "f", "content": "x"}, {"op": "fs", "assert": [{"path": "f", "age_ge": 3600}]})
+    fails("does not exist", {"op": "utime", "path": "nothing", "age_seconds": 5})
+
+
 # ---------------------------------------------------------------- SIGKILL
 
 @test
