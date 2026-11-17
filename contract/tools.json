@@ -2158,7 +2158,7 @@
    "mutating": false,
    "rejects_meta": true,
    "engages_pending": false,
-   "description": "Stop hook: records last_seen_session_id, classifies the turn and applies the finish gate (REQ-42, REQ-43). Returns {} to allow or a block decision whose reason names the open items (first 10, text truncated to 120 characters, then `N more` with N the count of open items not listed, e.g. `2 more`, `1 more`; nothing when 10 or fewer are open, REQ-45). Rejects _meta claudecode/toolUseId. Fails open.",
+   "description": "Stop hook: records last_seen_session_id, classifies the turn and applies the finish gate (REQ-42, REQ-43), which also flags a parent that has children but fewer than N unless the user parked it (parked_by user) or the user resolved it (source user) (REQ-35). Returns {} to allow or a block decision whose reason names the open items (first 10, text truncated to 120 characters, then `N more` with N the count of open items not listed, e.g. `2 more`, `1 more`; nothing when 10 or fewer are open, REQ-45). Rejects _meta claudecode/toolUseId. Fails open.",
    "input": {
     "type": "object",
     "additionalProperties": false,
