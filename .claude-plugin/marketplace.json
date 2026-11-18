@@ -1,0 +1,11 @@
+{
+  "name": "decision-register",
+  "owner": { "name": "kaybenleroll" },
+  "plugins": [
+    {
+      "name": "decision-register",
+      "source": "./plugin",
+      "description": "Structured decision register for grill-me interviews (hooks, MCP server, launcher)."
+    }
+  ]
+}

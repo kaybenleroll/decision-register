@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "register": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/register-launch",
+      "args": []
+    }
+  }
+}

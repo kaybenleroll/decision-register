@@ -1,0 +1,54 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:decision-register:register",
+            "tool": "note_prompt",
+            "input": { "session_id": "${session_id}", "prompt": "${prompt}" }
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:decision-register:register",
+            "tool": "check_stop",
+            "input": { "session_id": "${session_id}", "last_assistant_message": "${last_assistant_message}" }
+          }
+        ]
+      }
+    ],
+    "UserPromptExpansion": [
+      {
+        "matcher": "^grill-me$",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:decision-register:register",
+            "tool": "skill_started",
+            "input": { "tool_schema": 4, "session_id": "${session_id}", "skill": "${command_name}" }
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:decision-register:register",
+            "tool": "skill_started",
+            "input": { "tool_schema": 4, "session_id": "${session_id}", "skill": "${tool_input.skill}" }
+          }
+        ]
+      }
+    ]
+  }
+}
