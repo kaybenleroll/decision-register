@@ -1,6 +1,6 @@
 # ADR 0003: Build Rust and TypeScript in parallel, then retire one
 
-Date: 2026-11-16. Status: Proposed. DRAFT, gate decisions folded 2026-11-16, awaiting the user's review of the diff and approval.
+Date: 2026-11-16. Status: Accepted, 2026-11-18, accepted by the user. Gate decisions folded 2026-11-16. On 2026-11-18 the user also chose to build the remaining slices in both languages in lockstep (build order only; the retirement experiment's change order in section 4 is unchanged).
 
 Tags as in docs/requirements.md: [user], [verified], [assistant], [open]. Evidence and judgement are separated. Depends on ADR 0002 (register design).
 
