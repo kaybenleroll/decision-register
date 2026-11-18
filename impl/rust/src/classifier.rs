@@ -282,18 +282,23 @@ fn closure_sentence(sentence: &str) -> bool {
                         Some("items" | "threads" | "branches" | "questions" | "decisions")
                     ))
         }
+        "closes" | "closed" | "completes" | "completed" | "concludes" | "concluded"
+        | "finishes" | "finished" => within(i, 2, "last") || within(i, 2, "final"),
         _ => false,
     })
 }
 
 /// Openers of the final sentence (contract section 4(b)).
-const REPLAY_OPENERS: [&[&str]; 6] = [
+const REPLAY_OPENERS: [&[&str]; 9] = [
     &["shall", "i"],
     &["should", "i"],
     &["want", "me", "to"],
     &["ready", "to"],
     &["do", "you", "want", "me", "to"],
     &["would", "you", "like", "me", "to"],
+    &["want", "to"],
+    &["do", "you", "want", "to"],
+    &["would", "you", "like", "to"],
 ];
 
 /// Closure pieces: split at each newline and after each `.`, `!` or `:` followed by whitespace.
@@ -355,6 +360,15 @@ fn closing_replay(s: &str) -> bool {
         .any(closure_sentence)
 }
 
+/// Reply request (contract section 4): the first token of the last non-blank line of `S` is
+/// `reply` or `respond`. Only meaningful for a message without `?`.
+fn reply_request(s: &str) -> bool {
+    s.split('\n')
+        .rfind(|l| !l.trim().is_empty())
+        .and_then(|l| tokens(l).into_iter().next())
+        .is_some_and(|w| w == "reply" || w == "respond")
+}
+
 pub fn classify(message: &str, items: &[ClassItem<'_>]) -> Class {
     if message.trim().is_empty() {
         return Class::Empty;
@@ -362,11 +376,12 @@ pub fn classify(message: &str, items: &[ClassItem<'_>]) -> Class {
     let s = remove_quote_lines(&remove_urls(&remove_inline_code(&remove_fences(message))));
     let asks = s.contains('?');
     let single = single_request(message, items);
-    if !asks {
-        return match single {
-            Some(id) => Class::Question(vec![id.to_string()]),
-            None => Class::Finish,
-        };
+    match single {
+        Some(id) if !asks => return Class::Question(vec![id.to_string()]),
+        _ => {}
+    }
+    if !asks && !reply_request(&s) {
+        return Class::Finish;
     }
     let cited = labels(message);
     let words = content_words(message);
@@ -379,7 +394,7 @@ pub fn classify(message: &str, items: &[ClassItem<'_>]) -> Class {
         })
         .map(|i| i.id.to_string())
         .collect::<Vec<_>>();
-    if presented.is_empty() && closing_replay(&s) {
+    if asks && presented.is_empty() && closing_replay(&s) {
         return Class::Finish;
     }
     Class::Question(presented)
@@ -504,6 +519,37 @@ mod tests {
     }
 
     #[test]
+    fn closure_sentence_completion_report_forms() {
+        for v in [
+            "closes",
+            "closed",
+            "completes",
+            "completed",
+            "concludes",
+            "concluded",
+            "finishes",
+            "finished",
+        ] {
+            assert!(
+                closure_sentence(&format!("This {v} the last review")),
+                "{v}"
+            );
+            assert!(closure_sentence(&format!("It {v} the final step")), "{v}");
+            assert!(closure_sentence(&format!("{v} last")), "{v}");
+            assert!(!closure_sentence(&format!("This {v} the review")), "{v}");
+            assert!(
+                !closure_sentence(&format!("This {v} the very last one")),
+                "{v}"
+            );
+            assert!(!closure_sentence(&format!("last {v}")), "{v}");
+            assert!(
+                !closure_sentence(&format!("This {v} the last, but not all")),
+                "{v}"
+            );
+        }
+    }
+
+    #[test]
     fn closure_sentence_guard_words_void_it() {
         for g in [
             "except",
@@ -535,7 +581,10 @@ mod tests {
         }
         assert!(!replay(&format!("{CLOSED}Can I finish?")));
         assert!(!replay(&format!("{CLOSED}Shall we finish?")));
-        assert!(!replay(&format!("{CLOSED}Do you want to finish?")));
+        for o in ["Want to", "do you want to", "Would you like to"] {
+            assert!(replay(&format!("{CLOSED}{o} finish?")), "{o}");
+        }
+        assert!(!replay(&format!("{CLOSED}Do you want finish?")));
     }
 
     #[test]
@@ -628,5 +677,52 @@ mod tests {
         let it = items();
         assert_eq!(classify("   ", &it), Class::Empty);
         assert_eq!(classify("Q1: all resolved, shall I stop?", &it), q(&["Q1"]));
+    }
+
+    #[test]
+    fn reply_request_first_token_of_last_non_blank_line() {
+        assert!(reply_request("Done.\nReply with the choice"));
+        assert!(reply_request("Done.\n**Reply:** A or B\n\n  \n"));
+        assert!(reply_request("Respond with A"));
+        assert!(reply_request("RESPOND when ready"));
+        assert!(!reply_request("Please reply with A"));
+        assert!(!reply_request("Reply with A\nThanks"));
+        // list markers and quote lines do not count
+        assert!(!reply_request("1. Reply with A"));
+        assert!(!reply_request("2) Reply with A"));
+        // a bullet is punctuation, not a token, so the first token is still `reply`
+        assert!(reply_request("- Reply with A"));
+        assert!(!reply_request("Done."));
+        assert!(!reply_request(""));
+        // a quote line is removed from S before the check
+        let s = remove_quote_lines("Done.\n> Reply with A");
+        assert!(!reply_request(&s));
+        let s = remove_quote_lines("Reply with A\n> note");
+        assert!(reply_request(&s));
+    }
+
+    #[test]
+    fn classify_reply_request_is_a_question_turn() {
+        let it = items();
+        assert_eq!(classify("Pick one.\nReply with A or B", &it), q(&[]));
+        assert_eq!(classify("**Reply:** yes or no", &it), q(&[]));
+        assert_eq!(classify("Respond when ready", &it), q(&[]));
+        // concern follows section 5
+        assert_eq!(
+            classify("Q1: still open.\nReply with your choice", &it),
+            q(&["Q1"])
+        );
+        // list marker, or a quote line last: still a finish attempt
+        assert_eq!(classify("Done.\n1. Reply with A", &it), Class::Finish);
+        assert_eq!(classify("Done.\n> Reply with A", &it), Class::Finish);
+        assert_eq!(classify("Please reply with A", &it), Class::Finish);
+        // a single labelled request still wins, empty still empty
+        assert_eq!(classify("Q1: reply please", &it), q(&["Q1"]));
+        assert_eq!(classify("  ", &it), Class::Empty);
+        // a message with `?` is not a reply request: a closing replay still finishes
+        assert_eq!(
+            classify("All resolved.\nReply if you want. Shall I stop?", &it),
+            Class::Finish
+        );
     }
 }
