@@ -87,3 +87,60 @@ export function archiveJournal(dir: string, id: string): void {
   renameSync(join(dir, `${id}.jsonl`), join(archive, `${id}.jsonl`));
   removeFile(pidPath(dir, id));
 }
+
+export const PRUNE_AGE_MS = 30 * 24 * 3600 * 1000;
+export const STALE_AGE_MS = 3600 * 1000;
+
+/** The server clock in ms: the real clock plus `REGSPIKE_CLOCK_OFFSET_SECONDS` (test-only). */
+export function clockMs(): number {
+  const n = Number.parseInt(
+    process.env["REGSPIKE_CLOCK_OFFSET_SECONDS"] ?? "",
+    10,
+  );
+  return Date.now() + (Number.isFinite(n) ? n * 1000 : 0);
+}
+
+function ageMs(file: string, nowMs: number): number | null {
+  try {
+    return nowMs - statSync(file).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Start-up pruning (REQ-61): archives and unfinished journals older than 30 days by
+ * modification time; `<id>.pid` and `<id>.pid.stale-*` older than 30 days whose journal is
+ * gone; any `.stale-*` older than one hour. Fails open: errors are ignored.
+ */
+export function prune(dir: string, nowMs: number): void {
+  const remove = (file: string, limit: number): void => {
+    const age = ageMs(file, nowMs);
+    if (age !== null && age > limit) removeFile(file);
+  };
+  const list = (d: string): string[] => {
+    try {
+      return readdirSync(d);
+    } catch {
+      return [];
+    }
+  };
+  for (const name of list(join(dir, "archive"))) {
+    if (name.endsWith(".jsonl")) {
+      remove(join(dir, "archive", name), PRUNE_AGE_MS);
+    }
+  }
+  const names = list(dir);
+  const journals = new Set(names.filter((n) => n.endsWith(".jsonl")));
+  for (const name of names) {
+    const file = join(dir, name);
+    if (name.endsWith(".jsonl")) {
+      remove(file, PRUNE_AGE_MS);
+      continue;
+    }
+    const m = /^(.*)\.pid(\.stale-.*)?$/.exec(name);
+    if (m === null) continue;
+    if (m[2] !== undefined) remove(file, STALE_AGE_MS);
+    if (!journals.has(`${m[1]}.jsonl`)) remove(file, PRUNE_AGE_MS);
+  }
+}

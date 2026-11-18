@@ -1,7 +1,10 @@
 import { createInterface } from "node:readline";
 
+import { projectDir } from "./journal.ts";
 import { Server } from "./protocol.ts";
+import { clockMs, prune } from "./store.ts";
 
+prune(projectDir(), clockMs());
 const server = new Server();
 const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
 rl.on("line", (line) => {
