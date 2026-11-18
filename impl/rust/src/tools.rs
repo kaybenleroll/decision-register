@@ -854,6 +854,12 @@ impl App {
                 self.complete = true;
                 self.emit("complete", json!({}));
             }
+            // Every allowed finish attempt writes the log (REQ-23), also one allowed
+            // because the caps are spent.
+            if verdict.reason.is_none() && verdict.classification == "finish" {
+                let state = if self.complete { "complete" } else { "active" };
+                self.write_log(state, "register", "none");
+            }
             match verdict.reason {
                 Some(reason) => json!({"decision": "block", "reason": reason}),
                 None => json!({}),
