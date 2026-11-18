@@ -313,3 +313,10 @@ Open items for the user:
 - The stale launcher and server names in the P1 row of docs/build-plan.md were already fixed (no `regspike-launch` or server `regspike` remains there); remaining occurrences are historical status entries.
 - Issue bodies updated: #22, #34, #18, #51. Nothing pushed.
 
+## 2026-11-18 (classifier closing-replay rule e5; #18, #51; branch classifier-e5-contract)
+
+- Decision [user, 2026-11-18]: approve the classifier rule revision "e5" and its three scenarios. A message containing one trailing `?` is a finish attempt (a closing replay) when it concerns no Open or Stale item, its final sentence starts with a closed offer, and an earlier sentence is a closure sentence without a guard word. The single-labelled-request exemption is evaluated first and unchanged. Evidence: `docs/evidence/classifier-replay.md` (30-turn replay, REQ-46). `tool_schema` stays 4.
+- Done: `contract/classifier.md` sections 2, 4 and 7 revised, with a change log (section 9). New scenarios S-43v, S-43w, S-43x (I2-owned; synthetic messages). I2 row of `docs/build-plan.md` now lists S-43a to S-43x (57 scenarios); suite 132 scenarios (script-counted).
+- Expected: S-43v to S-43x fail on any build that does not implement the rule; they pass on the patched TypeScript reference copy (21 of 21 S-43* scenarios pass there).
+- Verified: the four checks exit 0 before each commit.
+
