@@ -1,0 +1,5 @@
+{
+  "name": "decision-register",
+  "version": "0.1.0",
+  "description": "Structured decision register for grill-me interviews: hooks and an MCP server (no skill text; the skill stays in the user's dotfiles)."
+}

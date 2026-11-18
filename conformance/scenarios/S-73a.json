@@ -1,6 +1,6 @@
 {
  "id": "S-73a",
- "title": "the launcher with the binary missing from the PATH serves a no-op stub: hook-facing tools return {}, status returns {\"unavailable\":\"binary not found\"}, and one line goes to stderr (pending P1: needs plugin/bin/register-launch)",
+ "title": "the launcher with the binary missing from the PATH serves a no-op stub: hook-facing tools return {}, status returns {\"unavailable\":\"binary not found\"}, and one line goes to stderr",
  "req": [
   "REQ-73",
   "REQ-77"
