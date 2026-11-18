@@ -1,6 +1,6 @@
 {
  "id": "S-73b",
- "title": "the launcher's binary-missing message differs from the version-mismatch error text: it never mentions tool_schema or mismatch and the stub's status has no tool_schema or version_mismatch (pending P1: needs plugin/bin/register-launch)",
+ "title": "the launcher's binary-missing message differs from the version-mismatch error text: it never mentions tool_schema or mismatch and the stub's status has no tool_schema or version_mismatch",
  "req": [
   "REQ-73",
   "REQ-77"
