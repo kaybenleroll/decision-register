@@ -1463,6 +1463,31 @@ mod tests {
     }
 
     #[test]
+    fn session_change_and_second_stop_end_interviews() {
+        let project = std::env::temp_dir().join(format!("regspike-s-{}", std::process::id()));
+        // SAFETY: no other test reads CLAUDE_PROJECT_DIR for anything but a journal key.
+        unsafe { std::env::set_var("CLAUDE_PROJECT_DIR", &project) };
+        let mut app = fresh();
+        let state = |a: &App| a.status(&Map::new()).unwrap()["state"].clone();
+        prompt(&mut app);
+        q(&mut app, "q1");
+        assert_eq!(state(&app), "active");
+        // A hook call from another session abandons the bound interview.
+        let other = json!({"session_id": "other", "prompt": "hello"});
+        call(&mut app, "note_prompt", other).unwrap();
+        assert_eq!(state(&app), "none");
+        // A pending interview survives one Stop check and is stood down by the second.
+        let sk = json!({"tool_schema": 4, "session_id": "other", "skill": "grill-me"});
+        call(&mut app, "skill_started", sk).unwrap();
+        let stop = json!({"session_id": "other", "last_assistant_message": "hm?"});
+        call(&mut app, "check_stop", stop.clone()).unwrap();
+        assert_eq!(state(&app), "pending");
+        call(&mut app, "check_stop", stop).unwrap();
+        assert_eq!(state(&app), "none");
+        let _ = std::fs::remove_dir_all(&project);
+    }
+
+    #[test]
     fn end_interview_follows_the_state_matrix() {
         // Decision logs go under the project path; keep them out of the source tree.
         let project = std::env::temp_dir().join(format!("regspike-p-{}", std::process::id()));
