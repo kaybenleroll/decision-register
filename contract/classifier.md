@@ -21,7 +21,7 @@ Result of one classification: `finish` (no ids), `question` with `presented` = l
    then one backtick; scanned left to right, so only single-backtick spans are recognised: in a double-backtick span such as
    ``` a ``?`` b ``` the pair ` `` ` is an empty span, and the `?` between the pairs stays in `S`), URLs `https?://\S+` removed, then every line whose
    first non-blank character is `>` removed (quote-line stripping).
-4. `?` test: the message "asks" iff `S` contains `?`.
+4. `?` test: the message "asks" iff `S` contains `?`. (A closing replay, section 4, is nevertheless a finish attempt.)
 
 ## 3. Labels
 A label cites the item whose id is `Q<n>` (server-assigned form; `n` ASCII digits, compared as written, so `Q01` is not `Q1`).
@@ -39,10 +39,29 @@ Not labels: `Q1` with no punctuation, `Q1?`, `Q1,`, mid-line `Q1.` or `Q1)`, `Q1
 `Q10` read as `Q1`.
 
 ## 4. Finish attempt
-Finish attempt = no `?` in `S` AND not a single labelled request.
+Finish attempt = (no `?` in `S` AND not a single labelled request) OR a closing replay.
 Single labelled request: after removing fences and URLs only (inline code and quote lines kept), exactly one
 non-blank line remains and it starts (line-start form above, so `Q1:`, `Q1.`, `Q1)` with wrapper/list marker) with the
-label of an Open or Stale item. That is a question turn about that item (presented = [that id]).
+label of an Open or Stale item. That is a question turn about that item (presented = [that id]). This exemption is
+evaluated first and is unchanged by the closing-replay rule.
+
+Closing replay: a message whose `S` contains `?` is a finish attempt, not a question turn, iff it is not a single labelled
+request, it concerns no Open or Stale item (section 5, read on the unstripped message `U`: no label cited for an Open/Stale
+item and fewer than 3 shared content words with every Open/Stale item), and all of (a), (b), (c) hold. "Tokens" are as in
+section 5 (lower-case, maximal runs of `[a-z0-9]`).
+(a) `S` contains exactly one `?`, and after it only whitespace and the characters `*`, `_`, `)`, `"`, `'`.
+(b) The final sentence is the text of `S` from just after the last newline, or after the last `.`, `!` or `:` that is followed
+    by a space (whichever is latest), up to and including that `?`. Its first tokens are one of: `shall i`, `should i`,
+    `want me to`, `ready to`, `do you want me to`, `would you like me to`.
+(c) The text of `S` before the final sentence contains a closure sentence. Split that text into sentences at each newline and
+    after each `.`, `!` or `:` followed by whitespace. A sentence is a closure sentence iff its tokens contain none of `except`,
+    `but`, `apart`, `besides`, `remaining`, `still`, `only`, `though`, `however`, and contain one of: `all` or `everything`
+    followed within the next four tokens by `resolved`; `nothing` or `none` followed within the next two tokens by
+    `unresolved`; `no` followed by `unresolved`; `no` followed by `open` and then one of `items`, `threads`, `branches`,
+    `questions`, `decisions`.
+Order of evaluation: empty rule; single labelled request (question); no `?` in `S` (finish); section 5 concern; if the message
+concerns no Open/Stale item and is a closing replay, finish; otherwise a question turn as in section 7. A reclassified turn is
+`finish` with `presented` [].
 
 ## 5. Which items a question concerns
 Only Open and Stale items can be concerned or presented. Resolved items and Parked items (either `parked_by`) are never
@@ -66,7 +85,7 @@ this, to, too, up, us, very, was, we, were, what, when, where, which, who, whom,
 now, while, another, under, its, key, choice, use (scenario item texts use them).
 
 ## 7. Decision
-- finish attempt: block while anything is unresolved (REQ-43), classification `finish`.
+- finish attempt (including a closing replay): block while anything is unresolved (REQ-43), classification `finish`, `presented` [].
 - question turn concerning >= 1 item: allow, classification `question`, `presented` = ids.
 - question turn concerning none (incl. `?` with only resolved/parked/unknown labels, or no label and < 3 shared words): block as unlogged, `presented` [].
 - The `reason` text of a block is not specified for an unlogged block: the journal row (`classification`, `decision`,
@@ -79,3 +98,8 @@ The classifier returns `unknown` on an internal error, a timeout or an unparseab
 every string is classifiable: no natural message form yields `unknown`. Decided 2026-11-17: do not invent one. `unknown` (flat budget 4,
 journal `presented` null) is covered by each implementation's unit tests (REQ-81) only. S-32d and the `unknown` half of S-43e are
 not written. The existing contract text (tools.json, journal.md) stays valid for implementations.
+
+## 9. Change log
+- 2026-11-18: closing-replay rule (candidate e5) added to sections 2, 4 and 7, user decision of the same date, on the replay
+  evidence in `docs/evidence/classifier-replay.md` (REQ-46: finish attempts classified as question turns by the `?` test).
+  Wording only: no tool name, parameter, result shape or journal event shape changes, so `tool_schema` stays 4.
