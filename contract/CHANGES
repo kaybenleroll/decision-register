@@ -19,6 +19,19 @@ without a valid precedence number.
 
 Log (newest first)
 
+(no bump, 2026-11-18, user decision Q3)  tools.json records the rule both
+builds already implement and S-32b asserts: a volunteered `source: user`
+answer in log_item needs a user prompt counted since the previous check_stop
+call. New errors row (precedence 10, before the volunteered-answer cap), a
+clause in the log_item description and in error_precedence row 10. The
+suite matches the rejection on "prompt" only and no shape changes, so
+tool_schema stays 4.
+
+(no bump, 2026-11-18)  contract/tools.json: end_interview input gains a top-level
+"type": "object" next to its oneOf. Claude Code 2.1.327 rejects a tools/list whose
+inputSchema lacks it, which hid every model-facing tool in a live run. The accepted
+inputs are unchanged (the oneOf branches were already objects), so tool_schema stays 4.
+
 (no bump, 2026-11-17)  contract/classifier.md, label and inline-code details decided
 by the user: a line-start list marker must be followed by a space or tab (`-Q1.` is
 not a label); numbered markers take any number of digits (`10. Q1.`); a closing
