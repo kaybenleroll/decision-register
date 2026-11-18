@@ -8,7 +8,9 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+use crate::claim;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Map, Value, json};
@@ -78,6 +80,18 @@ pub fn project_dir() -> PathBuf {
     root.join(key)
 }
 
+/// Moves `<dir>/<id>.jsonl` to `<dir>/archive/` (a rename, never a copy); the `archive`
+/// folder is created with mode 0700 on first use.
+pub fn archive_file(path: &Path) -> std::io::Result<()> {
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+    let archive = dir.join("archive");
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(&archive)?;
+    fs::rename(path, archive.join(path.file_name().unwrap_or_default()))
+}
+
 pub struct Journal {
     path: PathBuf,
     queue: Vec<String>,
@@ -87,11 +101,29 @@ pub struct Journal {
 
 impl Journal {
     pub fn new(interview_id: &str) -> Self {
+        Self::in_dir(&project_dir(), interview_id)
+    }
+
+    pub fn in_dir(dir: &Path, interview_id: &str) -> Self {
         Self {
-            path: project_dir().join(format!("{interview_id}.jsonl")),
+            path: dir.join(format!("{interview_id}.jsonl")),
             queue: Vec::new(),
             seq: 0,
             write_error: None,
+        }
+    }
+
+    /// A journal reopened by `resume`: later events continue after `seq`.
+    pub fn resumed(dir: &Path, interview_id: &str, seq: u64) -> Self {
+        let mut j = Self::in_dir(dir, interview_id);
+        j.seq = seq;
+        j
+    }
+
+    /// Removes this interview's pid file (end of interview, exit, failed resume).
+    pub fn release(&self) {
+        if let (Some(dir), Some(stem)) = (self.path.parent(), self.path.file_stem()) {
+            claim::remove(dir, &stem.to_string_lossy());
         }
     }
 
@@ -129,16 +161,7 @@ impl Journal {
         if !self.queue.is_empty() || !self.path.exists() {
             return;
         }
-        let Some(dir) = self.path.parent() else {
-            return;
-        };
-        let archive = dir.join("archive");
-        let moved = fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(&archive)
-            .and_then(|()| fs::rename(&self.path, archive.join(self.path.file_name().unwrap())));
-        if let Err(e) = moved {
+        if let Err(e) = archive_file(&self.path) {
             self.write_error = Some(format!("journal archive failed: {e}"));
         }
     }
@@ -195,6 +218,21 @@ mod tests {
         j.archive();
         assert!(!dir.join("iv-arch.jsonl").exists());
         assert!(dir.join("archive/iv-arch.jsonl").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn release_removes_the_pid_file_and_resumed_continues_the_sequence() {
+        let dir = std::env::temp_dir().join(format!("regspike-r-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        claim::create_new(&dir, "iv-rel").unwrap();
+        let mut j = Journal::resumed(&dir, "iv-rel", 7);
+        j.path = dir.join("iv-rel.jsonl");
+        j.event("resume", json!({"session_id": null, "from_seq": 7}));
+        assert_eq!(j.seq(), 8);
+        assert!(claim::pid_path(&dir, "iv-rel").exists());
+        j.release();
+        assert!(!claim::pid_path(&dir, "iv-rel").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 

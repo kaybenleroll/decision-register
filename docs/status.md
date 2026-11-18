@@ -352,3 +352,11 @@ Open items for the user:
 - Ambiguity 1: `resume` or `discard` with an id that matches no journal when no journal exists at all. contract/tools.json fits both "no unfinished journal" and "unknown interview id". The TypeScript build returns "unknown interview id"; no scenario pins it (the I3 unit test in `lifecycle.test.ts` was changed to match). Contract owner: pick one wording or state which takes precedence.
 - Ambiguity 2: runtime.md says a pid file whose pid is the reader's own counts as alive only if it is the reader's current claim. Several `App` instances can share one process (unit tests), so "current claim" is undefined across instances. The TypeScript build keeps an in-process claim set (`heldClaims` in `impl/ts/src/pidfile.ts`): own-pid is alive iff the id is in that set. Contract owner: confirm this reading or define the claim holder.
 - Contract not changed. I4 TypeScript state: all 134 scenarios pass against the built bundle; four Python checks and npm lint, typecheck, test and build exit 0. Nothing pushed.
+
+## 2026-11-18 (I4 Rust contract ambiguities for the contract owner; #20; branch issue-20-i4-rs)
+
+- Found while building I4 in Rust (phase A). The contract is not changed; each item is a reading the Rust build chose and the suite accepts.
+  1. State matrix versus errors table: `tools.json` says "nothing is open: abandon does not apply", the errors table says "abandon is not needed". The suite passes with the current text; the two wordings should be unified.
+  2. A journal holding an `end` event but still in the project directory (not archived) counts as an unknown interview id for `resume` and `discard`, not as unfinished. The contract says an unfinished journal has no `end` event but does not say what an ended one left in the project directory is.
+  3. The pid-file JSON key order `pid`, `start`, `interview_id` is required by the scenario regexes (S-L1) but the runtime.md "Pid file and claim" section gives it only in the example, not as a rule. A JSON library that sorts keys (serde_json does) breaks it silently.
+  4. Replay of a v1 journal: a v1 journal has no `start` event, so the interview id comes from the file name. The journal contract does not say this.
