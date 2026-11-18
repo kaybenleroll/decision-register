@@ -347,6 +347,12 @@ Open items for the user:
 - Expected: S-43y and S-43z fail on both I2 builds until they implement e6. `docs/evidence/classifier-replay.md` (branch `issue-18-51-i2-replay`) still reports the draft labels; it needs a re-run with the revised private labels once a build implements e6.
 - Verified: the four checks exit 0 before each commit. Nothing pushed.
 
+## 2026-11-18 (I4 TypeScript contract ambiguities for the contract owner; #64; branch issue-64-i4-ts)
+
+- Ambiguity 1: `resume` or `discard` with an id that matches no journal when no journal exists at all. contract/tools.json fits both "no unfinished journal" and "unknown interview id". The TypeScript build returns "unknown interview id"; no scenario pins it (the I3 unit test in `lifecycle.test.ts` was changed to match). Contract owner: pick one wording or state which takes precedence.
+- Ambiguity 2: runtime.md says a pid file whose pid is the reader's own counts as alive only if it is the reader's current claim. Several `App` instances can share one process (unit tests), so "current claim" is undefined across instances. The TypeScript build keeps an in-process claim set (`heldClaims` in `impl/ts/src/pidfile.ts`): own-pid is alive iff the id is in that set. Contract owner: confirm this reading or define the claim holder.
+- Contract not changed. I4 TypeScript state: all 134 scenarios pass against the built bundle; four Python checks and npm lint, typecheck, test and build exit 0. Nothing pushed.
+
 ## 2026-11-18 (I4 Rust contract ambiguities for the contract owner; #20; branch issue-20-i4-rs)
 
 - Found while building I4 in Rust (phase A). The contract is not changed; each item is a reading the Rust build chose and the suite accepts.

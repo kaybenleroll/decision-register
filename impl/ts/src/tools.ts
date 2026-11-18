@@ -3,11 +3,19 @@
 // I1 and I2: the register tools and the three hook-facing tools, with a minimal journal.
 
 import { randomBytes } from "node:crypto";
+import { readFileSync, truncateSync } from "node:fs";
+import { join } from "node:path";
 
 import pkg from "../package.json" with { type: "json" };
 import { type Classification, classify } from "./classifier.ts";
-import { DecisionLog, type LogMode, type LogState } from "./declog.ts";
-import { Journal } from "./journal.ts";
+import {
+  DecisionLog,
+  type LogMode,
+  type LogState,
+  type ReopenRecord,
+} from "./declog.ts";
+import { Journal, projectDir } from "./journal.ts";
+import { ClaimError, claim, pidPath, readPid, removeFile } from "./pidfile.ts";
 import {
   type Actor,
   type Answer,
@@ -22,6 +30,8 @@ import {
   Register,
   RegisterError,
 } from "./register.ts";
+import { replay } from "./replay.ts";
+import { archiveJournal, scanUnfinished } from "./store.ts";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -201,6 +211,7 @@ const truncate = (s: string): string => Array.from(s).slice(0, 120).join("");
 
 export class App {
   private register = new Register();
+  private reopens: ReopenRecord[] = [];
   private state: State = "none";
   private interviewId: string | null = null;
   private journal: Journal | null = null;
@@ -283,14 +294,32 @@ export class App {
       case "skill_started":
         return this.skillStarted(args);
       case "check_stop":
-        return this.checkStop(args);
+        return this.checkStopAndFlush(args);
       case "end_interview":
         return this.endInterview(args);
       case "resume":
+        return this.resume(args);
       case "discard":
-        return this.refuseUnfinished(args);
+        return this.discard(args);
       default:
         throw new ToolError(`tool not implemented: ${name}`);
+    }
+  }
+
+  /** Unfinished journals with no live owner, most recently modified first. */
+  private resumable(): { interview_id: string; last_event: number }[] {
+    return scanUnfinished(projectDir(), this.interviewId)
+      .filter((j) => !j.alive)
+      .map((j) => ({ interview_id: j.id, last_event: j.lastEvent }));
+  }
+
+  /** begin_interview and the item tools are refused while a journal waits (REQ-52). */
+  private refuseWhileUnfinished(): void {
+    if (
+      (this.state === "none" || this.state === "pending") &&
+      this.resumable().length > 0
+    ) {
+      throw new ToolError("unfinished journal: call resume or discard");
     }
   }
 
@@ -304,9 +333,15 @@ export class App {
     skill: string | null,
     sessionId: string | null,
   ): string {
-    const id = newInterviewId();
+    let id = newInterviewId();
+    let journal = new Journal(id);
+    // The pid file is created exclusively before the first event; a clash draws a new id.
+    while (!journal.createPidFile()) {
+      id = newInterviewId();
+      journal = new Journal(id);
+    }
     this.interviewId = id;
-    this.journal = new Journal(id);
+    this.journal = journal;
     this.declog = new DecisionLog(id);
     this.implicitStart = route === "implicit";
     this.state = route === "hook" ? "pending" : "active";
@@ -331,6 +366,8 @@ export class App {
       implicit: route === "implicit",
       prompt_count: promptCount,
     });
+    // The file is created with its first event; later events are write-behind.
+    journal.flush();
     return id;
   }
 
@@ -354,6 +391,7 @@ export class App {
     note: string | null,
   ): void {
     if (this.declog === null || this.interviewId === null) return;
+    this.journal?.flush(); // so the logged position is durable
     this.declog.write({
       interviewId: this.interviewId,
       journalPosition: this.journal?.seq ?? 0,
@@ -363,6 +401,7 @@ export class App {
       implicitStart: this.implicitStart,
       note,
       items: this.register.list(),
+      reopens: this.reopens,
       hookHealth: {
         note_prompt: this.hookNotePrompt,
         skill_started: this.hookSkillStarted,
@@ -386,9 +425,11 @@ export class App {
       journalMode === "not_engaged" ? "not engaged" : journalMode;
     this.emit("end", { end_kind: endKind, mode: journalMode, reason });
     this.journal?.archive();
+    this.journal?.removePidFile();
     this.writeLog("ended", logMode, endKind, note);
     const path = this.declog?.path ?? null;
     this.register = new Register();
+    this.reopens = [];
     this.state = "none";
     this.interviewId = null;
     this.journal = null;
@@ -399,6 +440,32 @@ export class App {
     this.hookSkillStarted = 0;
     this.hookCheckStop = 0;
     return path;
+  }
+
+  /**
+   * Graceful exit on stdin EOF (runtime.md "Interview ends and server exit"): pending is
+   * stood down, complete is ended, an active interview keeps its journal unfinished
+   * (pid file removed, log flagged `interrupted`), none does nothing.
+   */
+  onEof(): void {
+    if (this.state === "pending") {
+      this.finish(
+        "stood_down",
+        "not_engaged",
+        "server exit while pending",
+        "server exited before the skill engaged",
+      );
+    } else if (this.state === "complete") {
+      this.finish("ended_after_completion", "register", "server exit", null);
+    } else if (this.state === "active") {
+      this.writeLog(
+        "active",
+        "register",
+        "interrupted",
+        "interrupted: the server exited while the interview was running",
+      );
+      this.journal?.removePidFile();
+    }
   }
 
   /**
@@ -512,17 +579,137 @@ export class App {
   }
 
   /**
-   * `resume` and `discard`, refusals only (I3): the wrong-state rule of REQ-52 and the
-   * "nothing to act on" answer. Unfinished journals are listed, resumed and discarded
-   * in I4, so until then there is never one to act on.
+   * Picks the journal `resume` or `discard` acts on (REQ-52). Errors, in order: wrong
+   * state; for an id, live-owned or unknown; without one, none or several.
    */
-  private refuseUnfinished(args: JsonObject): JsonObject {
+  private pickUnfinished(args: JsonObject): string {
     checkKnown(args, ["id"]);
-    optIdArg(args, "id");
+    const id = optIdArg(args, "id");
     if (this.state === "active" || this.state === "complete") {
       throw new ToolError(`wrong state: ${this.state}`);
     }
-    throw new ToolError("no unfinished journal");
+    const all = scanUnfinished(projectDir(), this.interviewId);
+    if (id !== null) {
+      const found = all.find((j) => j.id === id);
+      if (found === undefined && id !== this.interviewId) {
+        throw new ToolError(`unknown interview id: ${id}`);
+      }
+      if (found === undefined || found.alive) {
+        throw new ToolError(`journal is live-owned: ${id}`);
+      }
+      return id;
+    }
+    const dead = all.filter((j) => !j.alive);
+    const first = dead[0];
+    if (first === undefined) throw new ToolError("no unfinished journal");
+    if (dead.length > 1) {
+      const ids = dead.map((j) => j.id).join(", ");
+      throw new ToolError(`several unfinished journals: ${ids}`);
+    }
+    return first.id;
+  }
+
+  /** `discard`: archives an unfinished journal and starts nothing (REQ-52). */
+  private discard(args: JsonObject): JsonObject {
+    const id = this.pickUnfinished(args);
+    try {
+      archiveJournal(projectDir(), id);
+    } catch (e) {
+      throw new ToolError(
+        `cannot archive ${id}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    return { interview_id: id, archived: true };
+  }
+
+  /**
+   * `resume` (REQ-52): claims the journal's pid file (rename-aside, verify, exclusive
+   * create), replays it, rebinds to last_seen_session_id and returns to `active`. A
+   * replay failure removes the new pid file and leaves the journal unfinished. A pending
+   * interview is stood down once the resume has succeeded.
+   */
+  private resume(args: JsonObject): JsonObject {
+    const id = this.pickUnfinished(args);
+    const dir = projectDir();
+    const pid = pidPath(dir, id);
+    try {
+      claim(dir, id, readPid(pid));
+    } catch (e) {
+      if (e instanceof ClaimError) throw new ToolError(e.message);
+      throw new ToolError(
+        `cannot claim ${id}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    const file = join(dir, `${id}.jsonl`);
+    let result: ReturnType<typeof replay>;
+    let text = "";
+    try {
+      text = readFileSync(file, "utf8");
+      result = replay(text);
+    } catch (e) {
+      removeFile(pid);
+      throw new ToolError(
+        `cannot read ${id}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    if (!result.ok) {
+      removeFile(pid);
+      throw new ToolError(
+        `replay failed at line ${result.line}: ${result.why}`,
+      );
+    }
+    const s = result.state;
+    try {
+      // A torn final line must go, or the next event would be glued to it.
+      if (text !== "" && !text.endsWith("\n")) {
+        truncateSync(
+          file,
+          Buffer.byteLength(text.slice(0, text.lastIndexOf("\n") + 1)),
+        );
+      }
+    } catch {
+      // fail open: the append below may then fail and set write_error
+    }
+    if (this.state === "pending") {
+      this.finish(
+        "stood_down",
+        "not_engaged",
+        "replaced by resume",
+        "replaced by resume",
+      );
+    }
+    this.register = s.register;
+    this.reopens = s.reopens;
+    this.interviewId = id;
+    const journal = new Journal(id, s.lastSeq);
+    journal.adoptPidFile();
+    this.journal = journal;
+    this.declog = new DecisionLog(id);
+    this.state = "active";
+    this.implicitStart = s.implicit;
+    this.boundSession = this.lastSeenSessionId;
+    this.promptSeen = false;
+    this.hookNotePrompt = s.hookNotePrompt;
+    this.hookSkillStarted = s.hookSkillStarted;
+    this.hookCheckStop = s.hookCheckStop;
+    this.blocks = { ...s.blocks };
+    this.emit("resume", {
+      session_id: this.lastSeenSessionId,
+      from_seq: s.lastSeq,
+    });
+    journal.flush();
+    const c = s.register.counts();
+    return {
+      interview_id: id,
+      state: "active",
+      last_event: s.lastSeq,
+      items: {
+        open: c.open,
+        resolved: c.resolved,
+        parked: c.parked,
+        stale: c.stale,
+      },
+    };
   }
 
   private endResult(
@@ -561,6 +748,7 @@ export class App {
         `tool_schema mismatch: plugin ${ts}, server ${TOOL_SCHEMA}`,
       );
     }
+    this.refuseWhileUnfinished();
     this.versionMismatch = null;
     if (this.state === "none") {
       const id = this.startInterview("begin_interview", skill, null);
@@ -632,6 +820,7 @@ export class App {
     }
     const answer = answerGroup(args, false);
     const item: NewItem = { id, kind, text, parent, dependsOn, answer };
+    this.refuseWhileUnfinished();
     // Rule errors, in contract order, leave the state untouched.
     this.register.checkLog(item);
     if (answer !== null) {
@@ -672,6 +861,7 @@ export class App {
     const id = idArg(args, "id");
     const answer = answerGroup(args, true);
     if (answer === null) throw bad("answer, source and rationale are required");
+    this.refuseWhileUnfinished();
     const item = this.register.assertResolvable(id);
     if (answer.source === "model") {
       if (item.kind === "decision") {
@@ -705,6 +895,7 @@ export class App {
     const id = idArg(args, "id");
     const reason = textArg(args, "reason");
     const by = required("parked_by", actorArg(args, "parked_by"));
+    this.refuseWhileUnfinished();
     const item = this.register.assertParkable(id);
     if (by === "model") {
       if (item.kind === "decision") {
@@ -726,8 +917,10 @@ export class App {
     checkKnown(args, ["id", "reason"]);
     const id = idArg(args, "id");
     const reason = textArg(args, "reason");
+    this.refuseWhileUnfinished();
     const stale = this.register.reopen(id);
     this.engage("reopen");
+    this.reopens.push({ id, reason, stale });
     this.emit("reopen", { id, reason, stale });
     return { id, status: "Open", stale };
   }
@@ -755,7 +948,7 @@ export class App {
         prompt_seen: this.promptSeen,
       },
       last_event: this.journal?.seq ?? 0,
-      resumable: [],
+      resumable: this.resumable(),
       version_mismatch:
         this.versionMismatch === null
           ? null
@@ -851,6 +1044,13 @@ export class App {
       .map((i) => `- ${i.id}: ${truncate(i.text)}`);
     const rest = open.length > 10 ? `\n${open.length - 10} more` : "";
     return `Items are still unresolved in the decision register. Resolve, park or ask about each before finishing:\n${lines.join("\n")}${rest}`;
+  }
+
+  /** A Stop check flushes the journal queue (journal.md). */
+  private checkStopAndFlush(args: JsonObject): JsonObject {
+    const r = this.checkStop(args);
+    this.journal?.flush();
+    return r;
   }
 
   /** Hook-facing. Always returns `{}` or a block decision (REQ-42, 43, 45). */

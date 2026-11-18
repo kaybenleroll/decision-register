@@ -1,13 +1,21 @@
 // Minimal append-only JSONL journal (contract/journal.md, runtime.md "Journal location").
 //
-// I2 scope: every event is appended as it happens and a write failure never fails a call
-// (it sets `writeError`). Write-behind queueing, the pid file, archive, pruning and
-// resume are I4.
+// Events are queued and written by `flush` (write-behind); a write failure never fails a
+// call (it sets `writeError`) and keeps the events queued.
 
 import { createHash } from "node:crypto";
-import { appendFileSync, mkdirSync, renameSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+
+import {
+  createPid,
+  dropClaim,
+  noteClaim,
+  ownRecord,
+  pidPath,
+  removeFile,
+} from "./pidfile.ts";
 
 const nonEmpty = (v: string | undefined): string | undefined =>
   v === undefined || v === "" ? undefined : v;
@@ -25,20 +33,60 @@ export const projectPath = (): string =>
 export const projectKey = (): string =>
   createHash("sha256").update(projectPath(), "utf8").digest("hex").slice(0, 16);
 
+/** The project folder `<data root>/<project key>` that holds journals and pid files. */
+export const projectDir = (): string => join(dataRoot(), projectKey());
+
 export type JournalFields = Record<string, unknown>;
 
 export class Journal {
   /** The `seq` of the last event; also `status.last_event`. */
   seq = 0;
   writeError: string | null = null;
+  /** True while this journal's pid file was created (or claimed) by this process. */
+  hasPid = false;
+  private queue: string[] = [];
   private readonly dir: string;
   private readonly file: string;
+  private readonly id: string;
 
-  constructor(interviewId: string) {
-    this.dir = join(dataRoot(), projectKey());
+  /** `seq` is the last event number already in the file (a resumed journal). */
+  constructor(interviewId: string, seq = 0) {
+    this.id = interviewId;
+    this.seq = seq;
+    this.dir = projectDir();
     this.file = join(this.dir, `${interviewId}.jsonl`);
   }
 
+  /**
+   * Creates the pid file exclusively, before the first event (REQ-52). Returns false when
+   * the id is already taken (draw another); any other failure fails open and returns true.
+   */
+  createPidFile(): boolean {
+    try {
+      mkdirSync(this.dir, { recursive: true, mode: 0o700 });
+      createPid(pidPath(this.dir, this.id), ownRecord(this.id));
+      this.hasPid = true;
+      noteClaim(this.id);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "EEXIST") return false;
+    }
+    return true;
+  }
+
+  /** Marks the pid file as claimed by this process (after a resume claim). */
+  adoptPidFile(): void {
+    this.hasPid = true;
+    noteClaim(this.id);
+  }
+
+  /** Removes this journal's pid file, if this process owns one. */
+  removePidFile(): void {
+    if (this.hasPid) removeFile(pidPath(this.dir, this.id));
+    this.hasPid = false;
+    dropClaim(this.id);
+  }
+
+  /** Queues an event (write-behind); `flush` writes it. `seq` counts queued events too. */
   append(kind: string, fields: JournalFields): void {
     this.seq += 1;
     const event = {
@@ -48,9 +96,19 @@ export class Journal {
       kind,
       ...fields,
     };
+    this.queue.push(JSON.stringify(event));
+  }
+
+  /**
+   * Writes the queued events in order. On failure they stay queued for the next flush and
+   * `writeError` is set; a later successful write clears it.
+   */
+  flush(): void {
+    if (this.queue.length === 0) return;
     try {
       mkdirSync(this.dir, { recursive: true, mode: 0o700 });
-      appendFileSync(this.file, `${JSON.stringify(event)}\n`, { mode: 0o600 });
+      appendFileSync(this.file, `${this.queue.join("\n")}\n`, { mode: 0o600 });
+      this.queue = [];
       this.writeError = null;
     } catch (e) {
       this.writeError = e instanceof Error ? e.message : String(e);
@@ -62,6 +120,9 @@ export class Journal {
    * sets `writeError` and leaves the journal where it is.
    */
   archive(): void {
+    this.flush();
+    // Events still queued mean the journal is not on disk: no rename is attempted.
+    if (this.queue.length > 0 || !existsSync(this.file)) return;
     try {
       const dest = join(this.dir, "archive");
       mkdirSync(dest, { recursive: true, mode: 0o700 });

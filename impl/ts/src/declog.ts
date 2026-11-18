@@ -11,6 +11,13 @@ import { join } from "node:path";
 import { projectPath } from "./journal.ts";
 import type { Item } from "./register.ts";
 
+/** One reopen: the reason given and the ids it made stale (REQ-23 reopen history). */
+export interface ReopenRecord {
+  id: string;
+  reason: string;
+  stale: readonly string[];
+}
+
 export type LogState = "active" | "complete" | "ended";
 export type LogMode = "register" | "plain" | "not engaged";
 
@@ -26,6 +33,7 @@ export interface LogSnapshot {
   /** A human note such as "skill did not engage" (null when there is none). */
   note: string | null;
   items: readonly Item[];
+  reopens: readonly ReopenRecord[];
   hookHealth: Record<string, number>;
 }
 
@@ -71,6 +79,17 @@ export function render(snap: LogSnapshot): string {
     "## Items",
     "",
     ...(snap.items.length === 0 ? ["(none)"] : snap.items.flatMap(itemLines)),
+    "",
+    "## Reopen history",
+    "",
+    ...(snap.reopens.length === 0
+      ? ["(none)"]
+      : snap.reopens.map(
+          (r) =>
+            `- ${r.id} reopened: ${r.reason}${
+              r.stale.length === 0 ? "" : ` (stale: ${r.stale.join(", ")})`
+            }`,
+        )),
     "",
     "## Hook health",
     "",
