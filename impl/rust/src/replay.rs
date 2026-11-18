@@ -3,6 +3,7 @@
 //! Rebuilds the register, the hook counts and the finish-gate caps from the events. A
 //! torn final line is ignored; every other defect fails with `replay failed at line N`.
 
+use crate::declog::Reopen;
 use serde_json::{Map, Value};
 
 use crate::register::{Actor, Answer, Kind, NewItem, Register};
@@ -29,6 +30,8 @@ pub struct Replayed {
     pub hook_check_stop: u64,
     /// Cap counters of the last `stop` event: prompt, finish, unlogged.
     pub blocks: (u64, u64, u64),
+    /// The reopen history, in journal order.
+    pub reopens: Vec<Reopen>,
 }
 
 fn fail(line: usize, why: &str) -> String {
@@ -144,9 +147,13 @@ fn apply(out: &mut Replayed, kind: &str, o: &Map<String, Value>) -> Result<(), S
                 .map_err(|e| e.to_string())?;
         }
         "reopen" => {
-            out.register
-                .reopen(need("id")?)
-                .map_err(|e| e.to_string())?;
+            let id = need("id")?;
+            let stale = out.register.reopen(id).map_err(|e| e.to_string())?;
+            out.reopens.push(Reopen {
+                id: id.to_string(),
+                reason: str_field(o, "reason").unwrap_or_default().to_string(),
+                stale,
+            });
         }
         "stop" => {
             let b = o.get("blocks");
@@ -224,6 +231,22 @@ mod tests {
             replay(&text(&[START, &future]))
                 .unwrap_err()
                 .contains("line 2")
+        );
+    }
+
+    #[test]
+    fn reopen_history_is_rebuilt_with_reason_and_stale_ids() {
+        let res = r#"{"v":2,"ts":"t","seq":3,"kind":"resolve","id":"q1","answer":"a","source":"model","rationale":"r"}"#;
+        let reo =
+            r#"{"v":2,"ts":"t","seq":4,"kind":"reopen","id":"q1","reason":"REO-EEE","stale":[]}"#;
+        let r = replay(&text(&[START, ITEM, res, reo])).unwrap();
+        assert_eq!(
+            r.reopens,
+            [Reopen {
+                id: "q1".into(),
+                reason: "REO-EEE".into(),
+                stale: Vec::new()
+            }]
         );
     }
 

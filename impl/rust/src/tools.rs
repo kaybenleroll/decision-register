@@ -12,7 +12,7 @@ use serde_json::{Map, Value, json};
 
 use crate::claim;
 use crate::classifier::{Class, ClassItem, classify};
-use crate::declog::{DecisionLog, LogView};
+use crate::declog::{DecisionLog, LogView, Reopen};
 use crate::journal::{Journal, civil_from_days, project_dir};
 use crate::register::{
     Actor, Answer, Item, Kind, NewItem, Register, Status, is_nonblank, is_valid_id,
@@ -291,6 +291,8 @@ pub struct App {
     /// The interview began with an implicit start (log header `implicit_start`).
     implicit: bool,
     declog: DecisionLog,
+    /// Reopen calls of this interview, for the decision log.
+    reopens: Vec<Reopen>,
     /// The session the interview is bound to (REQ-26); None until a hook call names one.
     bound_session: Option<String>,
     /// Overrides the project directory; None means the environment decides.
@@ -444,6 +446,7 @@ impl App {
         self.complete = false;
         self.implicit = matches!(route, Route::Implicit);
         self.declog = DecisionLog::default();
+        self.reopens.clear();
         self.blocks = Blocks::default();
         if !self.prompt_seen {
             self.allowance = 0;
@@ -678,6 +681,11 @@ impl App {
         self.refuse_if_unfinished()?;
         let stale = self.register.reopen(&id).map_err(|e| e.to_string())?;
         self.complete = false;
+        self.reopens.push(Reopen {
+            id: id.clone(),
+            reason: reason.clone(),
+            stale: stale.clone(),
+        });
         self.emit(
             "reopen",
             json!({"id": id, "reason": reason, "stale": stale}),
@@ -710,6 +718,7 @@ impl App {
             note,
             implicit: self.implicit,
             items: self.register.ordered(),
+            reopens: &self.reopens,
         };
         Some(self.declog.write(&view).to_string_lossy().into_owned())
     }
@@ -740,6 +749,7 @@ impl App {
         self.pending = false;
         self.implicit = false;
         self.declog = DecisionLog::default();
+        self.reopens.clear();
         (id, log.unwrap_or_default())
     }
 
@@ -824,6 +834,7 @@ impl App {
         journal.flush();
         self.journal = Some(journal);
         self.register = replayed.register;
+        self.reopens = replayed.reopens;
         self.hook_note_prompt = replayed.hook_note_prompt;
         self.hook_skill_started = replayed.hook_skill_started;
         self.hook_check_stop = replayed.hook_check_stop;
@@ -1524,6 +1535,14 @@ pub(crate) mod tests {
         );
         assert_eq!(s["tree"][1]["parked_by"], "user");
         assert_eq!(s["tree"][1]["answer"], Value::Null);
+        assert_eq!(
+            app.reopens,
+            [Reopen {
+                id: "a".into(),
+                reason: "new fact".into(),
+                stale: vec!["b".into()]
+            }]
+        );
     }
 
     #[test]

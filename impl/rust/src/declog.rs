@@ -26,6 +26,16 @@ pub struct LogView<'a> {
     pub items: Vec<&'a Item>,
     /// One line saying how the interview ended or stands; empty for none.
     pub note: &'a str,
+    /// The reopen history in order: item id, reason, ids made stale.
+    pub reopens: &'a [Reopen],
+}
+
+/// One `reopen` call, kept for the decision log (REQ-62).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reopen {
+    pub id: String,
+    pub reason: String,
+    pub stale: Vec<String>,
 }
 
 /// Where the logs of one interview go; the directory is chosen at the first write.
@@ -149,6 +159,18 @@ fn render(v: &LogView<'_>) -> String {
         }
         s.push('\n');
     }
+    if !v.reopens.is_empty() {
+        s.push_str("## Reopen history\n\n");
+        for r in v.reopens {
+            let stale = if r.stale.is_empty() {
+                "none".to_string()
+            } else {
+                r.stale.join(", ")
+            };
+            let _ = writeln!(s, "- reopened {}: {} (stale: {})", r.id, r.reason, stale);
+        }
+        s.push('\n');
+    }
     s
 }
 
@@ -167,6 +189,7 @@ mod tests {
             implicit: false,
             note: "",
             items: Vec::new(),
+            reopens: &[],
         });
         let head: Vec<&str> = text.lines().take(6).collect();
         assert_eq!(
@@ -180,5 +203,31 @@ mod tests {
                 "implicit_start: false"
             ]
         );
+    }
+
+    #[test]
+    fn reopen_history_shows_reason_and_stale_ids() {
+        let reopens = [Reopen {
+            id: "q3".into(),
+            reason: "REO-EEE".into(),
+            stale: vec!["q4".into(), "q5".into()],
+        }];
+        let view = |r: &'static [Reopen]| LogView {
+            interview_id: "iv-1",
+            position: 1,
+            state: "active",
+            mode: "register",
+            end_kind: "none",
+            implicit: false,
+            note: "",
+            items: Vec::new(),
+            reopens: r,
+        };
+        let text = render(&LogView {
+            reopens: &reopens,
+            ..view(&[])
+        });
+        assert!(text.contains("- reopened q3: REO-EEE (stale: q4, q5)"));
+        assert!(!render(&view(&[])).contains("Reopen history"));
     }
 }
