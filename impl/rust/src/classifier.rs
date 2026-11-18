@@ -263,7 +263,6 @@ const CLOSURE_GUARDS: [&str; 9] = [
 ];
 
 /// A closure sentence (contract section 4(c)): no guard word, and one of the closure phrases.
-#[allow(dead_code)] // wired into `classify` by the next commit
 fn closure_sentence(sentence: &str) -> bool {
     let t = tokens(sentence);
     if t.iter().any(|w| CLOSURE_GUARDS.contains(&w.as_str())) {
@@ -323,7 +322,6 @@ fn closure_pieces(t: &str) -> Vec<&str> {
 
 /// The tail rules of a closing replay (contract section 4(a)-(c)) on the stripped text `S`.
 /// The caller has already established that the message concerns no Open or Stale item.
-#[allow(dead_code)] // wired into `classify` by the next commit
 fn closing_replay(s: &str) -> bool {
     let Some(q) = s.find('?') else { return false };
     let after = &s[q + 1..];
@@ -380,7 +378,10 @@ pub fn classify(message: &str, items: &[ClassItem<'_>]) -> Class {
                 || content_words(i.text).intersection(&words).count() >= MIN_SHARED_WORDS
         })
         .map(|i| i.id.to_string())
-        .collect();
+        .collect::<Vec<_>>();
+    if presented.is_empty() && closing_replay(&s) {
+        return Class::Finish;
+    }
     Class::Question(presented)
 }
 
