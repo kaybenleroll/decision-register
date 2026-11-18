@@ -5,6 +5,9 @@ import { App } from "../src/tools.ts";
 
 const HOOK = ["note_prompt", "skill_started", "check_stop"];
 
+// The start-up fallback session id must not leak in from the environment running the tests.
+delete process.env["CLAUDE_CODE_SESSION_ID"];
+
 type R = Record<string, any>;
 
 /** A user-sourced answer needs a prompt (REQ-32): give each such call its own. */
@@ -14,7 +17,11 @@ function userPrompt(app: App, name: string, args: unknown): void {
     ["resolve", "park", "log_item"].includes(name) &&
     (a["source"] === "user" || a["parked_by"] === "user")
   ) {
-    app.call("note_prompt", { session_id: "s", prompt: "p" }, false);
+    app.call(
+      "note_prompt",
+      { session_id: app.lastSeen ?? "s", prompt: "p" },
+      false,
+    );
   }
 }
 
@@ -233,7 +240,12 @@ test("status carries every contract field and a consistent tree", () => {
 test("note_prompt: hook-facing only, no-op while idle, agent messages ignored", () => {
   const app = new App();
   const np = (prompt: string): R =>
-    call(app, "note_prompt", { session_id: "s", prompt }, false);
+    call(
+      app,
+      "note_prompt",
+      { session_id: app.lastSeen ?? "s", prompt },
+      false,
+    );
   assert.deepEqual(np("hello"), {});
   assert.equal(call(app, "status", {})["hook_health"].note_prompt, 0);
   assert.equal(call(app, "status", {})["hook_health"].prompt_seen, true);

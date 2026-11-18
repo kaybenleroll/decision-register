@@ -401,6 +401,40 @@ export class App {
     return path;
   }
 
+  /**
+   * REQ-26: a hook call whose session id differs from the bound one ends the interview
+   * (normal, abandoned if items are open, "ended after completion", or stood down if
+   * pending); the caller then behaves as with no interview.
+   */
+  private sessionChange(sessionId: string): void {
+    if (
+      this.state === "none" ||
+      this.boundSession === null ||
+      sessionId === this.boundSession
+    ) {
+      return;
+    }
+    if (this.state === "pending") {
+      this.finish(
+        "stood_down",
+        "not_engaged",
+        "session change",
+        "session changed before the skill engaged",
+      );
+    } else if (this.state === "complete") {
+      this.finish("ended_after_completion", "register", "session change", null);
+    } else if (this.openItems().length > 0) {
+      this.finish(
+        "abandoned",
+        "register",
+        "session change",
+        "abandoned: items were open at the session change",
+      );
+    } else {
+      this.finish("normal", "register", "session change", null);
+    }
+  }
+
   private endInterview(args: JsonObject): JsonObject {
     checkKnown(args, ["mode", "abandon", "reason"]);
     const mode = strArg(args, "mode");
@@ -744,6 +778,7 @@ export class App {
     const sessionId = textArg(args, "session_id");
     const prompt = required("prompt", strArg(args, "prompt"));
     if (prompt.startsWith(AGENT_MESSAGE_PREFIX)) return {};
+    this.sessionChange(sessionId);
     this.lastSeenSessionId = sessionId;
     this.anyPrompt = true;
     this.allowance = this.presentedUnknown
@@ -774,6 +809,7 @@ export class App {
     const ts = toolSchemaArg(args);
     const sessionId = textArg(args, "session_id");
     const skill = textArg(args, "skill");
+    this.sessionChange(sessionId);
     this.lastSeenSessionId = sessionId;
     const mismatch = ts !== TOOL_SCHEMA;
     this.versionMismatch = mismatch
@@ -825,6 +861,7 @@ export class App {
       "last_assistant_message",
       strArg(args, "last_assistant_message"),
     );
+    this.sessionChange(sessionId);
     this.lastSeenSessionId = sessionId;
     this.promptSinceStop = false;
     if (this.state === "none") {
@@ -833,6 +870,16 @@ export class App {
     }
     this.hookCheckStop += 1;
     this.emit("hook", { tool: "check_stop", session_id: sessionId });
+    if (this.state === "pending" && this.hookCheckStop >= 2) {
+      // The second Stop check with no engaging call: the skill never engaged (rule 3).
+      this.finish(
+        "stood_down",
+        "not_engaged",
+        "skill did not engage",
+        "skill did not engage",
+      );
+      return {};
+    }
     if (this.state !== "active") return {};
 
     const stop = (
