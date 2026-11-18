@@ -17,4 +17,5 @@ fn main() {
             break;
         }
     }
+    server.finish();
 }

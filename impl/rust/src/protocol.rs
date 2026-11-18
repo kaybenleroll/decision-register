@@ -45,6 +45,11 @@ impl Server {
         Self { app: App::new() }
     }
 
+    /// Called at end of input: flushes journal events queued since the last `check_stop`.
+    pub fn finish(&mut self) {
+        self.app.flush_journal();
+    }
+
     /// Handles one input line; `None` when no reply is due (notifications).
     pub fn handle_line(&mut self, line: &str) -> Option<String> {
         let Ok(msg) = serde_json::from_str::<Value>(line) else {

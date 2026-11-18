@@ -95,6 +95,11 @@ impl Journal {
         self.seq
     }
 
+    /// Number of queued events not yet written.
+    pub fn pending(&self) -> usize {
+        self.queue.len()
+    }
+
     pub fn write_error(&self) -> Option<&str> {
         self.write_error.as_deref()
     }

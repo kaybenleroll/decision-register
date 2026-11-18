@@ -298,6 +298,13 @@ impl App {
         }
     }
 
+    /// Writes any queued journal events (end of input; other flush points are I4).
+    pub fn flush_journal(&mut self) {
+        if let Some(j) = &mut self.journal {
+            j.flush();
+        }
+    }
+
     /// Queues a journal event; nothing is written while no interview exists.
     fn emit(&mut self, kind: &str, fields: Value) {
         if let Some(j) = &mut self.journal {
@@ -856,6 +863,20 @@ mod tests {
     fn q(app: &mut App, id: &str) {
         let args = json!({"id": id, "kind": "question", "text": format!("t {id}")});
         call(app, "log_item", args).unwrap();
+    }
+
+    #[test]
+    fn flush_journal_writes_events_queued_after_the_last_flush() {
+        let dir = std::env::temp_dir().join(format!("regspike-eof-{}", std::process::id()));
+        // SAFETY: only this test sets CLAUDE_PLUGIN_DATA in this crate's unit tests.
+        unsafe { std::env::set_var("CLAUDE_PLUGIN_DATA", &dir) };
+        let mut app = started();
+        q(&mut app, "Q1");
+        let pending = |a: &App| a.journal.as_ref().unwrap().pending();
+        assert!(pending(&app) > 0);
+        app.flush_journal();
+        assert_eq!(pending(&app), 0);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
