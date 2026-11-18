@@ -360,3 +360,12 @@ Open items for the user:
   2. A journal holding an `end` event but still in the project directory (not archived) counts as an unknown interview id for `resume` and `discard`, not as unfinished. The contract says an unfinished journal has no `end` event but does not say what an ended one left in the project directory is.
   3. The pid-file JSON key order `pid`, `start`, `interview_id` is required by the scenario regexes (S-L1) but the runtime.md "Pid file and claim" section gives it only in the example, not as a rule. A JSON library that sorts keys (serde_json does) breaks it silently.
   4. Replay of a v1 journal: a v1 journal has no `start` event, so the interview id comes from the file name. The journal contract does not say this.
+
+## 2026-11-18 (I5 parity check, Rust versus TypeScript; #67 AC3; branch issue-67-i5-rs)
+
+- One identical 21-call session against both builds (Rust at the S-90a harness commit; TypeScript at 17e5c6c of issue-68-i5-ts). After normalising only timestamps, the interview id and the scratch path prefix, 4 differences. Contract text and both builds unchanged; each is an input to a user-owned decision. Detail: `docs/evidence/i5-parity.md`.
+  1. Journal `end.reason` for `end_interview` on a complete interview: Rust `null`, TypeScript `"end_interview"` (journal.md does not say what a plain `end_interview` writes).
+  2. `check_stop` block reason for an unlogged question: different wording, and Rust lists the open items (not pinned by a scenario).
+  3. Decision log body layout differs (Rust per-item sections; TypeScript `## Items` list plus `## Hook health`); only the header is fixed by runtime.md.
+  4. JSON key order: Rust alphabetical, TypeScript schema order; equal as JSON, different as text.
+- Not a permanent harness; if the differences matter, a text-level journal comparison belongs with CI issue #32.
