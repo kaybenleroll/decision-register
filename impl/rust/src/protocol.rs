@@ -200,4 +200,17 @@ mod tests {
         let text = r["result"]["content"][0]["text"].as_str().unwrap();
         assert!(!text.starts_with("not implemented"));
     }
+
+    /// Claude Code rejects a tool whose inputSchema has no top-level `type: object`, and one
+    /// rejection hides every tool of the server; this covers all contract tools, including
+    /// those this build does not serve yet (end_interview is a oneOf).
+    #[test]
+    fn every_contract_tool_input_has_a_top_level_object_type() {
+        let doc: Value = serde_json::from_str(CONTRACT).unwrap();
+        let tools = doc["tools"].as_object().unwrap();
+        assert_eq!(tools.len(), 12);
+        for (name, tool) in tools {
+            assert_eq!(tool["input"]["type"], "object", "{name} input type");
+        }
+    }
 }
