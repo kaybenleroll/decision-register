@@ -147,6 +147,15 @@ export function closingReplayPrefix(stripped: string): string | null {
   return stripped.slice(0, start);
 }
 
+/** Closing replay (section 4): tail rules plus a closure sentence before the final sentence. */
+export function isClosingReplay(stripped: string): boolean {
+  const prefix = closingReplayPrefix(stripped);
+  if (prefix === null) return false;
+  return prefix
+    .split(/\n|(?<=[.!:])\s+/)
+    .some((piece) => closureSentence(piece));
+}
+
 const unresolved = (i: ItemView): boolean =>
   i.status === "Open" || i.status === "Stale";
 
