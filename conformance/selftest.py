@@ -465,8 +465,8 @@ def per_event_assertions_run():
 
 @test
 def launcher_keys_parsed():
-    accepts(NOTE, launcher="plugin/bin/regspike-launch")
-    accepts(NOTE, launcher="plugin/bin/regspike-launch", strip_path="cat")
+    accepts(NOTE, launcher="plugin/bin/register-launch")
+    accepts(NOTE, launcher="plugin/bin/register-launch", strip_path="cat")
     accepts(NOTE, launcher="l.sh", strip_path="my-bin_1.x")
 
 
