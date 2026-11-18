@@ -42,6 +42,7 @@ fn tool_list() -> Value {
 
 impl Server {
     pub fn new() -> Self {
+        crate::claim::prune(&crate::journal::project_dir(), crate::journal::now_secs());
         Self { app: App::new() }
     }
 

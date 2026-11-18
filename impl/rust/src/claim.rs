@@ -210,6 +210,52 @@ pub fn unfinished(dir: &Path, own_claim: Option<&str>) -> Vec<Unfinished> {
         .collect()
 }
 
+const DAY: i64 = 86_400;
+
+fn age_secs(path: &Path, now: i64) -> Option<i64> {
+    let mtime = fs::metadata(path).ok()?.modified().ok()?;
+    let secs = i64::try_from(mtime.duration_since(UNIX_EPOCH).ok()?.as_secs()).ok()?;
+    Some(now - secs)
+}
+
+/// Pruning at server start (runtime.md "Journal location", "Pid file and claim"): archives
+/// and unfinished journals older than 30 days by modification time (`now` includes the
+/// test clock offset); orphan pid files and `.pid.stale-*` leftovers older than 30 days
+/// whose journal is gone; any `.stale-*` file older than an hour. A journal with a live
+/// owner is never removed.
+pub fn prune(dir: &Path, now: i64) {
+    let old = |p: &Path, limit: i64| age_secs(p, now).is_some_and(|a| a > limit);
+    if let Ok(entries) = fs::read_dir(dir.join("archive")) {
+        for e in entries.flatten() {
+            if old(&e.path(), 30 * DAY) {
+                let _ = fs::remove_file(e.path());
+            }
+        }
+    }
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let path = e.path();
+        if name.contains(".stale-") {
+            if old(&path, 3600) {
+                let _ = fs::remove_file(&path);
+            }
+        } else if let Some(id) = name.strip_suffix(".jsonl") {
+            if old(&path, 30 * DAY) && !owner_alive(dir, id, None) {
+                let _ = fs::remove_file(&path);
+                remove(dir, id);
+            }
+        } else if let Some(id) = name.strip_suffix(".pid")
+            && old(&path, 30 * DAY)
+            && !dir.join(format!("{id}.jsonl")).exists()
+        {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -379,6 +425,35 @@ mod tests {
         assert_eq!(ids.len(), 2);
         assert!(ids.contains(&"iv-1") && ids.contains(&"iv-2"));
         assert!(found.iter().all(|u| u.last_event == 2));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn prune_removes_only_what_is_old_enough() {
+        let dir = scratch("prune");
+        fs::create_dir_all(dir.join("archive")).unwrap();
+        for f in [
+            "archive/old.jsonl",
+            "iv-old.jsonl",
+            "iv-new.jsonl",
+            "orphan.pid",
+            "x.pid.stale-1-ab",
+        ] {
+            fs::write(dir.join(f), "x").unwrap();
+        }
+        let now = i64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )
+        .unwrap();
+        prune(&dir, now);
+        assert!(dir.join("archive/old.jsonl").exists(), "fresh files stay");
+        prune(&dir, now + 31 * DAY);
+        assert!(!dir.join("archive/old.jsonl").exists());
+        assert!(!dir.join("iv-old.jsonl").exists() && !dir.join("iv-new.jsonl").exists());
+        assert!(!dir.join("orphan.pid").exists() && !dir.join("x.pid.stale-1-ab").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 }
