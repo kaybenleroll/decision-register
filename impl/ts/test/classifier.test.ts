@@ -6,6 +6,7 @@ import {
   closureSentence,
   type ItemView,
   isClosingReplay,
+  isReplyRequest,
 } from "../src/classifier.ts";
 
 const items: ItemView[] = [
@@ -287,4 +288,61 @@ test("e6 classify: a completion report offering follow-on work finishes", () => 
     ),
     { kind: "finish" },
   );
+});
+
+test("e6 reply request: first token of the last non-blank line", () => {
+  for (const m of [
+    "Please decide.\nReply with your choice",
+    "**Reply:** your choice",
+    "- Respond when ready",
+    "Respond with a number\n\n",
+    "Reply",
+  ]) {
+    assert.equal(isReplyRequest(m), true, m);
+  }
+  for (const m of [
+    "1. Reply with your choice",
+    "Please reply with a choice",
+    "Reply first\nthen more text",
+    "",
+  ]) {
+    assert.equal(isReplyRequest(m), false, m);
+  }
+});
+
+test("e6 classify: a reply request is a question turn, not a finish", () => {
+  assert.deepEqual(classify("Q1: details\nReply with your pick", items), {
+    kind: "question",
+    presented: ["Q1"],
+  });
+  assert.deepEqual(classify("Some notes.\nRespond when ready", items), {
+    kind: "question",
+    presented: [],
+  });
+});
+
+test("e6 classify: list markers and quote lines do not make a reply request", () => {
+  assert.deepEqual(classify("Some notes.\n1. Reply with a pick", items), {
+    kind: "finish",
+  });
+  assert.deepEqual(classify("Q1 is open\n> Reply with a pick", items), {
+    kind: "finish",
+  });
+  assert.deepEqual(classify("Some notes.\nPlease reply soon", items), {
+    kind: "finish",
+  });
+});
+
+test("e6 classify: a reply request concerning an Open item by overlap is allowed", () => {
+  assert.deepEqual(
+    classify("On the storage engine choice again.\nReply when ready", items),
+    { kind: "question", presented: ["Q1"] },
+  );
+});
+
+test("e6 classify: a single labelled request stays first", () => {
+  assert.deepEqual(classify("Q1: reply", items), {
+    kind: "question",
+    presented: ["Q1"],
+  });
 });
