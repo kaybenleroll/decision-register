@@ -439,15 +439,13 @@ impl App {
         .ok_or_else(|| bad("tool_schema must be an integer >= 1"))?;
         text_arg(args, "session_id")?;
         let skill = text_arg(args, "skill")?;
-        if ts != TOOL_SCHEMA {
-            self.version_mismatch = Some((ts, TOOL_SCHEMA));
-            return Ok(json!({}));
-        }
-        self.version_mismatch = None;
+        // A listed name starts the interview even on a schema mismatch, which is then
+        // only recorded for `status` (REQ-77).
         if self.interview_id.is_none() && SKILL_LIST.contains(&skill.as_str()) {
             self.ensure_started();
             self.pending = true;
         }
+        self.version_mismatch = (ts != TOOL_SCHEMA).then_some((ts, TOOL_SCHEMA));
         if self.interview_id.is_some() {
             self.hook_skill_started += 1;
         }
@@ -641,14 +639,18 @@ mod tests {
             call(&mut app, "status", json!({})).unwrap()["state"],
             "none"
         );
-        call(&mut app, "skill_started", sk("grill-me", 3)).unwrap();
+        call(&mut app, "skill_started", sk("other-skill", 3)).unwrap();
         let s = call(&mut app, "status", json!({})).unwrap();
         assert_eq!(s["state"], "none");
         assert_eq!(s["version_mismatch"]["plugin_tool_schema"], 3);
-        call(&mut app, "skill_started", sk("grill-me", 4)).unwrap();
+        // A listed name starts even on a mismatch; a later matching call clears the flag.
+        call(&mut app, "skill_started", sk("grill-me", 3)).unwrap();
+        assert_eq!(
+            call(&mut app, "status", json!({})).unwrap()["state"],
+            "pending"
+        );
         call(&mut app, "skill_started", sk("grill-me", 4)).unwrap();
         let s = call(&mut app, "status", json!({})).unwrap();
-        assert_eq!(s["state"], "pending");
         assert_eq!(s["version_mismatch"], Value::Null);
         assert_eq!(s["hook_health"]["skill_started"], 2);
         let id = s["interview_id"].clone();
