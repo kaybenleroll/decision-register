@@ -710,8 +710,8 @@ export class App {
               plugin_tool_schema: this.versionMismatch.plugin,
               server_tool_schema: this.versionMismatch.server,
             },
-      decision_log: null,
-      write_error: this.journal?.writeError ?? null,
+      decision_log: this.declog?.written ? this.declog.path : null,
+      write_error: this.journal?.writeError ?? this.declog?.writeError ?? null,
     };
   }
 
@@ -877,6 +877,7 @@ export class App {
       stop("allow", "finish", []);
       this.emit("complete", {});
       this.state = "complete";
+      this.writeLog("complete", "register", "none", null);
       return {};
     }
     if (this.blocks.prompt < PROMPT_CAP && this.blocks.finish < FINISH_CAP) {
@@ -886,6 +887,7 @@ export class App {
       return { decision: "block", reason: this.blockReason(open) };
     }
     stop("allow", "finish", []);
+    this.writeLog("active", "register", "none", null);
     return {};
   }
 }

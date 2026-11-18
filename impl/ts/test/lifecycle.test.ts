@@ -142,3 +142,31 @@ test("a pending interview is stood down by mode plain only", () => {
   assert.match(readFileSync(r["decision_log"], "utf8"), /\nmode: plain\n/);
   assert.equal(call(app, "status", {})["state"], "none");
 });
+
+test("an allowed finish attempt writes the log; status reports its path", () => {
+  const app = new App();
+  hook(app, "note_prompt", { session_id: "s2", prompt: "go" });
+  const { interview_id: id } = call(app, "begin_interview", BEGIN);
+  assert.equal(call(app, "status", {})["decision_log"], null);
+  call(app, "log_item", { id: "q1", kind: "question", text: "t" });
+  hook(app, "check_stop", { session_id: "s2", last_assistant_message: "done" });
+  assert.equal(
+    call(app, "status", {})["decision_log"],
+    null,
+    "blocked: no log",
+  );
+  call(app, "resolve", {
+    id: "q1",
+    answer: "a",
+    source: "model",
+    rationale: "r",
+  });
+  hook(app, "check_stop", { session_id: "s2", last_assistant_message: "done" });
+  const done = call(app, "status", {});
+  assert.equal(done["state"], "complete");
+  const lines = readFileSync(done["decision_log"], "utf8").split("\n");
+  assert.equal(lines[1], `journal_position: ${done["last_event"]}`);
+  assert.equal(lines[2], "state: complete");
+  const r = call(app, "end_interview", {});
+  assert.equal(r["end_kind"], "ended_after_completion");
+});
