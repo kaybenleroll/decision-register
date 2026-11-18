@@ -280,6 +280,10 @@ def main():
                 n_bad += 1
                 if not check(x, schema, defs):
                     fails.append("%s %s bad example accepted %s" % (name, kind, json.dumps(x)))
+        # Claude Code rejects a tools/list entry whose inputSchema lacks a top-level type object
+        # (and with it every tool of the server), so a oneOf-only input is not allowed.
+        if t["input"].get("type") != "object":
+            fails.append('%s: input schema needs a top-level "type": "object"' % name)
         if (t["audience"] == "hook") != t["rejects_meta"]:
             fails.append("%s: rejects_meta must be true exactly for hook-facing tools" % name)
     # status.items counts must equal the counts derived from tree

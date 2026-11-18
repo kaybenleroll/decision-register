@@ -19,6 +19,11 @@ without a valid precedence number.
 
 Log (newest first)
 
+(no bump, 2026-11-18)  contract/tools.json: end_interview input gains a top-level
+"type": "object" next to its oneOf. Claude Code 2.1.327 rejects a tools/list whose
+inputSchema lacks it, which hid every model-facing tool in a live run. The accepted
+inputs are unchanged (the oneOf branches were already objects), so tool_schema stays 4.
+
 (no bump, 2026-11-17)  contract/classifier.md, label and inline-code details decided
 by the user: a line-start list marker must be followed by a space or tab (`-Q1.` is
 not a label); numbered markers take any number of digits (`10. Q1.`); a closing
