@@ -28,6 +28,23 @@ pub const IMPLEMENTED: [&str; 9] = [
     "check_stop",
 ];
 
+/// Every tool in `contract/tools.json`, in contract order; the unbuilt ones are listed but
+/// answer with a not-implemented error result.
+pub const CONTRACT_TOOLS: [&str; 12] = [
+    "begin_interview",
+    "log_item",
+    "resolve",
+    "park",
+    "reopen",
+    "status",
+    "resume",
+    "discard",
+    "end_interview",
+    "note_prompt",
+    "skill_started",
+    "check_stop",
+];
+
 /// Hook-facing tools reject model-sourced calls (REQ-40); `check_stop` joins in phase B.
 const HOOK_FACING: [&str; 3] = ["note_prompt", "skill_started", "check_stop"];
 
@@ -261,7 +278,10 @@ impl App {
     /// Runs a tool. `None` means the tool name is unknown (a protocol error).
     pub fn call(&mut self, name: &str, args: &Value, model_facing: bool) -> Option<ToolResult> {
         if !IMPLEMENTED.contains(&name) {
-            return None;
+            return CONTRACT_TOOLS.contains(&name).then(|| ToolResult {
+                text: format!("not implemented in this build: {name}"),
+                is_error: true,
+            });
         }
         Some(match self.dispatch(name, args, model_facing) {
             Ok(v) => ToolResult {

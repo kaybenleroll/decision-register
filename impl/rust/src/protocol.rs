@@ -25,10 +25,10 @@ fn reply_err(id: &Value, code: i64, message: &str) -> String {
     json!({"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": message}}).to_string()
 }
 
-/// `tools/list` body: the implemented tools with their contract input schemas.
+/// `tools/list` body: all twelve contract tools (unbuilt ones answer calls with an error result) with their contract input schemas.
 fn tool_list() -> Value {
     let doc: Value = serde_json::from_str(CONTRACT).expect("contract/tools.json parses");
-    let list: Vec<Value> = tools::IMPLEMENTED
+    let list: Vec<Value> = tools::CONTRACT_TOOLS
         .iter()
         .map(|name| {
             let tool = &doc["tools"][*name];
@@ -159,7 +159,45 @@ mod tests {
         let mut s = Server::new();
         let r = rpc(&mut s, r#"{"id":1,"method":"tools/list"}"#);
         let tools = r["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), tools::IMPLEMENTED.len());
-        assert!(tools.iter().all(|t| t["inputSchema"]["type"] == "object"));
+        assert_eq!(tools.len(), 12);
+        assert!(tools.iter().all(|t| t["inputSchema"].is_object()));
+        let doc: Value = serde_json::from_str(CONTRACT).unwrap();
+        let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        let mut want: Vec<&str> = doc["tools"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        let mut got = names.clone();
+        want.sort_unstable();
+        got.sort_unstable();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn unbuilt_tool_returns_not_implemented_error_result() {
+        let mut s = Server::new();
+        for name in ["discard", "end_interview", "resume"] {
+            let line = format!(
+                r#"{{"id":1,"method":"tools/call","params":{{"name":"{name}","arguments":{{}}}}}}"#
+            );
+            let r = rpc(&mut s, &line);
+            assert!(r.get("error").is_none());
+            assert_eq!(r["result"]["isError"], true);
+            let text = r["result"]["content"][0]["text"].as_str().unwrap();
+            assert_eq!(text, format!("not implemented in this build: {name}"));
+        }
+    }
+
+    #[test]
+    fn built_tool_is_unaffected_by_unbuilt_handling() {
+        let mut s = Server::new();
+        let r = rpc(
+            &mut s,
+            r#"{"id":1,"method":"tools/call","params":{"name":"status","arguments":{}}}"#,
+        );
+        let text = r["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(!text.starts_with("not implemented"));
     }
 }
