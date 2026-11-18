@@ -42,12 +42,13 @@ fn tool_list() -> Value {
 
 impl Server {
     pub fn new() -> Self {
+        crate::claim::prune(&crate::journal::project_dir(), crate::journal::now_secs());
         Self { app: App::new() }
     }
 
     /// Called at end of input: flushes journal events queued since the last `check_stop`.
     pub fn finish(&mut self) {
-        self.app.flush_journal();
+        self.app.shutdown();
     }
 
     /// Handles one input line; `None` when no reply is due (notifications).
@@ -124,7 +125,9 @@ mod tests {
 
     #[test]
     fn initialize_reports_protocol_version() {
-        let mut s = Server::new();
+        let mut s = Server {
+            app: App::with_dir(tools::tests::scratch_dir()),
+        };
         let r = rpc(
             &mut s,
             r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
@@ -135,7 +138,9 @@ mod tests {
 
     #[test]
     fn notification_gets_no_reply() {
-        let mut s = Server::new();
+        let mut s = Server {
+            app: App::with_dir(tools::tests::scratch_dir()),
+        };
         assert!(
             s.handle_line(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#)
                 .is_none()
@@ -144,7 +149,9 @@ mod tests {
 
     #[test]
     fn malformed_input_is_a_protocol_error() {
-        let mut s = Server::new();
+        let mut s = Server {
+            app: App::with_dir(tools::tests::scratch_dir()),
+        };
         assert_eq!(rpc(&mut s, "{nope")["error"]["code"], -32700);
         assert_eq!(
             rpc(&mut s, r#"{"id":2,"method":"x"}"#)["error"]["code"],
@@ -156,7 +163,9 @@ mod tests {
 
     #[test]
     fn tools_list_serves_contract_schemas() {
-        let mut s = Server::new();
+        let mut s = Server {
+            app: App::with_dir(tools::tests::scratch_dir()),
+        };
         let r = rpc(&mut s, r#"{"id":1,"method":"tools/list"}"#);
         let tools = r["result"]["tools"].as_array().unwrap();
         assert_eq!(tools.len(), 12);
@@ -177,7 +186,9 @@ mod tests {
 
     #[test]
     fn unbuilt_tool_returns_not_implemented_error_result() {
-        let mut s = Server::new();
+        let mut s = Server {
+            app: App::with_dir(tools::tests::scratch_dir()),
+        };
         // Every contract tool is built from I3 on, so the fallback is unreachable for them.
         // `resume` and `discard` answer with a domain error result, never a protocol error.
         for name in ["discard", "resume"] {
@@ -194,7 +205,9 @@ mod tests {
 
     #[test]
     fn built_tool_is_unaffected_by_unbuilt_handling() {
-        let mut s = Server::new();
+        let mut s = Server {
+            app: App::with_dir(tools::tests::scratch_dir()),
+        };
         let r = rpc(
             &mut s,
             r#"{"id":1,"method":"tools/call","params":{"name":"status","arguments":{}}}"#,

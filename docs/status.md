@@ -346,3 +346,11 @@ Open items for the user:
 - Possible conflict with a [user] decision, flagged, not changed: REQ-32's decision round of 2026-11-17 says the "since the previous Stop-hook call" wording is read through the per-prompt budget, "whatever model actions or Stop calls came between". Volunteered answers draw no budget point, and both builds and S-32b reject a volunteered `source: user` answer after a Stop call with no new prompt. The contract now records the implemented rule (user decision Q3); the REQ-32 sentence may need narrowing to `resolve` and `park`.
 - Expected: S-43y and S-43z fail on both I2 builds until they implement e6. `docs/evidence/classifier-replay.md` (branch `issue-18-51-i2-replay`) still reports the draft labels; it needs a re-run with the revised private labels once a build implements e6.
 - Verified: the four checks exit 0 before each commit. Nothing pushed.
+
+## 2026-11-18 (I4 Rust contract ambiguities for the contract owner; #20; branch issue-20-i4-rs)
+
+- Found while building I4 in Rust (phase A). The contract is not changed; each item is a reading the Rust build chose and the suite accepts.
+  1. State matrix versus errors table: `tools.json` says "nothing is open: abandon does not apply", the errors table says "abandon is not needed". The suite passes with the current text; the two wordings should be unified.
+  2. A journal holding an `end` event but still in the project directory (not archived) counts as an unknown interview id for `resume` and `discard`, not as unfinished. The contract says an unfinished journal has no `end` event but does not say what an ended one left in the project directory is.
+  3. The pid-file JSON key order `pid`, `start`, `interview_id` is required by the scenario regexes (S-L1) but the runtime.md "Pid file and claim" section gives it only in the example, not as a rule. A JSON library that sorts keys (serde_json does) breaks it silently.
+  4. Replay of a v1 journal: a v1 journal has no `start` event, so the interview id comes from the file name. The journal contract does not say this.
