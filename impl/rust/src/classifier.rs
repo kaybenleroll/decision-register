@@ -240,6 +240,53 @@ fn single_request<'a>(u: &str, items: &'a [ClassItem<'a>]) -> Option<&'a str> {
         .map(|i| i.id)
 }
 
+/// Section 5 tokens: lower-case maximal runs of `[a-z0-9]`.
+fn tokens(t: &str) -> Vec<String> {
+    t.to_lowercase()
+        .split(|c: char| !(c.is_ascii_lowercase() || c.is_ascii_digit()))
+        .filter(|w| !w.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Words that void a closure sentence (contract section 4(c)).
+const CLOSURE_GUARDS: [&str; 9] = [
+    "except",
+    "but",
+    "apart",
+    "besides",
+    "remaining",
+    "still",
+    "only",
+    "though",
+    "however",
+];
+
+/// A closure sentence (contract section 4(c)): no guard word, and one of the closure phrases.
+#[allow(dead_code)] // wired into `classify` by the next commit
+fn closure_sentence(sentence: &str) -> bool {
+    let t = tokens(sentence);
+    if t.iter().any(|w| CLOSURE_GUARDS.contains(&w.as_str())) {
+        return false;
+    }
+    let within =
+        |i: usize, n: usize, target: &str| t.iter().skip(i + 1).take(n).any(|w| w == target);
+    (0..t.len()).any(|i| match t[i].as_str() {
+        "all" | "everything" => within(i, 4, "resolved"),
+        "nothing" | "none" => within(i, 2, "unresolved"),
+        "no" => {
+            let next = t.get(i + 1).map(String::as_str);
+            next == Some("unresolved")
+                || (next == Some("open")
+                    && matches!(
+                        t.get(i + 2).map(String::as_str),
+                        Some("items" | "threads" | "branches" | "questions" | "decisions")
+                    ))
+        }
+        _ => false,
+    })
+}
+
 pub fn classify(message: &str, items: &[ClassItem<'_>]) -> Class {
     if message.trim().is_empty() {
         return Class::Empty;
