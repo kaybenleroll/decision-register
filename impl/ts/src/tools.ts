@@ -8,7 +8,12 @@ import { join } from "node:path";
 
 import pkg from "../package.json" with { type: "json" };
 import { type Classification, classify } from "./classifier.ts";
-import { DecisionLog, type LogMode, type LogState } from "./declog.ts";
+import {
+  DecisionLog,
+  type LogMode,
+  type LogState,
+  type ReopenRecord,
+} from "./declog.ts";
 import { Journal, projectDir } from "./journal.ts";
 import { ClaimError, claim, pidPath, readPid, removeFile } from "./pidfile.ts";
 import {
@@ -206,6 +211,7 @@ const truncate = (s: string): string => Array.from(s).slice(0, 120).join("");
 
 export class App {
   private register = new Register();
+  private reopens: ReopenRecord[] = [];
   private state: State = "none";
   private interviewId: string | null = null;
   private journal: Journal | null = null;
@@ -395,6 +401,7 @@ export class App {
       implicitStart: this.implicitStart,
       note,
       items: this.register.list(),
+      reopens: this.reopens,
       hookHealth: {
         note_prompt: this.hookNotePrompt,
         skill_started: this.hookSkillStarted,
@@ -422,6 +429,7 @@ export class App {
     this.writeLog("ended", logMode, endKind, note);
     const path = this.declog?.path ?? null;
     this.register = new Register();
+    this.reopens = [];
     this.state = "none";
     this.interviewId = null;
     this.journal = null;
@@ -671,6 +679,7 @@ export class App {
       );
     }
     this.register = s.register;
+    this.reopens = s.reopens;
     this.interviewId = id;
     const journal = new Journal(id, s.lastSeq);
     journal.adoptPidFile();
@@ -911,6 +920,7 @@ export class App {
     this.refuseWhileUnfinished();
     const stale = this.register.reopen(id);
     this.engage("reopen");
+    this.reopens.push({ id, reason, stale });
     this.emit("reopen", { id, reason, stale });
     return { id, status: "Open", stale };
   }

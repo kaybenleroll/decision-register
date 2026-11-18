@@ -10,7 +10,7 @@ import {
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { DecisionLog, type LogSnapshot } from "../src/declog.ts";
+import { DecisionLog, type LogSnapshot, render } from "../src/declog.ts";
 import { Journal, projectKey } from "../src/journal.ts";
 
 function scratch(): string {
@@ -28,6 +28,7 @@ const snap = (over: Partial<LogSnapshot> = {}): LogSnapshot => ({
   implicitStart: false,
   note: null,
   items: [],
+  reopens: [],
   hookHealth: { note_prompt: 1 },
   ...over,
 });
@@ -87,4 +88,14 @@ test("archive moves the journal into archive/", () => {
   const dir = join(data, projectKey());
   assert.equal(existsSync(join(dir, "iv-4.jsonl")), false);
   assert.equal(existsSync(join(dir, "archive", "iv-4.jsonl")), true);
+});
+
+test("the body lists the reopen history with reasons and stale ids", () => {
+  const body = render(
+    snap({
+      reopens: [{ id: "q1", reason: "new evidence", stale: ["q2", "q3"] }],
+    }),
+  );
+  assert.match(body, /- q1 reopened: new evidence \(stale: q2, q3\)/);
+  assert.match(render(snap()), /## Reopen history\n\n\(none\)/);
 });

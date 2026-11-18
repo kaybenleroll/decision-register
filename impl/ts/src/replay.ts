@@ -3,6 +3,7 @@
 // Rebuilds the register, the hook counts and the finish-gate caps from the events. A torn
 // final line is ignored; any other defect fails, naming the 1-based line.
 
+import type { ReopenRecord } from "./declog.ts";
 import {
   type Actor,
   isNonblank,
@@ -22,6 +23,7 @@ export interface Blocks {
 /** What a replay rebuilds. */
 export interface Replayed {
   register: Register;
+  reopens: ReopenRecord[];
   interviewId: string | null;
   skill: string | null;
   route: string | null;
@@ -135,9 +137,12 @@ function apply(s: Replayed, kind: string, e: Record<string, unknown>): void {
       s.register.park(str(e, "id"), actor(e, "parked_by"), reason);
       break;
     }
-    case "reopen":
-      s.register.reopen(str(e, "id"));
+    case "reopen": {
+      const id = str(e, "id");
+      const stale = s.register.reopen(id);
+      s.reopens.push({ id, reason: strOrNull(e, "reason") ?? "", stale });
       break;
+    }
     case "stop": {
       const b = e["blocks"];
       if (typeof b === "object" && b !== null) {
@@ -163,6 +168,7 @@ function apply(s: Replayed, kind: string, e: Record<string, unknown>): void {
 export function replay(text: string): ReplayResult {
   const s: Replayed = {
     register: new Register(),
+    reopens: [],
     interviewId: null,
     skill: null,
     route: null,
