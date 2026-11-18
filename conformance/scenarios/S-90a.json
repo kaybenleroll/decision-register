@@ -1,0 +1,17 @@
+{
+ "id": "S-90a",
+ "title": "REQ-90: the median of 5 cold starts reaches the initialize reply in under 1 s, and the median idle resident memory of the server's process group, sampled after 1 s without traffic, is under 200 MB",
+ "req": [
+  "REQ-90"
+ ],
+ "steps": [
+  {
+   "op": "stop"
+  },
+  {
+   "op": "measure_start",
+   "starts": 5,
+   "settle_seconds": 1.0
+  }
+ ]
+}
