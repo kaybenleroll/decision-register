@@ -369,3 +369,9 @@ Open items for the user:
   3. Decision log body layout differs (Rust per-item sections; TypeScript `## Items` list plus `## Hook health`); only the header is fixed by runtime.md.
   4. JSON key order: Rust alphabetical, TypeScript schema order; equal as JSON, different as text.
 - Not a permanent harness; if the differences matter, a text-level journal comparison belongs with CI issue #32.
+
+## 2026-11-18 (I5 Rust: non-functional and parity; #67; branch issue-67-i5-rs)
+
+- Done: scenario S-90a with the `measure_start` step in `conformance/run.py` (shared with the TypeScript build, #68): median of 5 cold starts under 1 s and median idle RSS (process group, sampled 1 s after the reply) under 200 MiB, hard-failing; thresholds are constants `START_MAX_SECONDS` and `IDLE_RSS_MAX_KIB`. Rust: start 1 ms, idle RSS 2.7 MiB (TypeScript at the same commit: 41 ms, 53.3 MiB). Suite 135/135 on the Rust build; selftest 41/41. Measurements in `docs/evidence/language-experiment.md` section 4a; parity in `docs/evidence/i5-parity.md` (entry above). Rust README added (folded-in AC4).
+- Judgement calls for the user: "200 MB" is read as 200 MiB; page cache is not dropped, so "cold" means a new process, not a cold disk; S-90a requires the main server to be stopped first (the validator enforces it).
+- Tokens for the I5 row: not yet measured. Nothing merged.
