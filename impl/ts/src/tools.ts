@@ -1,11 +1,12 @@
 // Tool handlers. The tool schemas themselves come from contract/tools.json.
 //
-// I1 scope: the register tools plus note_prompt. There is no journal yet, so
-// `last_event` counts the state changes a journal would record.
+// I1 and I2: the register tools and the three hook-facing tools, with a minimal journal.
 
 import { randomBytes } from "node:crypto";
 
 import pkg from "../package.json" with { type: "json" };
+import { type Classification, classify } from "./classifier.ts";
+import { Journal } from "./journal.ts";
 import {
   type Actor,
   type Answer,
@@ -14,6 +15,7 @@ import {
   isValidId,
   type Kind,
   makeAnswer,
+  type NewItem,
   parseActor,
   parseKind,
   Register,
@@ -31,6 +33,18 @@ export const IMPLEMENTED: readonly string[] = [
   "reopen",
   "status",
   "note_prompt",
+  "skill_started",
+  "check_stop",
+];
+
+/** Tools in the contract that a later slice builds (end_interview: I3; resume, discard: I4). */
+const NOT_YET: readonly string[] = ["end_interview", "resume", "discard"];
+
+/** Hook-facing tools reject any call carrying `_meta` `claudecode/toolUseId` (REQ-40). */
+export const HOOK_FACING: readonly string[] = [
+  "note_prompt",
+  "skill_started",
+  "check_stop",
 ];
 
 const TOOL_SCHEMA = 4;
@@ -128,6 +142,14 @@ function answerGroup(args: JsonObject, mustExist: boolean): Answer | null {
   return r.answer;
 }
 
+function toolSchemaArg(args: JsonObject): number {
+  const ts = required("tool_schema", args["tool_schema"]);
+  if (typeof ts !== "number" || !Number.isInteger(ts) || ts < 1) {
+    throw bad("tool_schema must be an integer >= 1");
+  }
+  return ts;
+}
+
 function itemJson(i: Item): JsonObject {
   const s = i.status;
   const answered =
@@ -157,20 +179,71 @@ function newInterviewId(): string {
   return `iv-${stamp}-${randomBytes(4).toString("hex")}`;
 }
 
+type State = "none" | "pending" | "active" | "complete";
+type Route = "hook" | "begin_interview" | "implicit";
+
+/** Skill names that start a pending interview by the hook route (REQ-24, exact match). */
+const LISTED_SKILLS: readonly string[] = ["grill-me"];
+/** A parent with at least one child but fewer than this is under-sized (REQ-35). */
+const MIN_CHILDREN = 2;
+const PROMPT_CAP = 2;
+const FINISH_CAP = 8;
+const UNLOGGED_CAP = 12;
+const VOLUNTEERED_CAP = 4;
+const NOT_FIRING =
+  "hooks are not firing: no user prompt has reached the server (REQ-44)";
+
+const truncate = (s: string): string => Array.from(s).slice(0, 120).join("");
+
 export class App {
   private readonly register = new Register();
+  private state: State = "none";
   private interviewId: string | null = null;
-  private events = 0;
+  private journal: Journal | null = null;
+  /** A prompt arrived while no interview existed (cleared at a start and by a none Stop). */
   private promptSeen = false;
   private hookNotePrompt = 0;
+  private hookSkillStarted = 0;
+  private hookCheckStop = 0;
+  /** Recorded from every hook call that carries a session id (REQ-27 rule 1). */
+  private lastSeenSessionId: string | null = null;
   private versionMismatch: { plugin: number; server: number } | null = null;
+  // User-answer rule (REQ-32 to 34, 44). Survives an interview start.
+  private anyPrompt = false;
+  private allowance = 0;
+  private used = 0;
+  private volunteered = 0;
+  private promptSinceStop = false;
+  private presented = new Set<string>();
+  private presentedUnknown = false;
+  // Block caps (REQ-42), per interview.
+  private blocks = { prompt: 0, finish: 0, unlogged: 0 };
+
+  /** The session id of the latest hook call that carried one (REQ-27 rule 1). */
+  get lastSeen(): string | null {
+    return this.lastSeenSessionId;
+  }
 
   /** Runs a tool. `null` means the tool name is unknown (a protocol error). */
   call(name: string, args: unknown, modelFacing: boolean): ToolResult | null {
+    // The guard runs before anything else and also covers hook-facing tools that
+    // this build does not serve yet, so a forged call is rejected, never unknown.
+    if (HOOK_FACING.includes(name) && modelFacing) {
+      return {
+        text: `${name} is hook-facing: a call carrying _meta claudecode/toolUseId is rejected`,
+        isError: true,
+      };
+    }
+    if (NOT_YET.includes(name)) {
+      return {
+        text: `${name} is not implemented in this build`,
+        isError: true,
+      };
+    }
     if (!IMPLEMENTED.includes(name)) return null;
     try {
       return {
-        text: JSON.stringify(this.dispatch(name, args, modelFacing)),
+        text: JSON.stringify(this.dispatch(name, args)),
         isError: false,
       };
     } catch (e) {
@@ -181,16 +254,7 @@ export class App {
     }
   }
 
-  private dispatch(
-    name: string,
-    rawArgs: unknown,
-    modelFacing: boolean,
-  ): JsonObject {
-    if (name === "note_prompt" && modelFacing) {
-      throw new ToolError(
-        "note_prompt is hook-facing: a call carrying _meta claudecode/toolUseId is rejected",
-      );
-    }
+  private dispatch(name: string, rawArgs: unknown): JsonObject {
     if (!isObject(rawArgs)) throw bad("arguments must be an object");
     const args = rawArgs;
     switch (name) {
@@ -208,28 +272,66 @@ export class App {
         return this.status(args);
       case "note_prompt":
         return this.notePrompt(args);
+      case "skill_started":
+        return this.skillStarted(args);
+      case "check_stop":
+        return this.checkStop(args);
       default:
         throw new ToolError(`tool not implemented: ${name}`);
     }
   }
 
-  /** Starts the interview if none is active; returns its id. */
-  private ensureStarted(): string {
-    if (this.interviewId !== null) return this.interviewId;
-    this.interviewId = newInterviewId();
-    this.events += 1;
+  private emit(kind: string, fields: Record<string, unknown>): void {
+    this.journal?.append(kind, fields);
+  }
+
+  /** Starts an interview: pending for the hook route, active otherwise. */
+  private startInterview(
+    route: Route,
+    skill: string | null,
+    sessionId: string | null,
+  ): string {
+    const id = newInterviewId();
+    this.interviewId = id;
+    this.journal = new Journal(id);
+    this.state = route === "hook" ? "pending" : "active";
     // The prompt before the start counts once; earlier inactive ones are not counted.
-    this.hookNotePrompt = this.promptSeen ? 1 : 0;
-    return this.interviewId;
+    const promptCount = this.promptSeen ? 1 : 0;
+    this.hookNotePrompt = promptCount;
+    this.hookSkillStarted = route === "hook" ? 1 : 0;
+    this.hookCheckStop = 0;
+    this.promptSeen = false;
+    this.blocks = { prompt: 0, finish: 0, unlogged: 0 };
+    const envSession = process.env["CLAUDE_CODE_SESSION_ID"];
+    const session =
+      sessionId ??
+      this.lastSeenSessionId ??
+      (envSession === undefined || envSession === "" ? null : envSession);
+    this.emit("start", {
+      interview_id: id,
+      route,
+      skill,
+      session_id: session,
+      implicit: route === "implicit",
+      prompt_count: promptCount,
+    });
+    return id;
+  }
+
+  /** A successful mutating call engages a pending interview and wakes a complete one. */
+  private engage(via: string): void {
+    if (this.state === "pending") {
+      this.state = "active";
+      this.emit("engage", { via });
+    } else if (this.state === "complete") {
+      this.state = "active";
+    }
   }
 
   private beginInterview(args: JsonObject): JsonObject {
     checkKnown(args, ["tool_schema", "skill", "mode"]);
-    const ts = required("tool_schema", args["tool_schema"]);
-    if (typeof ts !== "number" || !Number.isInteger(ts) || ts < 1) {
-      throw bad("tool_schema must be an integer >= 1");
-    }
-    textArg(args, "skill");
+    const ts = toolSchemaArg(args);
+    const skill = textArg(args, "skill");
     if (required("mode", strArg(args, "mode")) !== "register") {
       throw bad("mode must be register");
     }
@@ -240,9 +342,42 @@ export class App {
       );
     }
     this.versionMismatch = null;
-    const existing = this.interviewId !== null;
-    const id = this.ensureStarted();
-    return { interview_id: id, state: "active", existing };
+    if (this.state === "none") {
+      const id = this.startInterview("begin_interview", skill, null);
+      return { interview_id: id, state: "active", existing: false };
+    }
+    const wasPending = this.state === "pending";
+    if (wasPending) this.engage("begin_interview");
+    return {
+      interview_id: this.interviewId,
+      state: this.state === "complete" ? "complete" : "active",
+      existing: true,
+    };
+  }
+
+  /** The user-answer rule for a resolve or park by the user (REQ-32, 33, 44). */
+  private checkBudget(): void {
+    if (!this.anyPrompt) throw new ToolError(NOT_FIRING);
+    if (this.used >= this.allowance) {
+      throw new ToolError(
+        `user-answer budget spent: ${this.used} of ${this.allowance} used for the current user prompt`,
+      );
+    }
+  }
+
+  /** Rules for a volunteered user answer in log_item (REQ-32). */
+  private checkVolunteered(): void {
+    if (!this.anyPrompt) throw new ToolError(NOT_FIRING);
+    if (!this.promptSinceStop) {
+      throw new ToolError(
+        "no user prompt since the last Stop check: a volunteered user answer needs a new prompt",
+      );
+    }
+    if (this.volunteered >= VOLUNTEERED_CAP) {
+      throw new ToolError(
+        `volunteered-answer cap reached: ${VOLUNTEERED_CAP} per user prompt`,
+      );
+    }
   }
 
   private logItem(args: JsonObject): JsonObject {
@@ -276,17 +411,39 @@ export class App {
       });
     }
     const answer = answerGroup(args, false);
-    const logged = this.register.log({
-      id,
-      kind,
+    const item: NewItem = { id, kind, text, parent, dependsOn, answer };
+    // Rule errors, in contract order, leave the state untouched.
+    this.register.checkLog(item);
+    if (answer !== null) {
+      if (kind === "decision" && answer.source === "model") {
+        throw new ToolError(
+          `decision item can be answered by the user only: ${id ?? "(new item)"}`,
+        );
+      }
+      if (answer.source === "user") this.checkVolunteered();
+    }
+    const logged = this.register.log(item);
+    if (this.state === "none") {
+      this.startInterview("implicit", null, null);
+    } else {
+      this.engage("log_item");
+    }
+    if (answer?.source === "user") this.volunteered += 1;
+    this.emit("item", {
+      id: logged.id,
+      item_kind: kind,
       text,
       parent,
-      dependsOn,
-      answer,
+      depends_on: dependsOn,
     });
-    // A rule error above leaves the state untouched; success starts an interview.
-    this.ensureStarted();
-    this.events += 1;
+    if (answer !== null) {
+      this.emit("resolve", {
+        id: logged.id,
+        answer: answer.text,
+        source: answer.source,
+        rationale: answer.rationale,
+      });
+    }
     return { id: logged.id, status: logged.status };
   }
 
@@ -295,8 +452,31 @@ export class App {
     const id = idArg(args, "id");
     const answer = answerGroup(args, true);
     if (answer === null) throw bad("answer, source and rationale are required");
+    const item = this.register.assertResolvable(id);
+    if (answer.source === "model") {
+      if (item.kind === "decision") {
+        throw new ToolError(
+          `decision item can be answered by the user only: ${id}`,
+        );
+      }
+      const children = this.register.childCount(id);
+      if (children > 0 && children < MIN_CHILDREN) {
+        throw new ToolError(
+          `parent ${id} has ${children} child item(s), fewer than ${MIN_CHILDREN}: only the user may resolve it (REQ-35)`,
+        );
+      }
+    } else {
+      this.checkBudget();
+    }
     this.register.resolve(id, answer);
-    this.events += 1;
+    if (answer.source === "user") this.used += 1;
+    this.engage("resolve");
+    this.emit("resolve", {
+      id,
+      answer: answer.text,
+      source: answer.source,
+      rationale: answer.rationale,
+    });
     return { id, status: "Resolved" };
   }
 
@@ -305,17 +485,30 @@ export class App {
     const id = idArg(args, "id");
     const reason = textArg(args, "reason");
     const by = required("parked_by", actorArg(args, "parked_by"));
+    const item = this.register.assertParkable(id);
+    if (by === "model") {
+      if (item.kind === "decision") {
+        throw new ToolError(
+          `decision item can be parked by the user only: ${id}`,
+        );
+      }
+    } else {
+      this.checkBudget();
+    }
     this.register.park(id, by, reason);
-    this.events += 1;
+    if (by === "user") this.used += 1;
+    this.engage("park");
+    this.emit("park", { id, reason, parked_by: by });
     return { id, status: "Parked" };
   }
 
   private reopen(args: JsonObject): JsonObject {
     checkKnown(args, ["id", "reason"]);
     const id = idArg(args, "id");
-    textArg(args, "reason"); // required now; kept once the journal exists
+    const reason = textArg(args, "reason");
     const stale = this.register.reopen(id);
-    this.events += 1;
+    this.engage("reopen");
+    this.emit("reopen", { id, reason, stale });
     return { id, status: "Open", stale };
   }
 
@@ -326,7 +519,7 @@ export class App {
       server_version: pkg.version,
       tool_schema: TOOL_SCHEMA,
       journal_schema: JOURNAL_SCHEMA,
-      state: this.interviewId !== null ? "active" : "none",
+      state: this.state,
       interview_id: this.interviewId,
       items: {
         open: c.open,
@@ -337,11 +530,11 @@ export class App {
       tree: this.register.ordered().map(itemJson),
       hook_health: {
         note_prompt: this.hookNotePrompt,
-        skill_started: 0,
-        check_stop: 0,
+        skill_started: this.hookSkillStarted,
+        check_stop: this.hookCheckStop,
         prompt_seen: this.promptSeen,
       },
-      last_event: this.events,
+      last_event: this.journal?.seq ?? 0,
       resumable: [],
       version_mismatch:
         this.versionMismatch === null
@@ -351,19 +544,181 @@ export class App {
               server_tool_schema: this.versionMismatch.server,
             },
       decision_log: null,
-      write_error: null,
+      write_error: this.journal?.writeError ?? null,
     };
   }
 
-  /** Hook-facing. In I1 this only keeps the prompt counters; nothing consumes them yet. */
+  /**
+   * Hook-facing. Always records the session id; a user prompt resets the per-prompt
+   * allowance, volunteered count and block count (REQ-32, 42). A harness-injected
+   * agent-message prompt is a complete no-op (REQ-41).
+   */
   private notePrompt(args: JsonObject): JsonObject {
     checkKnown(args, ["session_id", "prompt"]);
-    textArg(args, "session_id");
+    const sessionId = textArg(args, "session_id");
     const prompt = required("prompt", strArg(args, "prompt"));
-    if (!prompt.startsWith(AGENT_MESSAGE_PREFIX)) {
+    if (prompt.startsWith(AGENT_MESSAGE_PREFIX)) return {};
+    this.lastSeenSessionId = sessionId;
+    this.anyPrompt = true;
+    this.allowance = this.presentedUnknown
+      ? 4
+      : Math.max(1, this.presented.size);
+    this.used = 0;
+    this.volunteered = 0;
+    this.promptSinceStop = true;
+    this.presented = new Set();
+    this.presentedUnknown = false;
+    if (this.state === "none") {
       this.promptSeen = true;
-      if (this.interviewId !== null) this.hookNotePrompt += 1;
+      return {};
     }
+    this.hookNotePrompt += 1;
+    this.blocks.prompt = 0;
+    this.emit("hook", { tool: "note_prompt", session_id: sessionId });
+    this.emit("prompt", { session_id: sessionId, count: this.hookNotePrompt });
+    return {};
+  }
+
+  /**
+   * Hook-facing. A listed skill name (exact match) starts a pending interview even on a
+   * tool_schema mismatch; the mismatch is only recorded (REQ-77). Never blocks.
+   */
+  private skillStarted(args: JsonObject): JsonObject {
+    checkKnown(args, ["tool_schema", "session_id", "skill"]);
+    const ts = toolSchemaArg(args);
+    const sessionId = textArg(args, "session_id");
+    const skill = textArg(args, "skill");
+    this.lastSeenSessionId = sessionId;
+    const mismatch = ts !== TOOL_SCHEMA;
+    this.versionMismatch = mismatch
+      ? { plugin: ts, server: TOOL_SCHEMA }
+      : null;
+    if (this.state === "none") {
+      if (LISTED_SKILLS.includes(skill)) {
+        this.startInterview("hook", skill, sessionId);
+      }
+    } else {
+      this.hookSkillStarted += 1;
+      this.emit("hook", { tool: "skill_started", session_id: sessionId });
+    }
+    if (mismatch && this.state !== "none") {
+      this.emit("mismatch", {
+        plugin_tool_schema: ts,
+        server_tool_schema: TOOL_SCHEMA,
+      });
+    }
+    return {};
+  }
+
+  /** Open and Stale items, model-parked items and under-sized parents (REQ-35, 43). */
+  private gateList(): Item[] {
+    return this.register.ordered().filter((i) => {
+      const s = i.status;
+      if (s.kind === "Open" || s.kind === "Stale") return true;
+      if (s.kind === "Parked") return s.by === "model";
+      const children = this.register.childCount(i.id);
+      return (
+        s.answer.source === "model" && children > 0 && children < MIN_CHILDREN
+      );
+    });
+  }
+
+  private blockReason(open: readonly Item[]): string {
+    const lines = open
+      .slice(0, 10)
+      .map((i) => `- ${i.id}: ${truncate(i.text)}`);
+    const rest = open.length > 10 ? `\n${open.length - 10} more` : "";
+    return `Items are still unresolved in the decision register. Resolve, park or ask about each before finishing:\n${lines.join("\n")}${rest}`;
+  }
+
+  /** Hook-facing. Always returns `{}` or a block decision (REQ-42, 43, 45). */
+  private checkStop(args: JsonObject): JsonObject {
+    checkKnown(args, ["session_id", "last_assistant_message"]);
+    const sessionId = textArg(args, "session_id");
+    const message = required(
+      "last_assistant_message",
+      strArg(args, "last_assistant_message"),
+    );
+    this.lastSeenSessionId = sessionId;
+    this.promptSinceStop = false;
+    if (this.state === "none") {
+      this.promptSeen = false;
+      return {};
+    }
+    this.hookCheckStop += 1;
+    this.emit("hook", { tool: "check_stop", session_id: sessionId });
+    if (this.state !== "active") return {};
+
+    const stop = (
+      decision: "allow" | "block",
+      classification: "finish" | "question" | "unknown",
+      presented: string[] | null,
+    ): void => {
+      this.emit("stop", {
+        decision,
+        classification,
+        presented,
+        blocks: { ...this.blocks },
+      });
+    };
+    let cls: Classification;
+    try {
+      cls = classify(
+        message,
+        this.register.list().map((i) => ({
+          id: i.id,
+          text: i.text,
+          status: i.status.kind,
+        })),
+      );
+    } catch {
+      cls = { kind: "unknown" };
+    }
+    if (cls.kind === "empty") {
+      stop("allow", "question", []);
+      return {};
+    }
+    if (cls.kind === "unknown") {
+      this.presentedUnknown = true;
+      stop("allow", "unknown", null);
+      return {};
+    }
+    if (cls.kind === "question") {
+      if (cls.presented.length > 0) {
+        for (const id of cls.presented) this.presented.add(id);
+        stop("allow", "question", cls.presented);
+        return {};
+      }
+      if (
+        this.blocks.prompt < PROMPT_CAP &&
+        this.blocks.unlogged < UNLOGGED_CAP
+      ) {
+        this.blocks.prompt += 1;
+        this.blocks.unlogged += 1;
+        stop("block", "question", []);
+        return {
+          decision: "block",
+          reason:
+            "That question is not in the decision register. Log it with log_item, then ask it again.",
+        };
+      }
+      stop("allow", "question", []);
+      return {};
+    }
+    const open = this.gateList();
+    if (open.length === 0) {
+      stop("allow", "finish", []);
+      this.emit("complete", {});
+      this.state = "complete";
+      return {};
+    }
+    if (this.blocks.prompt < PROMPT_CAP && this.blocks.finish < FINISH_CAP) {
+      this.blocks.prompt += 1;
+      this.blocks.finish += 1;
+      stop("block", "finish", []);
+      return { decision: "block", reason: this.blockReason(open) };
+    }
+    stop("allow", "finish", []);
     return {};
   }
 }

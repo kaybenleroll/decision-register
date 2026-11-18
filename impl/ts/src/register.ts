@@ -122,13 +122,23 @@ export class Register {
   private freshId(): string {
     for (;;) {
       this.nextAuto += 1;
-      const id = `i${this.nextAuto}`;
+      const id = `Q${this.nextAuto}`;
       if (this.get(id) === undefined) return id;
     }
   }
 
-  /** Logs an item; returns its id and the status name it starts in. */
-  log(n: NewItem): { id: string; status: StatusName } {
+  /** Items in creation order. */
+  list(): readonly Item[] {
+    return this.items;
+  }
+
+  /** The number of items whose parent is `id`, whatever their kind or status. */
+  childCount(id: string): number {
+    return this.items.filter((i) => i.parent === id).length;
+  }
+
+  /** Throws the rule error `log` would throw, changing nothing. */
+  checkLog(n: NewItem): void {
     if (n.id !== null && this.get(n.id) !== undefined) {
       throw new RegisterError(`duplicate id: ${n.id}`);
     }
@@ -142,6 +152,30 @@ export class Register {
       if (this.get(dep) === undefined)
         throw new RegisterError(`missing item: ${dep}`);
     }
+  }
+
+  /** Throws unless `resolve` would accept `id`; returns the item. */
+  assertResolvable(id: string): Item {
+    const item = this.lookup(id);
+    if (item.status.kind === "Resolved") Register.reject("resolve", item);
+    return item;
+  }
+
+  /** Throws unless `park` would accept `id`; returns the item. */
+  assertParkable(id: string): Item {
+    const item = this.lookup(id);
+    const s = item.status;
+    const allowed =
+      s.kind === "Open" ||
+      s.kind === "Stale" ||
+      (s.kind === "Parked" && s.by === "model");
+    if (!allowed) Register.reject("park", item);
+    return item;
+  }
+
+  /** Logs an item; returns its id and the status name it starts in. */
+  log(n: NewItem): { id: string; status: StatusName } {
+    this.checkLog(n);
     const id = n.id ?? this.freshId();
     const status: Status =
       n.answer === null ? OPEN : { kind: "Resolved", answer: n.answer };
