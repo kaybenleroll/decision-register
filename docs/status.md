@@ -320,3 +320,8 @@ Open items for the user:
 - Expected: S-43v to S-43x fail on any build that does not implement the rule; they pass on the patched TypeScript reference copy (21 of 21 S-43* scenarios pass there).
 - Verified: the four checks exit 0 before each commit.
 
+
+## 2026-11-18 (TypeScript build: closing-replay rule e5; #51, #18; branch issue-51-i2-ts)
+
+- Done: `impl/ts/src/classifier.ts` implements the closing-replay rule (contract section 4(a) to (c), evaluation order of section 4) as `closureSentence`, `closingReplayPrefix`, `isClosingReplay`, wired into `classify` after the section 5 concern. Unit tests for each clause, positive and negative, in `impl/ts/test/classifier.test.ts`. No schema or journal change (`tool_schema` stays 4).
+- Verified: against the built bundle, S-43v, S-43w and S-43x pass; all 57 I2-owned scenarios pass; 77 of 132 scenarios pass in total (the rest are owned by I3 and I4 and not yet implemented). Before the change: 74 of 129.
