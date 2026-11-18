@@ -15,7 +15,7 @@ use crate::register::{
 };
 
 /// Tools this build implements, in the order they are listed.
-pub const IMPLEMENTED: [&str; 7] = [
+pub const IMPLEMENTED: [&str; 8] = [
     "begin_interview",
     "log_item",
     "resolve",
@@ -23,7 +23,14 @@ pub const IMPLEMENTED: [&str; 7] = [
     "reopen",
     "status",
     "note_prompt",
+    "skill_started",
 ];
+
+/// Hook-facing tools reject model-sourced calls (REQ-40); `check_stop` joins in phase B.
+const HOOK_FACING: [&str; 3] = ["note_prompt", "skill_started", "check_stop"];
+
+/// The configured skill-name list (REQ-24), matched exactly as received.
+const SKILL_LIST: [&str; 1] = ["grill-me"];
 
 const TOOL_SCHEMA: u64 = 4;
 const JOURNAL_SCHEMA: u64 = 2;
@@ -195,6 +202,9 @@ pub struct App {
     events: u64,
     prompt_seen: bool,
     hook_note_prompt: u64,
+    hook_skill_started: u64,
+    /// A hook start not yet engaged by a model-facing call (REQ-27).
+    pending: bool,
     version_mismatch: Option<(u64, u64)>,
 }
 
@@ -221,11 +231,10 @@ impl App {
     }
 
     fn dispatch(&mut self, name: &str, args: &Value, model_facing: bool) -> Result<Value, String> {
-        if name == "note_prompt" && model_facing {
-            return Err(
-                "note_prompt is hook-facing: a call carrying _meta claudecode/toolUseId is rejected"
-                    .to_string(),
-            );
+        if model_facing && HOOK_FACING.contains(&name) {
+            return Err(format!(
+                "{name} is hook-facing: a call carrying _meta claudecode/toolUseId is rejected"
+            ));
         }
         let Some(args) = args.as_object() else {
             return Err(bad("arguments must be an object"));
@@ -238,6 +247,7 @@ impl App {
             "reopen" => self.reopen(args),
             "status" => self.status(args),
             "note_prompt" => self.note_prompt(args),
+            "skill_started" => self.skill_started(args),
             _ => Err(format!("tool not implemented: {name}")),
         }
     }
@@ -245,6 +255,7 @@ impl App {
     /// Starts the interview if none is active; returns its id.
     fn ensure_started(&mut self) -> String {
         if let Some(id) = &self.interview_id {
+            self.pending = false; // a model-facing call engages a pending interview
             return id.clone();
         }
         let id = new_interview_id();
@@ -252,6 +263,8 @@ impl App {
         self.events += 1;
         // The prompt before the start counts once; earlier inactive ones are not counted.
         self.hook_note_prompt = u64::from(self.prompt_seen);
+        self.hook_skill_started = 0;
+        self.prompt_seen = false;
         id
     }
 
@@ -311,6 +324,9 @@ impl App {
             Some(_) => return Err(bad("depends_on must be an array of ids")),
         };
         let answer = answer_group(args, false)?;
+        if answer.as_ref().is_some_and(|a| a.source() == Actor::User) {
+            self.user_authority()?;
+        }
         let new = NewItem {
             id,
             kind,
@@ -331,6 +347,9 @@ impl App {
         let id = id_arg(args, "id")?;
         let answer = answer_group(args, true)?
             .ok_or_else(|| bad("answer, source and rationale are required"))?;
+        if answer.source() == Actor::User {
+            self.user_authority()?;
+        }
         self.register
             .resolve(&id, answer)
             .map_err(|e| e.to_string())?;
@@ -343,6 +362,9 @@ impl App {
         let id = id_arg(args, "id")?;
         let reason = text_arg(args, "reason")?;
         let by = required("parked_by", actor_arg(args, "parked_by")?)?;
+        if by == Actor::User {
+            self.user_authority()?;
+        }
         self.register
             .park(&id, by, &reason)
             .map_err(|e| e.to_string())?;
@@ -366,13 +388,17 @@ impl App {
             "server_version": SERVER_VERSION,
             "tool_schema": TOOL_SCHEMA,
             "journal_schema": JOURNAL_SCHEMA,
-            "state": if self.interview_id.is_some() { "active" } else { "none" },
+            "state": match (&self.interview_id, self.pending) {
+                (None, _) => "none",
+                (Some(_), true) => "pending",
+                (Some(_), false) => "active",
+            },
             "interview_id": self.interview_id,
             "items": {"open": c.open, "resolved": c.resolved, "parked": c.parked, "stale": c.stale},
             "tree": self.register.ordered().into_iter().map(item_json).collect::<Vec<_>>(),
             "hook_health": {
                 "note_prompt": self.hook_note_prompt,
-                "skill_started": 0,
+                "skill_started": self.hook_skill_started,
                 "check_stop": 0,
                 "prompt_seen": self.prompt_seen,
             },
@@ -392,12 +418,53 @@ impl App {
         text_arg(args, "session_id")?;
         let prompt = required("prompt", str_arg(args, "prompt")?)?;
         if !prompt.starts_with(AGENT_MESSAGE_PREFIX) {
-            self.prompt_seen = true;
             if self.interview_id.is_some() {
                 self.hook_note_prompt += 1;
+            } else {
+                self.prompt_seen = true;
             }
         }
         Ok(json!({}))
+    }
+
+    /// Hook-facing. A listed skill name starts a pending interview (REQ-20); anything
+    /// else, and any call while an interview exists, only bookkeeps. Never blocks.
+    fn skill_started(&mut self, args: &Args) -> Result<Value, String> {
+        check_known(args, &["tool_schema", "session_id", "skill"])?;
+        let ts = required(
+            "tool_schema",
+            args.get("tool_schema")
+                .map(|v| v.as_u64().filter(|n| *n >= 1)),
+        )?
+        .ok_or_else(|| bad("tool_schema must be an integer >= 1"))?;
+        text_arg(args, "session_id")?;
+        let skill = text_arg(args, "skill")?;
+        if ts != TOOL_SCHEMA {
+            self.version_mismatch = Some((ts, TOOL_SCHEMA));
+            return Ok(json!({}));
+        }
+        self.version_mismatch = None;
+        if self.interview_id.is_none() && SKILL_LIST.contains(&skill.as_str()) {
+            self.ensure_started();
+            self.pending = true;
+        }
+        if self.interview_id.is_some() {
+            self.hook_skill_started += 1;
+        }
+        Ok(json!({}))
+    }
+
+    /// REQ-44: a user-sourced answer needs a prompt hook call seen at all. The
+    /// per-prompt budget (REQ-32) follows in phase B.
+    fn user_authority(&self) -> Result<(), String> {
+        if self.prompt_seen || self.hook_note_prompt > 0 {
+            Ok(())
+        } else {
+            Err(
+                "user-sourced answer rejected: hooks are not firing (no prompt hook call seen)"
+                    .to_string(),
+            )
+        }
     }
 }
 
@@ -406,9 +473,7 @@ mod tests {
     use super::*;
 
     fn call(app: &mut App, name: &str, args: Value) -> Result<Value, String> {
-        let r = app
-            .call(name, &args, !matches!(name, "note_prompt"))
-            .unwrap();
+        let r = app.call(name, &args, !HOOK_FACING.contains(&name)).unwrap();
         if r.is_error {
             Err(r.text)
         } else {
@@ -505,6 +570,8 @@ mod tests {
     #[test]
     fn volunteered_answer_is_resolved() {
         let mut app = started();
+        let p = json!({"session_id": "s", "prompt": "answer"});
+        call(&mut app, "note_prompt", p).unwrap();
         let args = json!({"kind": "question", "text": "t", "answer": "a", "source": "user", "rationale": "r"});
         assert_eq!(
             call(&mut app, "log_item", args).unwrap()["status"],
@@ -537,6 +604,94 @@ mod tests {
         assert!(call(&mut app, "note_prompt", json!({"prompt": "x"})).is_err());
     }
 
+    fn hook_call(app: &mut App, name: &str, args: Value, model: bool) -> ToolResult {
+        app.call(name, &args, model).unwrap()
+    }
+
+    #[test]
+    fn hook_facing_tools_reject_model_calls_without_effect() {
+        let mut app = App::new();
+        let sk = json!({"tool_schema": 4, "session_id": "s", "skill": "grill-me"});
+        let r = hook_call(&mut app, "skill_started", sk.clone(), true);
+        assert!(r.is_error && r.text.contains("skill_started") && r.text.contains("hook-facing"));
+        let r = hook_call(
+            &mut app,
+            "note_prompt",
+            json!({"session_id": "s", "prompt": "p"}),
+            true,
+        );
+        assert!(r.is_error && r.text.contains("hook-facing"));
+        let s = call(&mut app, "status", json!({})).unwrap();
+        assert_eq!(s["state"], "none");
+        assert_eq!(s["last_event"], 0);
+        assert_eq!(s["hook_health"]["prompt_seen"], false);
+        // The same call without the marker is accepted and returns exactly {}.
+        let r = hook_call(&mut app, "skill_started", sk, false);
+        assert!(!r.is_error && r.text == "{}");
+    }
+
+    #[test]
+    fn skill_started_starts_pending_and_begin_engages() {
+        let mut app = App::new();
+        let sk =
+            |skill: &str, ts: u64| json!({"tool_schema": ts, "session_id": "s", "skill": skill});
+        call(&mut app, "skill_started", sk("other-skill", 4)).unwrap();
+        call(&mut app, "skill_started", sk("Grill-Me", 4)).unwrap();
+        assert_eq!(
+            call(&mut app, "status", json!({})).unwrap()["state"],
+            "none"
+        );
+        call(&mut app, "skill_started", sk("grill-me", 3)).unwrap();
+        let s = call(&mut app, "status", json!({})).unwrap();
+        assert_eq!(s["state"], "none");
+        assert_eq!(s["version_mismatch"]["plugin_tool_schema"], 3);
+        call(&mut app, "skill_started", sk("grill-me", 4)).unwrap();
+        call(&mut app, "skill_started", sk("grill-me", 4)).unwrap();
+        let s = call(&mut app, "status", json!({})).unwrap();
+        assert_eq!(s["state"], "pending");
+        assert_eq!(s["version_mismatch"], Value::Null);
+        assert_eq!(s["hook_health"]["skill_started"], 2);
+        let id = s["interview_id"].clone();
+        let begin = json!({"tool_schema": 4, "skill": "grill-me", "mode": "register"});
+        let b = call(&mut app, "begin_interview", begin).unwrap();
+        assert_eq!(
+            (b["existing"].clone(), b["interview_id"].clone()),
+            (json!(true), id)
+        );
+        assert_eq!(
+            call(&mut app, "status", json!({})).unwrap()["state"],
+            "active"
+        );
+    }
+
+    #[test]
+    fn user_answers_need_a_prompt_hook_call() {
+        let mut app = started();
+        q(&mut app, "a");
+        let user = json!({"id": "a", "answer": "x", "source": "user", "rationale": "r"});
+        let e = call(&mut app, "resolve", user.clone()).unwrap_err();
+        assert!(e.contains("hooks are not firing"));
+        let p = json!({"id": "a", "reason": "r", "parked_by": "user"});
+        assert!(
+            call(&mut app, "park", p)
+                .unwrap_err()
+                .contains("not firing")
+        );
+        let v = json!({"kind": "question", "text": "t", "answer": "x", "source": "user", "rationale": "r"});
+        assert!(
+            call(&mut app, "log_item", v)
+                .unwrap_err()
+                .contains("not firing")
+        );
+        call(
+            &mut app,
+            "note_prompt",
+            json!({"session_id": "s", "prompt": "yes"}),
+        )
+        .unwrap();
+        call(&mut app, "resolve", user).unwrap();
+    }
+
     fn resolve_args(id: &str) -> Value {
         json!({"id": id, "answer": "an", "source": "model", "rationale": "why"})
     }
@@ -544,6 +699,8 @@ mod tests {
     #[test]
     fn resolve_park_reopen_flow() {
         let mut app = started();
+        let p = json!({"session_id": "s", "prompt": "park b"});
+        call(&mut app, "note_prompt", p).unwrap();
         q(&mut app, "a");
         let dep = json!({"id": "b", "kind": "question", "text": "t", "depends_on": ["a"]});
         call(&mut app, "log_item", dep).unwrap();
