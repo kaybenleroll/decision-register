@@ -10,19 +10,21 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::{Map, Value, json};
 
 use crate::classifier::{Class, ClassItem, classify};
+use crate::declog::{DecisionLog, LogView};
 use crate::journal::{Journal, civil_from_days};
 use crate::register::{
     Actor, Answer, Item, Kind, NewItem, Register, Status, is_nonblank, is_valid_id,
 };
 
 /// Tools this build implements, in the order they are listed.
-pub const IMPLEMENTED: [&str; 9] = [
+pub const IMPLEMENTED: [&str; 10] = [
     "begin_interview",
     "log_item",
     "resolve",
     "park",
     "reopen",
     "status",
+    "end_interview",
     "note_prompt",
     "skill_started",
     "check_stop",
@@ -268,6 +270,9 @@ pub struct App {
     /// A hook start not yet engaged by a model-facing call (REQ-27).
     pending: bool,
     version_mismatch: Option<(u64, u64)>,
+    /// The interview began with an implicit start (log header `implicit_start`).
+    implicit: bool,
+    declog: DecisionLog,
 }
 
 impl App {
@@ -311,6 +316,7 @@ impl App {
             "park" => self.park(args),
             "reopen" => self.reopen(args),
             "status" => self.status(args),
+            "end_interview" => self.end_interview(args),
             "note_prompt" => self.note_prompt(args),
             "skill_started" => self.skill_started(args),
             "check_stop" => self.check_stop(args),
@@ -351,6 +357,8 @@ impl App {
         self.hook_skill_started = 0;
         self.hook_check_stop = 0;
         self.complete = false;
+        self.implicit = matches!(route, Route::Implicit);
+        self.declog = DecisionLog::default();
         self.blocks = Blocks::default();
         if !self.prompt_seen {
             self.allowance = 0;
@@ -584,6 +592,115 @@ impl App {
         Ok(json!({"id": id, "status": "Open", "stale": stale}))
     }
 
+    /// Writes the decision log now (REQ-23): the queue is flushed first so the position
+    /// is durable. Returns the log path; a write failure only sets `write_error`.
+    fn write_log(&mut self, state: &str, mode: &str, end_kind: &str) -> Option<String> {
+        let id = self.interview_id.clone()?;
+        self.flush_journal();
+        let position = self.journal.as_ref().map_or(0, Journal::seq);
+        let view = LogView {
+            interview_id: &id,
+            position,
+            state,
+            mode,
+            end_kind,
+            implicit: self.implicit,
+            items: self.register.ordered(),
+        };
+        Some(self.declog.write(&view).to_string_lossy().into_owned())
+    }
+
+    /// Ends the interview (REQ-23): the `end` event, the flush, the log, the archive
+    /// rename, then the state back to none. Returns the interview id and the log path.
+    fn end_current(
+        &mut self,
+        end_kind: &str,
+        journal_mode: &str,
+        reason: Option<&str>,
+    ) -> (String, String) {
+        let id = self.interview_id.clone().unwrap_or_default();
+        self.emit(
+            "end",
+            json!({"end_kind": end_kind, "mode": journal_mode, "reason": reason}),
+        );
+        let log_mode = journal_mode.replace('_', " ");
+        let log = self.write_log("ended", &log_mode, end_kind);
+        if let Some(j) = &mut self.journal {
+            j.archive();
+        }
+        self.register = Register::default();
+        self.interview_id = None;
+        self.journal = None;
+        self.complete = false;
+        self.pending = false;
+        self.implicit = false;
+        self.declog = DecisionLog::default();
+        (id, log.unwrap_or_default())
+    }
+
+    fn end_interview(&mut self, args: &Args) -> Result<Value, String> {
+        check_known(args, &["mode", "abandon", "reason"])?;
+        let plain = match str_arg(args, "mode")? {
+            Some("plain") => true,
+            Some(_) => return Err(bad("mode must be plain")),
+            None => false,
+        };
+        if plain && args.len() > 1 {
+            return Err(bad("mode plain takes no other argument"));
+        }
+        let abandon = match args.get("abandon") {
+            None => false,
+            Some(Value::Bool(true)) => true,
+            Some(_) => return Err(bad("abandon must be true")),
+        };
+        let reason = if args.contains_key("reason") {
+            Some(text_arg(args, "reason")?)
+        } else {
+            None
+        };
+        if abandon != reason.is_some() {
+            return Err(bad("abandon and reason must be given together"));
+        }
+        if self.interview_id.is_none() {
+            return Err("no interview to end".to_string());
+        }
+        if self.pending {
+            if !plain {
+                return Err("pending interview: use mode plain".to_string());
+            }
+            return Ok(self.ended("stood_down", "plain", None));
+        }
+        if plain {
+            return Err("mode plain applies only to a pending interview".to_string());
+        }
+        let open = self.unresolved();
+        if self.complete {
+            if abandon {
+                return Err("nothing is open: abandon does not apply".to_string());
+            }
+            return Ok(self.ended("ended_after_completion", "register", None));
+        }
+        match (open.is_empty(), abandon) {
+            (true, true) => Err("nothing is open: abandon does not apply".to_string()),
+            (true, false) => Ok(self.ended("normal", "register", None)),
+            (false, false) => {
+                let ids: Vec<&str> = open.iter().filter_map(|l| l.split(' ').next()).collect();
+                Err(format!(
+                    "items are open: {}; resolve or park them, or end with abandon true and a reason",
+                    ids.join(", ")
+                ))
+            }
+            (false, true) => {
+                Ok(self.ended("ended_incomplete_by_model", "register", reason.as_deref()))
+            }
+        }
+    }
+
+    fn ended(&mut self, end_kind: &str, mode: &str, reason: Option<&str>) -> Value {
+        let (id, log) = self.end_current(end_kind, mode, reason);
+        json!({"interview_id": id, "state": "ended", "end_kind": end_kind, "decision_log": log})
+    }
+
     fn status(&self, args: &Args) -> Result<Value, String> {
         check_known(args, &[])?;
         let c = self.register.counts();
@@ -611,8 +728,12 @@ impl App {
             "version_mismatch": self.version_mismatch.map(|(p, s)| {
                 json!({"plugin_tool_schema": p, "server_tool_schema": s})
             }),
-            "decision_log": null,
-            "write_error": self.journal.as_ref().and_then(Journal::write_error),
+            "decision_log": self.declog.path().map(|p| p.to_string_lossy().into_owned()),
+            "write_error": self
+                .journal
+                .as_ref()
+                .and_then(Journal::write_error)
+                .or_else(|| self.declog.error()),
         }))
     }
 
@@ -1256,6 +1377,32 @@ mod tests {
         assert_eq!(stop(&mut app, "anything at all"), json!({}));
         q(&mut app, "late");
         assert!(!app.complete);
+    }
+
+    #[test]
+    fn end_interview_follows_the_state_matrix() {
+        // Decision logs go under the project path; keep them out of the source tree.
+        let project = std::env::temp_dir().join(format!("regspike-p-{}", std::process::id()));
+        // SAFETY: no other test reads CLAUDE_PROJECT_DIR for anything but a journal key.
+        unsafe { std::env::set_var("CLAUDE_PROJECT_DIR", &project) };
+        let mut app = App::new();
+        let err = call(&mut app, "end_interview", json!({})).unwrap_err();
+        assert!(err.contains("no interview to end"));
+        let err = call(&mut app, "end_interview", json!({"abandon": true})).unwrap_err();
+        assert!(err.contains("invalid arguments"));
+        q(&mut app, "q1");
+        let err = call(&mut app, "end_interview", json!({})).unwrap_err();
+        assert!(err.contains("q1"));
+        let err = call(&mut app, "end_interview", json!({"mode": "plain"})).unwrap_err();
+        assert!(err.contains("mode plain applies only to a pending interview"));
+        let ended = call(
+            &mut app,
+            "end_interview",
+            json!({"abandon": true, "reason": "stop"}),
+        )
+        .unwrap();
+        assert_eq!(ended["end_kind"], "ended_incomplete_by_model");
+        assert_eq!(app.status(&Map::new()).unwrap()["state"], "none");
     }
 
     #[test]

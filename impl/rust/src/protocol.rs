@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn unbuilt_tool_returns_not_implemented_error_result() {
         let mut s = Server::new();
-        for name in ["discard", "end_interview", "resume"] {
+        for name in ["discard", "resume"] {
             let line = format!(
                 r#"{{"id":1,"method":"tools/call","params":{{"name":"{name}","arguments":{{}}}}}}"#
             );
