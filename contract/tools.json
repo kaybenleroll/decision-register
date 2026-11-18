@@ -468,7 +468,7 @@
    "mutating": true,
    "rejects_meta": false,
    "engages_pending": true,
-   "description": "Log an item. id is an optional caller-supplied label (kept from spike 3); the server assigns one if absent. depends_on ids must already exist. A subquestion requires parent. answer, source and rationale together record a decision the user volunteered (REQ-32); source user is subject to the per-prompt rule. Errors on: a kind decision with a model answer (REQ-34), a subquestion without parent, the budget rows.",
+   "description": "Log an item. id is an optional caller-supplied label (kept from spike 3); the server assigns one if absent. depends_on ids must already exist. A subquestion requires parent. answer, source and rationale together record a decision the user volunteered (REQ-32); source user is subject to the per-prompt rule: it needs a user prompt counted since the previous check_stop call and stays under the volunteered-answer cap, and draws no budget point (source model needs no prompt, S-32b). Errors on: a kind decision with a model answer (REQ-34), a subquestion without parent, the budget rows.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -2409,6 +2409,12 @@
   },
   {
    "tools": "log_item",
+   "when": "volunteered answer (answer+source+rationale) with source user and no user prompt counted since the previous check_stop call (REQ-32, S-32b). Any check_stop call closes the window, in every lifecycle state and before its own state checks; a note_prompt that is not an agent-message no-op (runtime.md) opens it, in every lifecycle state, so before the first check_stop the invoking prompt counts (REQ-27 rule 2). Checked after hooks not firing (REQ-44) and before the volunteered-answer cap; a rejection changes nothing",
+   "message_names": "no user prompt since the, followed by a reference to the previous Stop check",
+   "check": 10
+  },
+  {
+   "tools": "log_item",
    "when": "more than 4 volunteered answers (answer+source+rationale) since the previous user prompt (REQ-32)",
    "message_names": "volunteered-answer cap reached",
    "check": 10
@@ -2424,7 +2430,7 @@
   "Item lookup: unknown id for resolve, park, reopen, or missing parent / depends_on for log_item (message 'no such item: <id>' or 'missing item: <id>'); duplicate caller id for log_item; subquestion without parent.",
   "Transition table (REQ-38): transition not allowed for the item's current status.",
   "Kind rules: decision item with source model or parked_by model (REQ-34); under-sized parent (has children, fewer than N) resolved by model (REQ-35); a parent with zero children is not under-sized.",
-  "User-prompt rules: hooks not firing (REQ-44), no budget point left, per-prompt budget spent, volunteered-answer cap reached (REQ-32, REQ-33).",
+  "User-prompt rules: hooks not firing (REQ-44), no budget point left, per-prompt budget spent; for a volunteered user answer in log_item, no user prompt since the previous check_stop call, then volunteered-answer cap reached (REQ-32, REQ-33).",
   "Open items without abandon true and a reason (end_interview only; checked after row 6 so a wrong state is reported first)."
  ],
  "state_matrix": {
