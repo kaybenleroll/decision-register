@@ -448,7 +448,9 @@ impl App {
         self.version_mismatch = None;
         let existing = self.interview_id.is_some();
         let id = self.ensure_started("begin_interview", Route::Begin(skill));
-        Ok(json!({"interview_id": id, "state": "active", "existing": existing}))
+        // A start while complete is a no-op that stays complete (tools.json state_matrix).
+        let state = if self.complete { "complete" } else { "active" };
+        Ok(json!({"interview_id": id, "state": state, "existing": existing}))
     }
 
     fn log_item(&mut self, args: &Args) -> Result<Value, String> {
