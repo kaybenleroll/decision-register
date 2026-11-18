@@ -6,4 +6,5 @@ pub mod declog;
 pub mod journal;
 pub mod protocol;
 pub mod register;
+pub mod replay;
 pub mod tools;

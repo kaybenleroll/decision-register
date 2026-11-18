@@ -199,7 +199,7 @@ impl fmt::Display for RegisterError {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct Register {
     items: Vec<Item>,
     next_auto: u64,
