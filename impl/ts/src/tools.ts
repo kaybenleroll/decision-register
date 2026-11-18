@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 
 import pkg from "../package.json" with { type: "json" };
 import { type Classification, classify } from "./classifier.ts";
+import { DecisionLog, type LogMode, type LogState } from "./declog.ts";
 import { Journal } from "./journal.ts";
 import {
   type Actor,
@@ -35,10 +36,13 @@ export const IMPLEMENTED: readonly string[] = [
   "note_prompt",
   "skill_started",
   "check_stop",
+  "end_interview",
+  "resume",
+  "discard",
 ];
 
-/** Tools in the contract that a later slice builds (end_interview: I3; resume, discard: I4). */
-const NOT_YET: readonly string[] = ["end_interview", "resume", "discard"];
+/** Tools in the contract that a later slice builds (none: resume and discard only refuse until I4). */
+const NOT_YET: readonly string[] = [];
 
 /** Hook-facing tools reject any call carrying `_meta` `claudecode/toolUseId` (REQ-40). */
 export const HOOK_FACING: readonly string[] = [
@@ -196,10 +200,14 @@ const NOT_FIRING =
 const truncate = (s: string): string => Array.from(s).slice(0, 120).join("");
 
 export class App {
-  private readonly register = new Register();
+  private register = new Register();
   private state: State = "none";
   private interviewId: string | null = null;
   private journal: Journal | null = null;
+  private declog: DecisionLog | null = null;
+  /** The session id the interview is bound to (REQ-26); null when none was known. */
+  private boundSession: string | null = null;
+  private implicitStart = false;
   /** A prompt arrived while no interview existed (cleared at a start and by a none Stop). */
   private promptSeen = false;
   private hookNotePrompt = 0;
@@ -276,6 +284,11 @@ export class App {
         return this.skillStarted(args);
       case "check_stop":
         return this.checkStop(args);
+      case "end_interview":
+        return this.endInterview(args);
+      case "resume":
+      case "discard":
+        return this.refuseUnfinished(args);
       default:
         throw new ToolError(`tool not implemented: ${name}`);
     }
@@ -294,6 +307,8 @@ export class App {
     const id = newInterviewId();
     this.interviewId = id;
     this.journal = new Journal(id);
+    this.declog = new DecisionLog(id);
+    this.implicitStart = route === "implicit";
     this.state = route === "hook" ? "pending" : "active";
     // The prompt before the start counts once; earlier inactive ones are not counted.
     const promptCount = this.promptSeen ? 1 : 0;
@@ -307,6 +322,7 @@ export class App {
       sessionId ??
       this.lastSeenSessionId ??
       (envSession === undefined || envSession === "" ? null : envSession);
+    this.boundSession = session;
     this.emit("start", {
       interview_id: id,
       route,
@@ -316,6 +332,210 @@ export class App {
       prompt_count: promptCount,
     });
     return id;
+  }
+
+  /** Open, Stale and model-parked items: what `end_interview` calls open (REQ-23). */
+  private openItems(): Item[] {
+    return this.register.ordered().filter((i) => {
+      const s = i.status;
+      return (
+        s.kind === "Open" ||
+        s.kind === "Stale" ||
+        (s.kind === "Parked" && s.by === "model")
+      );
+    });
+  }
+
+  /** Writes (replaces) the decision log from the current state (REQ-23, REQ-62). */
+  private writeLog(
+    state: LogState,
+    mode: LogMode,
+    endKind: string,
+    note: string | null,
+  ): void {
+    if (this.declog === null || this.interviewId === null) return;
+    this.declog.write({
+      interviewId: this.interviewId,
+      journalPosition: this.journal?.seq ?? 0,
+      state,
+      mode,
+      endKind,
+      implicitStart: this.implicitStart,
+      note,
+      items: this.register.list(),
+      hookHealth: {
+        note_prompt: this.hookNotePrompt,
+        skill_started: this.hookSkillStarted,
+        check_stop: this.hookCheckStop,
+      },
+    });
+  }
+
+  /**
+   * Ends the interview: the `end` event, the journal archived, the decision log written,
+   * then the live state back to `none` (runtime.md "Interview ends and server exit").
+   * Returns the log path (null if it could not be written).
+   */
+  private finish(
+    endKind: string,
+    journalMode: "register" | "plain" | "not_engaged",
+    reason: string,
+    note: string | null,
+  ): string | null {
+    const logMode: LogMode =
+      journalMode === "not_engaged" ? "not engaged" : journalMode;
+    this.emit("end", { end_kind: endKind, mode: journalMode, reason });
+    this.journal?.archive();
+    this.writeLog("ended", logMode, endKind, note);
+    const path = this.declog?.path ?? null;
+    this.register = new Register();
+    this.state = "none";
+    this.interviewId = null;
+    this.journal = null;
+    this.declog = null;
+    this.boundSession = null;
+    this.implicitStart = false;
+    this.hookNotePrompt = 0;
+    this.hookSkillStarted = 0;
+    this.hookCheckStop = 0;
+    return path;
+  }
+
+  /**
+   * REQ-26: a hook call whose session id differs from the bound one ends the interview
+   * (normal, abandoned if items are open, "ended after completion", or stood down if
+   * pending); the caller then behaves as with no interview.
+   */
+  private sessionChange(sessionId: string): void {
+    if (
+      this.state === "none" ||
+      this.boundSession === null ||
+      sessionId === this.boundSession
+    ) {
+      return;
+    }
+    if (this.state === "pending") {
+      this.finish(
+        "stood_down",
+        "not_engaged",
+        "session change",
+        "session changed before the skill engaged",
+      );
+    } else if (this.state === "complete") {
+      this.finish("ended_after_completion", "register", "session change", null);
+    } else if (this.openItems().length > 0) {
+      this.finish(
+        "abandoned",
+        "register",
+        "session change",
+        "abandoned: items were open at the session change",
+      );
+    } else {
+      this.finish("normal", "register", "session change", null);
+    }
+  }
+
+  private endInterview(args: JsonObject): JsonObject {
+    checkKnown(args, ["mode", "abandon", "reason"]);
+    const mode = strArg(args, "mode");
+    const abandon = args["abandon"];
+    const reason = strArg(args, "reason");
+    if (mode !== undefined) {
+      if (mode !== "plain") throw bad("mode must be plain");
+      if (abandon !== undefined || reason !== undefined) {
+        throw bad("mode plain takes no abandon or reason");
+      }
+    } else if (abandon !== undefined) {
+      if (abandon !== true) throw bad("abandon must be true");
+      if (reason === undefined) throw bad("abandon requires reason");
+    }
+    if (reason !== undefined) {
+      if (!isNonblank(reason)) throw bad("reason must not be blank");
+      if (abandon === undefined) throw bad("reason requires abandon");
+    }
+    const id = this.interviewId;
+    if (this.state === "none" || id === null) {
+      throw new ToolError("no interview to end");
+    }
+    if (this.state === "pending") {
+      if (mode !== "plain") {
+        throw new ToolError("pending interview: use mode plain");
+      }
+      const path = this.finish(
+        "stood_down",
+        "plain",
+        "end_interview mode plain",
+        "skill ran in plain mode",
+      );
+      return this.endResult(id, "stood_down", path);
+    }
+    if (mode === "plain") {
+      throw new ToolError("mode plain applies only to a pending interview");
+    }
+    if (this.state === "complete") {
+      if (abandon === true) {
+        throw new ToolError(
+          "nothing is open: abandon applies only to open items",
+        );
+      }
+      const path = this.finish(
+        "ended_after_completion",
+        "register",
+        "end_interview",
+        null,
+      );
+      return this.endResult(id, "ended_after_completion", path);
+    }
+    const open = this.openItems();
+    if (abandon === true) {
+      if (open.length === 0) {
+        throw new ToolError(
+          "nothing is open: abandon applies only to open items",
+        );
+      }
+      const path = this.finish(
+        "ended_incomplete_by_model",
+        "register",
+        reason ?? "",
+        "ended incomplete by the model",
+      );
+      return this.endResult(id, "ended_incomplete_by_model", path);
+    }
+    if (open.length > 0) {
+      const names = open.map((i) => i.id).join(", ");
+      throw new ToolError(
+        `items are still open: ${names}; resolve or park them, or pass abandon true with a reason`,
+      );
+    }
+    const path = this.finish("normal", "register", "end_interview", null);
+    return this.endResult(id, "normal", path);
+  }
+
+  /**
+   * `resume` and `discard`, refusals only (I3): the wrong-state rule of REQ-52 and the
+   * "nothing to act on" answer. Unfinished journals are listed, resumed and discarded
+   * in I4, so until then there is never one to act on.
+   */
+  private refuseUnfinished(args: JsonObject): JsonObject {
+    checkKnown(args, ["id"]);
+    optIdArg(args, "id");
+    if (this.state === "active" || this.state === "complete") {
+      throw new ToolError(`wrong state: ${this.state}`);
+    }
+    throw new ToolError("no unfinished journal");
+  }
+
+  private endResult(
+    id: string,
+    endKind: string,
+    path: string | null,
+  ): JsonObject {
+    return {
+      interview_id: id,
+      state: "ended",
+      end_kind: endKind,
+      decision_log: path ?? "",
+    };
   }
 
   /** A successful mutating call engages a pending interview and wakes a complete one. */
@@ -543,8 +763,8 @@ export class App {
               plugin_tool_schema: this.versionMismatch.plugin,
               server_tool_schema: this.versionMismatch.server,
             },
-      decision_log: null,
-      write_error: this.journal?.writeError ?? null,
+      decision_log: this.declog?.written ? this.declog.path : null,
+      write_error: this.journal?.writeError ?? this.declog?.writeError ?? null,
     };
   }
 
@@ -558,6 +778,7 @@ export class App {
     const sessionId = textArg(args, "session_id");
     const prompt = required("prompt", strArg(args, "prompt"));
     if (prompt.startsWith(AGENT_MESSAGE_PREFIX)) return {};
+    this.sessionChange(sessionId);
     this.lastSeenSessionId = sessionId;
     this.anyPrompt = true;
     this.allowance = this.presentedUnknown
@@ -588,6 +809,7 @@ export class App {
     const ts = toolSchemaArg(args);
     const sessionId = textArg(args, "session_id");
     const skill = textArg(args, "skill");
+    this.sessionChange(sessionId);
     this.lastSeenSessionId = sessionId;
     const mismatch = ts !== TOOL_SCHEMA;
     this.versionMismatch = mismatch
@@ -639,6 +861,7 @@ export class App {
       "last_assistant_message",
       strArg(args, "last_assistant_message"),
     );
+    this.sessionChange(sessionId);
     this.lastSeenSessionId = sessionId;
     this.promptSinceStop = false;
     if (this.state === "none") {
@@ -647,6 +870,16 @@ export class App {
     }
     this.hookCheckStop += 1;
     this.emit("hook", { tool: "check_stop", session_id: sessionId });
+    if (this.state === "pending" && this.hookCheckStop >= 2) {
+      // The second Stop check with no engaging call: the skill never engaged (rule 3).
+      this.finish(
+        "stood_down",
+        "not_engaged",
+        "skill did not engage",
+        "skill did not engage",
+      );
+      return {};
+    }
     if (this.state !== "active") return {};
 
     const stop = (
@@ -710,6 +943,7 @@ export class App {
       stop("allow", "finish", []);
       this.emit("complete", {});
       this.state = "complete";
+      this.writeLog("complete", "register", "none", null);
       return {};
     }
     if (this.blocks.prompt < PROMPT_CAP && this.blocks.finish < FINISH_CAP) {
@@ -719,6 +953,7 @@ export class App {
       return { decision: "block", reason: this.blockReason(open) };
     }
     stop("allow", "finish", []);
+    this.writeLog("active", "register", "none", null);
     return {};
   }
 }

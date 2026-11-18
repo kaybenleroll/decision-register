@@ -5,9 +5,9 @@
 // resume are I4.
 
 import { createHash } from "node:crypto";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 const nonEmpty = (v: string | undefined): string | undefined =>
   v === undefined || v === "" ? undefined : v;
@@ -52,6 +52,20 @@ export class Journal {
       mkdirSync(this.dir, { recursive: true, mode: 0o700 });
       appendFileSync(this.file, `${JSON.stringify(event)}\n`, { mode: 0o600 });
       this.writeError = null;
+    } catch (e) {
+      this.writeError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  /**
+   * Moves the journal to `archive/` (renamed, not copied; REQ-23). Fails open: a failure
+   * sets `writeError` and leaves the journal where it is.
+   */
+  archive(): void {
+    try {
+      const dest = join(this.dir, "archive");
+      mkdirSync(dest, { recursive: true, mode: 0o700 });
+      renameSync(this.file, join(dest, basename(this.file)));
     } catch (e) {
       this.writeError = e instanceof Error ? e.message : String(e);
     }
