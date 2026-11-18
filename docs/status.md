@@ -375,3 +375,8 @@ Open items for the user:
 - Done: scenario S-90a with the `measure_start` step in `conformance/run.py` (shared with the TypeScript build, #68): median of 5 cold starts under 1 s and median idle RSS (process group, sampled 1 s after the reply) under 200 MiB, hard-failing; thresholds are constants `START_MAX_SECONDS` and `IDLE_RSS_MAX_KIB`. Rust: start 1 ms, idle RSS 2.7 MiB (TypeScript at the same commit: 41 ms, 53.3 MiB). Suite 135/135 on the Rust build; selftest 41/41. Measurements in `docs/evidence/language-experiment.md` section 4a; parity in `docs/evidence/i5-parity.md` (entry above). Rust README added (folded-in AC4).
 - Judgement calls for the user: "200 MB" is read as 200 MiB; page cache is not dropped, so "cold" means a new process, not a cold disk; S-90a requires the main server to be stopped first (the validator enforces it).
 - Tokens for the I5 row: not yet measured. Nothing merged.
+
+## 2026-11-18 (TypeScript build: I5 non-functional; #68; branch issue-68-i5-ts)
+
+- Done: the shared S-90a harness commit from `issue-67-i5-rs` is already on main (#70), so nothing was cherry-picked. S-90a passes on the TypeScript build with no TypeScript change: start median 39 to 43 ms (limit 1000 ms), idle RSS median 53.3 MiB (limit 200 MiB), over three full runs. Measured values recorded in `docs/evidence/language-experiment.md` (I5 TypeScript row).
+- Verified: after `npm ci` and `npm run build`, `python3 conformance/run.py -- node impl/ts/dist/regspike.mjs` reports 135/135 passed in three consecutive runs. The REQ-71 parity check (AC3) was run in #67 and is recorded in `docs/evidence/i5-parity.md` on main. Not merged.
