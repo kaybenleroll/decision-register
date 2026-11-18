@@ -174,6 +174,17 @@ export function isClosingReplay(stripped: string): boolean {
     .some((piece) => closureSentence(piece));
 }
 
+/**
+ * Reply request (contract section 4, rule e6) on the stripped message `S`: the first token
+ * of the last non-blank line is `reply` or `respond`. Meaningful only when `S` has no `?`.
+ */
+export function isReplyRequest(stripped: string): boolean {
+  const lines = stripped.split("\n").filter((l) => l.trim() !== "");
+  if (lines.length === 0) return false;
+  const first = tokensOf(lines[lines.length - 1] as string)[0];
+  return first === "reply" || first === "respond";
+}
+
 const unresolved = (i: ItemView): boolean =>
   i.status === "Open" || i.status === "Stale";
 
@@ -184,7 +195,8 @@ export function classify(
 ): Classification {
   if (message.trim() === "") return { kind: "empty" };
   const u = message;
-  const asks = stripForQuestionMark(u).includes("?");
+  const stripped = stripForQuestionMark(u);
+  const asks = stripped.includes("?");
   const live = items.filter(unresolved);
 
   const cited = (i: ItemView): boolean => {
@@ -208,7 +220,8 @@ export function classify(
       }
     }
   }
-  if (!asks) return { kind: "finish" };
+  // No `?`: a reply request is a question turn (sections 5 and 7); anything else finishes.
+  if (!asks && !isReplyRequest(stripped)) return { kind: "finish" };
 
   const words = contentWords(u);
   const presented = live
@@ -221,7 +234,7 @@ export function classify(
     .map((i) => i.id);
   // Closing replay (section 4): a message that concerns no Open/Stale item and offers a
   // closed next step after a closure sentence is a finish attempt, not a question turn.
-  if (presented.length === 0 && isClosingReplay(stripForQuestionMark(u))) {
+  if (presented.length === 0 && asks && isClosingReplay(stripped)) {
     return { kind: "finish" };
   }
   return { kind: "question", presented };
