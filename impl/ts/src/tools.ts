@@ -31,6 +31,14 @@ export const IMPLEMENTED: readonly string[] = [
   "reopen",
   "status",
   "note_prompt",
+  "skill_started",
+];
+
+/** Hook-facing tools reject any call carrying `_meta` `claudecode/toolUseId` (REQ-40). */
+export const HOOK_FACING: readonly string[] = [
+  "note_prompt",
+  "skill_started",
+  "check_stop",
 ];
 
 const TOOL_SCHEMA = 4;
@@ -128,6 +136,14 @@ function answerGroup(args: JsonObject, mustExist: boolean): Answer | null {
   return r.answer;
 }
 
+function toolSchemaArg(args: JsonObject): number {
+  const ts = required("tool_schema", args["tool_schema"]);
+  if (typeof ts !== "number" || !Number.isInteger(ts) || ts < 1) {
+    throw bad("tool_schema must be an integer >= 1");
+  }
+  return ts;
+}
+
 function itemJson(i: Item): JsonObject {
   const s = i.status;
   const answered =
@@ -163,14 +179,30 @@ export class App {
   private events = 0;
   private promptSeen = false;
   private hookNotePrompt = 0;
+  private hookSkillStarted = 0;
+  /** Recorded from every hook call that carries a session id (REQ-27 rule 1). */
+  private lastSeenSessionId: string | null = null;
   private versionMismatch: { plugin: number; server: number } | null = null;
+
+  /** The session id of the latest hook call that carried one (REQ-27 rule 1). */
+  get lastSeen(): string | null {
+    return this.lastSeenSessionId;
+  }
 
   /** Runs a tool. `null` means the tool name is unknown (a protocol error). */
   call(name: string, args: unknown, modelFacing: boolean): ToolResult | null {
+    // The guard runs before anything else and also covers hook-facing tools that
+    // this build does not serve yet, so a forged call is rejected, never unknown.
+    if (HOOK_FACING.includes(name) && modelFacing) {
+      return {
+        text: `${name} is hook-facing: a call carrying _meta claudecode/toolUseId is rejected`,
+        isError: true,
+      };
+    }
     if (!IMPLEMENTED.includes(name)) return null;
     try {
       return {
-        text: JSON.stringify(this.dispatch(name, args, modelFacing)),
+        text: JSON.stringify(this.dispatch(name, args)),
         isError: false,
       };
     } catch (e) {
@@ -181,16 +213,7 @@ export class App {
     }
   }
 
-  private dispatch(
-    name: string,
-    rawArgs: unknown,
-    modelFacing: boolean,
-  ): JsonObject {
-    if (name === "note_prompt" && modelFacing) {
-      throw new ToolError(
-        "note_prompt is hook-facing: a call carrying _meta claudecode/toolUseId is rejected",
-      );
-    }
+  private dispatch(name: string, rawArgs: unknown): JsonObject {
     if (!isObject(rawArgs)) throw bad("arguments must be an object");
     const args = rawArgs;
     switch (name) {
@@ -208,6 +231,8 @@ export class App {
         return this.status(args);
       case "note_prompt":
         return this.notePrompt(args);
+      case "skill_started":
+        return this.skillStarted(args);
       default:
         throw new ToolError(`tool not implemented: ${name}`);
     }
@@ -220,15 +245,13 @@ export class App {
     this.events += 1;
     // The prompt before the start counts once; earlier inactive ones are not counted.
     this.hookNotePrompt = this.promptSeen ? 1 : 0;
+    this.promptSeen = false;
     return this.interviewId;
   }
 
   private beginInterview(args: JsonObject): JsonObject {
     checkKnown(args, ["tool_schema", "skill", "mode"]);
-    const ts = required("tool_schema", args["tool_schema"]);
-    if (typeof ts !== "number" || !Number.isInteger(ts) || ts < 1) {
-      throw bad("tool_schema must be an integer >= 1");
-    }
+    const ts = toolSchemaArg(args);
     textArg(args, "skill");
     if (required("mode", strArg(args, "mode")) !== "register") {
       throw bad("mode must be register");
@@ -337,7 +360,7 @@ export class App {
       tree: this.register.ordered().map(itemJson),
       hook_health: {
         note_prompt: this.hookNotePrompt,
-        skill_started: 0,
+        skill_started: this.hookSkillStarted,
         check_stop: 0,
         prompt_seen: this.promptSeen,
       },
@@ -355,15 +378,36 @@ export class App {
     };
   }
 
-  /** Hook-facing. In I1 this only keeps the prompt counters; nothing consumes them yet. */
+  /**
+   * Hook-facing. Always records the session id, even with no interview; counts the
+   * prompt in `hook_health` while an interview exists. A harness-injected agent-message
+   * prompt is a complete no-op (REQ-41).
+   */
   private notePrompt(args: JsonObject): JsonObject {
     checkKnown(args, ["session_id", "prompt"]);
-    textArg(args, "session_id");
+    const sessionId = textArg(args, "session_id");
     const prompt = required("prompt", strArg(args, "prompt"));
-    if (!prompt.startsWith(AGENT_MESSAGE_PREFIX)) {
-      this.promptSeen = true;
-      if (this.interviewId !== null) this.hookNotePrompt += 1;
-    }
+    if (prompt.startsWith(AGENT_MESSAGE_PREFIX)) return {};
+    this.lastSeenSessionId = sessionId;
+    this.promptSeen = true;
+    if (this.interviewId !== null) this.hookNotePrompt += 1;
+    return {};
+  }
+
+  /**
+   * Hook-facing. Bookkeeping only for now: records the session id, counts the call
+   * while an interview exists, and sets or clears the version-mismatch flag. Never
+   * blocks. Starting a pending interview for a listed skill name is I3 (REQ-20, REQ-24).
+   */
+  private skillStarted(args: JsonObject): JsonObject {
+    checkKnown(args, ["tool_schema", "session_id", "skill"]);
+    const ts = toolSchemaArg(args);
+    const sessionId = textArg(args, "session_id");
+    textArg(args, "skill");
+    this.lastSeenSessionId = sessionId;
+    this.versionMismatch =
+      ts === TOOL_SCHEMA ? null : { plugin: ts, server: TOOL_SCHEMA };
+    if (this.interviewId !== null) this.hookSkillStarted += 1;
     return {};
   }
 }
