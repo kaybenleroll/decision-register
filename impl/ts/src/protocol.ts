@@ -2,7 +2,7 @@
 
 import contract from "../../../contract/tools.json" with { type: "json" };
 import pkg from "../package.json" with { type: "json" };
-import { App, IMPLEMENTED, type JsonObject } from "./tools.ts";
+import { App, type JsonObject } from "./tools.ts";
 
 export const PROTOCOL_VERSION = "2024-11-05";
 
@@ -23,7 +23,7 @@ function toolList(): unknown {
     $defs: unknown;
     tools: Record<string, { description: unknown; input: JsonObject }>;
   };
-  const tools = IMPLEMENTED.map((name) => {
+  const tools = Object.keys(doc.tools).map((name) => {
     const tool = doc.tools[name];
     if (tool === undefined) throw new Error(`contract lacks tool ${name}`);
     return {

@@ -7,12 +7,24 @@ const HOOK = ["note_prompt", "skill_started", "check_stop"];
 
 type R = Record<string, any>;
 
+/** A user-sourced answer needs a prompt (REQ-32): give each such call its own. */
+function userPrompt(app: App, name: string, args: unknown): void {
+  const a = args as Record<string, unknown>;
+  if (
+    ["resolve", "park", "log_item"].includes(name) &&
+    (a["source"] === "user" || a["parked_by"] === "user")
+  ) {
+    app.call("note_prompt", { session_id: "s", prompt: "p" }, false);
+  }
+}
+
 function call(
   app: App,
   name: string,
   args: unknown,
   modelFacing = !HOOK.includes(name),
 ): R {
+  userPrompt(app, name, args);
   const r = app.call(name, args, modelFacing);
   assert.ok(r !== null, `unknown tool ${name}`);
   if (r.isError) throw new Error(r.text);
@@ -142,6 +154,7 @@ test("resolve, park, reopen and Stale through the tools", () => {
       text: "c",
       depends_on: ["b"],
       ...ANS,
+      source: "user",
     }),
     {
       id: "c",
@@ -240,7 +253,7 @@ test("note_prompt: hook-facing only, no-op while idle, agent messages ignored", 
 });
 
 test("unknown tool is not handled here", () => {
-  assert.equal(new App().call("check_stop", {}, false), null);
+  assert.equal(new App().call("no_such_tool", {}, false), null);
 });
 
 test("hook-facing tools reject a model-style call and change nothing", () => {
@@ -347,4 +360,42 @@ test("hook calls record the last seen session id; an agent-message does not", ()
   assert.equal(app.lastSeen, "s1");
   call(app, "skill_started", { tool_schema: 4, session_id: "s3", skill: "g" });
   assert.equal(app.lastSeen, "s3");
+});
+
+test("a user answer needs a prompt, then spends the per-prompt budget", () => {
+  const app = started();
+  q(app, "a");
+  q(app, "b");
+  const u = { source: "user", answer: "x", rationale: "r" };
+  assert.match(
+    String(app.call("resolve", { id: "a", ...u }, true)?.text),
+    /hooks are not firing/,
+  );
+  app.call("note_prompt", { session_id: "s", prompt: "p" }, false);
+  assert.equal(app.call("resolve", { id: "a", ...u }, true)?.isError, false);
+  assert.match(
+    String(app.call("resolve", { id: "b", ...u }, true)?.text),
+    /user-answer budget spent: 1 of 1/,
+  );
+});
+
+test("a listed skill starts a pending interview, even on a mismatch", () => {
+  const app = new App();
+  app.call(
+    "skill_started",
+    { tool_schema: 3, session_id: "s", skill: "grill-me" },
+    false,
+  );
+  assert.equal(call(app, "status", {})["state"], "pending");
+  assert.deepEqual(call(app, "status", {})["version_mismatch"], {
+    plugin_tool_schema: 3,
+    server_tool_schema: 4,
+  });
+  const r = call(app, "begin_interview", {
+    tool_schema: 4,
+    skill: "x",
+    mode: "register",
+  });
+  assert.equal(r["existing"], true);
+  assert.equal(r["state"], "active");
 });

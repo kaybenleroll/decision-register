@@ -67,7 +67,7 @@ test("log rules", () => {
   );
   assert.throws(() => r.log(item("d", ["nope"])), /missing item: nope/);
   assert.deepEqual(r.log({ ...item("x"), id: null }), {
-    id: "i1",
+    id: "Q1",
     status: "Open",
   });
   assert.equal(r.length, 2);
