@@ -77,6 +77,17 @@ const GUARD_WORDS: ReadonlySet<string> = new Set([
   "however",
 ]);
 
+const COMPLETION_VERBS: ReadonlySet<string> = new Set([
+  "closes",
+  "closed",
+  "completes",
+  "completed",
+  "concludes",
+  "concluded",
+  "finishes",
+  "finished",
+]);
+
 const OPEN_NOUNS: ReadonlySet<string> = new Set([
   "items",
   "threads",
@@ -104,6 +115,10 @@ export function closureSentence(sentence: string): boolean {
       return true;
     }
     if (w === "no" && t[i + 1] === "unresolved") return true;
+    if (COMPLETION_VERBS.has(w)) {
+      const next = t.slice(i + 1, i + 3);
+      if (next.includes("last") || next.includes("final")) return true;
+    }
     if (
       w === "no" &&
       t[i + 1] === "open" &&
@@ -122,6 +137,9 @@ const OPENERS: readonly (readonly string[])[] = [
   ["ready", "to"],
   ["do", "you", "want", "me", "to"],
   ["would", "you", "like", "me", "to"],
+  ["want", "to"],
+  ["do", "you", "want", "to"],
+  ["would", "you", "like", "to"],
 ];
 
 /**

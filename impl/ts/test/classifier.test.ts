@@ -121,7 +121,7 @@ test("closing replay: accepted offer openers", () => {
 test("closing replay: other openers are rejected", () => {
   for (const o of [
     "Can I wrap up?",
-    "Do you want to wrap up?",
+    "Do you want a wrap up?",
     "Is that all right?",
   ]) {
     assert.equal(isClosingReplay(`${CLOSURE} ${o}`), false, o);
@@ -232,4 +232,59 @@ test("classify: a failed clause leaves a question turn", () => {
     kind: "question",
     presented: [],
   });
+});
+
+test("e6 closure sentence: completion verb followed by last or final", () => {
+  for (const s of [
+    "The import completed the final step",
+    "this finishes the last review",
+    "That closes the last item",
+    "It concluded final checks",
+    "Work finished last night",
+  ]) {
+    assert.equal(closureSentence(s), true, s);
+  }
+  assert.equal(closureSentence("this closes the review"), false);
+  assert.equal(closureSentence("completed one two last"), false);
+  assert.equal(closureSentence("last step completed"), false);
+  assert.equal(
+    closureSentence("This completes the final step but not more"),
+    false,
+  );
+});
+
+test("e6 closing replay: want to and would you like to openers", () => {
+  for (const o of [
+    "Want to move on?",
+    "Do you want to continue?",
+    "Would you like to proceed?",
+  ]) {
+    assert.equal(
+      isClosingReplay(`The import completed the final step. ${o}`),
+      true,
+      o,
+    );
+  }
+  assert.equal(
+    isClosingReplay("The import completed the final step. Do you want it?"),
+    false,
+  );
+  assert.equal(
+    isClosingReplay("The import completed a step. Want to move on?"),
+    false,
+  );
+  assert.equal(
+    isClosingReplay("Everything is resolved. Do we want to move on?"),
+    false,
+  );
+});
+
+test("e6 classify: a completion report offering follow-on work finishes", () => {
+  assert.deepEqual(
+    classify(
+      "This finishes the last review.\nWould you like to continue?",
+      items,
+    ),
+    { kind: "finish" },
+  );
 });
