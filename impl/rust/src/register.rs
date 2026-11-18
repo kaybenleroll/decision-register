@@ -227,6 +227,11 @@ impl Register {
         self.items.is_empty()
     }
 
+    /// Items in creation order.
+    pub fn iter(&self) -> impl Iterator<Item = &Item> {
+        self.items.iter()
+    }
+
     pub fn get(&self, id: &str) -> Option<&Item> {
         self.items.iter().find(|i| i.id == id)
     }
@@ -238,7 +243,7 @@ impl Register {
     fn fresh_id(&mut self) -> String {
         loop {
             self.next_auto += 1;
-            let id = format!("i{}", self.next_auto);
+            let id = format!("Q{}", self.next_auto);
             if self.index(&id).is_none() {
                 return id;
             }
@@ -470,7 +475,7 @@ mod tests {
         );
         let mut auto = item("x", &[]);
         auto.id = None;
-        assert_eq!(r.log(auto).unwrap(), ("i1".to_string(), "Open"));
+        assert_eq!(r.log(auto).unwrap(), ("Q1".to_string(), "Open"));
         assert_eq!(r.len(), 2);
     }
 
