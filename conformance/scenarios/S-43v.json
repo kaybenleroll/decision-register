@@ -1,0 +1,128 @@
+{
+ "id": "S-43v",
+ "title": "closing replay with a trailing offer is a finish attempt: with an Open item it is blocked as a finish (not a question turn) and the reason names the item; once nothing is unresolved the same message is allowed as a finish and the interview becomes complete",
+ "req": [
+  "REQ-43",
+  "REQ-46"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43v",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "storage engine choice"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43v",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43v",
+    "last_assistant_message": "All branches resolved.\nThe cache layer keeps memory pages.\nThe queue holds jobs overnight.\nReady to plan?"
+   },
+   "assert": [
+    {
+     "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "Q1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-43v",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-43v",
+    "last_assistant_message": "All branches resolved.\nThe cache layer keeps memory pages.\nThe queue holds jobs overnight.\nReady to plan?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 0,
+      "resolved": 1,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "events": [
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "block"
+    },
+    {
+     "kind": "stop",
+     "classification": "finish",
+     "decision": "allow"
+    }
+   ],
+   "count": {
+    "stop": 2
+   }
+  }
+ ]
+}
