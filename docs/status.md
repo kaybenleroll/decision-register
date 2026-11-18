@@ -258,3 +258,14 @@ Open items for the user:
 - Script over `conformance/scenarios` for the I1 list: all six (S-30a, S-30b, S-31a, S-35b, S-38a, S-45a) call `note_prompt`; `parked_by: user` appears in S-38a and S-45a; `source: user` in S-45a; `check_stop` and journal-event assertions only in S-30b. The old wording "S-38a (model-sourced pairs)" was wrong: S-38a includes a `parked_by: user` park, now stated.
 - Conflict flagged: `conformance/run.py` has no expected-failure mechanism (only launcher-missing scenarios are skipped as pending), so S-30b will print `not ok` in I1; the I1 gate is read as "all I1 scenarios except S-30b". Not invented here. It also affects the experiment's "suite failures on first submission" count for I1 (S-30b is not a defect); the user decides how it is counted.
 - Verified: the four checks exit 0 before the commit.
+
+## 2026-11-18 (V5 cycle fix and Stale edge case; #34)
+
+- User decision, 2026-11-18 (V5 dependency cycle): I2 depended on V5, V5 depends on P1 and I3, and I3 depends on I2. V5 now runs against the I3 branch build before merge and gates the I3 merge; I2 no longer depends on V5. This follows the V3 precedent of 2026-11-17. Cost: a V5 surprise (the harness behaving differently on an empty `last_assistant_message`) would revise the classifier allow rule after I2 has merged. Issues #18, #19 and #27 updated to match.
+- Decision, REQ-36 transitive Stale: "transitively" means `depends_on` reachability through any intermediate, whatever its status. The intermediate keeps its status; only Resolved dependants become Stale; Parked and Open items are unchanged; parent links never propagate. Pinned by a new scenario (see the scenario entry below).
+
+## 2026-11-18 (S-36b: transitive Stale scenario; #34)
+
+- New scenario S-36b (A resolved; B depends on A and is parked; C depends on B and is resolved; D depends on C and is resolved). Reopen A: `stale` lists C and D, B stays Parked, C and D keep their answers. Re-resolve C and A, reopen A again: `stale` lists only C, D is not listed again. Model-sourced calls only; no `check_stop`. Suite 128 -> 129 scenarios (`run.py --validate`). Listed in the build plan scenario table and the I1 scenario list (it uses only I1 tools).
+- Rust (`impl/rust`, release build from this branch): S-36b passes, as do S-30a, S-31a, S-35b, S-38a and S-45a (S-30b stays red in I1 as recorded).
+- Verified: the four checks exit 0 before the commit.

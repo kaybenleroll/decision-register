@@ -1,0 +1,262 @@
+{
+ "id": "S-36b",
+ "title": "reopen reaches Resolved dependants through a Parked intermediate (depends_on reachability, any status); the intermediate keeps its status; an already-Stale dependant is not listed again",
+ "req": [
+  "REQ-36",
+  "REQ-38"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-36b",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "a",
+    "kind": "question",
+    "text": "text-a"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "b",
+    "kind": "question",
+    "text": "text-b",
+    "depends_on": [
+     "a"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "c",
+    "kind": "question",
+    "text": "text-c",
+    "depends_on": [
+     "b"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "d",
+    "kind": "question",
+    "text": "text-d",
+    "depends_on": [
+     "c"
+    ]
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "a",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "b",
+    "reason": "later",
+    "parked_by": "model"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "c",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "d",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "a",
+    "reason": "new-fact"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Open"
+    },
+    {
+     "path": "stale",
+     "len": 2
+    },
+    {
+     "path": "stale",
+     "contains": "c"
+    },
+    {
+     "path": "stale",
+     "contains": "d"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 1,
+      "stale": 2
+     }
+    },
+    {
+     "path": "tree.0.id",
+     "eq": "a"
+    },
+    {
+     "path": "tree.0.status",
+     "eq": "Open"
+    },
+    {
+     "path": "tree.1.id",
+     "eq": "c"
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.1.answer",
+     "eq": "an"
+    },
+    {
+     "path": "tree.2.id",
+     "eq": "d"
+    },
+    {
+     "path": "tree.2.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.2.answer",
+     "eq": "an"
+    },
+    {
+     "path": "tree.3.id",
+     "eq": "b"
+    },
+    {
+     "path": "tree.3.status",
+     "eq": "Parked"
+    },
+    {
+     "path": "tree.3.parked_by",
+     "eq": "model"
+    }
+   ]
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "c",
+    "answer": "again",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "a",
+    "answer": "an2",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "reopen",
+   "args": {
+    "id": "a",
+    "reason": "new-fact"
+   },
+   "assert": [
+    {
+     "path": "status",
+     "eq": "Open"
+    },
+    {
+     "path": "stale",
+     "len": 1
+    },
+    {
+     "path": "stale",
+     "contains": "c"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 0,
+      "parked": 1,
+      "stale": 2
+     }
+    },
+    {
+     "path": "tree.1.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.1.answer",
+     "eq": "again"
+    },
+    {
+     "path": "tree.2.status",
+     "eq": "Stale"
+    },
+    {
+     "path": "tree.2.answer",
+     "eq": "an"
+    },
+    {
+     "path": "tree.3.status",
+     "eq": "Parked"
+    }
+   ]
+  }
+ ]
+}
