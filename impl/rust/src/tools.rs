@@ -9,13 +9,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Map, Value, json};
 
+use crate::classifier::{Class, ClassItem, classify};
 use crate::journal::{Journal, civil_from_days};
 use crate::register::{
     Actor, Answer, Item, Kind, NewItem, Register, Status, is_nonblank, is_valid_id,
 };
 
 /// Tools this build implements, in the order they are listed.
-pub const IMPLEMENTED: [&str; 8] = [
+pub const IMPLEMENTED: [&str; 9] = [
     "begin_interview",
     "log_item",
     "resolve",
@@ -24,6 +25,7 @@ pub const IMPLEMENTED: [&str; 8] = [
     "status",
     "note_prompt",
     "skill_started",
+    "check_stop",
 ];
 
 /// Hook-facing tools reject model-sourced calls (REQ-40); `check_stop` joins in phase B.
@@ -189,6 +191,31 @@ fn new_interview_id() -> String {
     )
 }
 
+/// The three block counters of REQ-42, after the latest decision.
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
+struct Blocks {
+    prompt: u64,
+    finish: u64,
+    unlogged: u64,
+}
+
+/// Caps per interview (REQ-42): blocks per user prompt, finish blocks, unlogged-question blocks.
+const CAP_PROMPT: u64 = 2;
+const CAP_FINISH: u64 = 8;
+const CAP_UNLOGGED: u64 = 12;
+/// The Stop reason lists this many open items, each text cut to this many characters (REQ-45).
+const LIST_ITEMS: usize = 10;
+const LIST_TEXT_CHARS: usize = 120;
+
+/// What the finish gate decided for one Stop check.
+#[derive(PartialEq, Eq, Debug)]
+struct Verdict {
+    reason: Option<String>,
+    classification: &'static str,
+    presented: Option<Vec<String>>,
+    completes: bool,
+}
+
 /// How an interview came to start (journal `start.route`).
 enum Route {
     Hook(String),
@@ -213,6 +240,11 @@ pub struct App {
     presented: Vec<String>,
     /// The classifier returned `unknown` since the previous user prompt.
     unknown_seen: bool,
+    hook_check_stop: u64,
+    /// The interview holds a clean finish; the gate allows every turn (REQ-23).
+    complete: bool,
+    /// Block counters of the finish gate (REQ-42): per prompt, finish, unlogged question.
+    blocks: Blocks,
     prompt_seen: bool,
     hook_note_prompt: u64,
     hook_skill_started: u64,
@@ -261,6 +293,7 @@ impl App {
             "status" => self.status(args),
             "note_prompt" => self.note_prompt(args),
             "skill_started" => self.skill_started(args),
+            "check_stop" => self.check_stop(args),
             _ => Err(format!("tool not implemented: {name}")),
         }
     }
@@ -289,6 +322,9 @@ impl App {
         let prompt_count = u64::from(self.prompt_seen);
         self.hook_note_prompt = prompt_count;
         self.hook_skill_started = 0;
+        self.hook_check_stop = 0;
+        self.complete = false;
+        self.blocks = Blocks::default();
         if !self.prompt_seen {
             self.allowance = 0;
             self.spent = 0;
@@ -433,6 +469,7 @@ impl App {
             self.volunteered += 1;
         }
         self.register = trial;
+        self.complete = false;
         // A rule error above leaves the state untouched; success starts an interview.
         self.ensure_started("log_item", Route::Implicit);
         self.journal_logged(&id);
@@ -467,6 +504,7 @@ impl App {
         self.register
             .resolve(&id, answer.clone())
             .map_err(|e| e.to_string())?;
+        self.complete = false;
         self.journal_resolved(&id, &answer);
         Ok(json!({"id": id, "status": "Resolved"}))
     }
@@ -494,6 +532,7 @@ impl App {
         self.register
             .park(&id, by, &reason)
             .map_err(|e| e.to_string())?;
+        self.complete = false;
         self.emit(
             "park",
             json!({"id": id, "reason": reason, "parked_by": by.as_str()}),
@@ -506,6 +545,7 @@ impl App {
         let id = id_arg(args, "id")?;
         let reason = text_arg(args, "reason")?;
         let stale = self.register.reopen(&id).map_err(|e| e.to_string())?;
+        self.complete = false;
         self.emit(
             "reopen",
             json!({"id": id, "reason": reason, "stale": stale}),
@@ -523,6 +563,7 @@ impl App {
             "state": match (&self.interview_id, self.pending) {
                 (None, _) => "none",
                 (Some(_), true) => "pending",
+                (Some(_), false) if self.complete => "complete",
                 (Some(_), false) => "active",
             },
             "interview_id": self.interview_id,
@@ -531,7 +572,7 @@ impl App {
             "hook_health": {
                 "note_prompt": self.hook_note_prompt,
                 "skill_started": self.hook_skill_started,
-                "check_stop": 0,
+                "check_stop": self.hook_check_stop,
                 "prompt_seen": self.prompt_seen,
             },
             "last_event": self.journal.as_ref().map_or(0, Journal::seq),
@@ -559,6 +600,7 @@ impl App {
             };
             self.spent = 0;
             self.volunteered = 0;
+            self.blocks.prompt = 0;
             self.presented.clear();
             self.unknown_seen = false;
             if self.interview_id.is_some() {
@@ -611,6 +653,147 @@ impl App {
             }
         }
         Ok(json!({}))
+    }
+
+    /// Hook-facing Stop check (REQ-42, REQ-43): always returns `{}` or a block decision.
+    fn check_stop(&mut self, args: &Args) -> Result<Value, String> {
+        check_known(args, &["session_id", "last_assistant_message"])?;
+        let session = text_arg(args, "session_id")?;
+        let message = required(
+            "last_assistant_message",
+            str_arg(args, "last_assistant_message")?,
+        )?;
+        self.last_seen_session = Some(session.clone());
+        self.prompt_since_stop = false;
+        if self.interview_id.is_none() {
+            self.prompt_seen = false; // a Stop check ends the "prompt before the start" window
+            return Ok(json!({}));
+        }
+        self.hook_check_stop += 1;
+        self.emit("hook", json!({"tool": "check_stop", "session_id": session}));
+        let result = if self.pending || self.complete {
+            json!({})
+        } else {
+            let items: Vec<ClassItem<'_>> = self
+                .register
+                .iter()
+                .map(|i| ClassItem {
+                    id: &i.id,
+                    text: &i.text,
+                    live: matches!(i.status, Status::Open | Status::Stale(_)),
+                })
+                .collect();
+            let class = classify(message, &items);
+            let verdict = self.gate(class);
+            self.emit(
+                "stop",
+                json!({
+                    "decision": if verdict.reason.is_some() { "block" } else { "allow" },
+                    "classification": verdict.classification,
+                    "presented": verdict.presented,
+                    "blocks": {
+                        "prompt": self.blocks.prompt,
+                        "finish": self.blocks.finish,
+                        "unlogged": self.blocks.unlogged,
+                    },
+                }),
+            );
+            if verdict.completes {
+                self.complete = true;
+                self.emit("complete", json!({}));
+            }
+            match verdict.reason {
+                Some(reason) => json!({"decision": "block", "reason": reason}),
+                None => json!({}),
+            }
+        };
+        if let Some(j) = &mut self.journal {
+            j.flush();
+        }
+        Ok(result)
+    }
+
+    /// Items that stop a finish: Open, Stale or model-Parked, and parents with children
+    /// but fewer than N unless the user parked or resolved them (REQ-35). Creation order.
+    fn unresolved(&self) -> Vec<String> {
+        self.register
+            .iter()
+            .filter_map(|i| {
+                let undersized = (1..BRANCH_MIN).contains(&self.register.child_count(&i.id));
+                let note = match &i.status {
+                    Status::Open | Status::Stale(_) => "",
+                    Status::Parked { by, .. } if *by == Actor::Model => "",
+                    Status::Parked { .. } => return None,
+                    Status::Resolved(a) if undersized && a.source() == Actor::Model => {
+                        " [branch with fewer than 2 sub-questions]"
+                    }
+                    Status::Resolved(_) => return None,
+                };
+                let text: String = i.text.chars().take(LIST_TEXT_CHARS).collect();
+                Some(format!("{} {}{}", i.id, text, note))
+            })
+            .collect()
+    }
+
+    /// The Stop block reason: the unresolved items, the first 10 then `N more`.
+    fn block_reason(&self, lead: &str) -> String {
+        let open = self.unresolved();
+        let mut reason = format!("{lead} {} open:", open.len());
+        for line in open.iter().take(LIST_ITEMS) {
+            reason.push_str("\n- ");
+            reason.push_str(line);
+        }
+        if open.len() > LIST_ITEMS {
+            reason.push_str(&format!("\n{} more", open.len() - LIST_ITEMS));
+        }
+        reason
+    }
+
+    /// Applies the gate rules to one classification, updating the counters (REQ-42).
+    fn gate(&mut self, class: Class) -> Verdict {
+        let mut v = Verdict {
+            reason: None,
+            classification: "question",
+            presented: Some(Vec::new()),
+            completes: false,
+        };
+        match class {
+            Class::Empty => {}
+            Class::Unknown => {
+                self.unknown_seen = true;
+                v.classification = "unknown";
+                v.presented = None; // fails open
+            }
+            Class::Question(ids) if !ids.is_empty() => {
+                for id in &ids {
+                    if !self.presented.contains(id) {
+                        self.presented.push(id.clone());
+                    }
+                }
+                v.presented = Some(ids);
+            }
+            Class::Question(_) => {
+                if self.blocks.prompt < CAP_PROMPT && self.blocks.unlogged < CAP_UNLOGGED {
+                    self.blocks.prompt += 1;
+                    self.blocks.unlogged += 1;
+                    v.reason = Some(self.block_reason(
+                        "Your question is not in the register: log it with log_item, then ask it.",
+                    ));
+                }
+            }
+            Class::Finish => {
+                v.classification = "finish";
+                v.presented = Some(Vec::new());
+                if self.unresolved().is_empty() {
+                    v.completes = true;
+                } else if self.blocks.prompt < CAP_PROMPT && self.blocks.finish < CAP_FINISH {
+                    self.blocks.prompt += 1;
+                    self.blocks.finish += 1;
+                    v.reason = Some(self.block_reason("Not finished:"));
+                }
+            }
+        }
+        v
     }
 
     /// REQ-44 then REQ-32: a user-sourced answer needs a prompt hook call seen at all;
