@@ -17,13 +17,15 @@ use crate::register::{
 };
 
 /// Tools this build implements, in the order they are listed.
-pub const IMPLEMENTED: [&str; 10] = [
+pub const IMPLEMENTED: [&str; 12] = [
     "begin_interview",
     "log_item",
     "resolve",
     "park",
     "reopen",
     "status",
+    "resume",
+    "discard",
     "end_interview",
     "note_prompt",
     "skill_started",
@@ -317,6 +319,7 @@ impl App {
             "reopen" => self.reopen(args),
             "status" => self.status(args),
             "end_interview" => self.end_interview(args),
+            "resume" | "discard" => self.resume_or_discard(args),
             "note_prompt" => self.note_prompt(args),
             "skill_started" => self.skill_started(args),
             "check_stop" => self.check_stop(args),
@@ -638,6 +641,19 @@ impl App {
         self.implicit = false;
         self.declog = DecisionLog::default();
         (id, log.unwrap_or_default())
+    }
+
+    /// `resume` and `discard`: only the state check (state_matrix) in I3. There is no
+    /// unfinished-journal scan yet, so from none or pending both report that nothing
+    /// can be resumed; the scan, claim and replay are I4.
+    fn resume_or_discard(&mut self, args: &Args) -> Result<Value, String> {
+        check_known(args, &["id"])?;
+        opt_id_arg(args, "id")?;
+        if self.interview_id.is_some() && !self.pending {
+            let state = if self.complete { "complete" } else { "active" };
+            return Err(format!("wrong state: {state}"));
+        }
+        Err("no unfinished journal".to_string())
     }
 
     fn end_interview(&mut self, args: &Args) -> Result<Value, String> {
