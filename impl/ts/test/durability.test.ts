@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -183,4 +184,85 @@ test("discard in pending leaves the pending interview alone", () => {
   const st = call(app, "status");
   assert.equal(st["state"], "pending");
   assert.deepEqual(st["resumable"], []);
+});
+
+test("resume claims the pid file, replays, appends a resume event and returns active", () => {
+  const dir = sandbox();
+  seedUnfinished(dir, "iv-a", dead("iv-a"));
+  const app = new App();
+  app.call("note_prompt", { session_id: "sess-2", prompt: "hi" }, false);
+  const r = call(app, "resume");
+  assert.deepEqual(r, {
+    interview_id: "iv-a",
+    state: "active",
+    last_event: 2,
+    items: { open: 1, resolved: 0, parked: 0, stale: 0 },
+  });
+  const rec = JSON.parse(readFileSync(join(dir, "iv-a.pid"), "utf8"));
+  assert.equal(rec.pid, process.pid);
+  const lines = readFileSync(join(dir, "iv-a.jsonl"), "utf8")
+    .trim()
+    .split("\n");
+  const last = JSON.parse(lines[lines.length - 1] ?? "");
+  assert.deepEqual(
+    [last.kind, last.seq, last.from_seq, last.session_id],
+    ["resume", 3, 2, "sess-2"],
+  );
+  const st = call(app, "status");
+  assert.equal(st["state"], "active");
+  assert.equal(st["interview_id"], "iv-a");
+  assert.equal(st["last_event"], 3);
+  assert.equal(st["tree"][0].id, "q1");
+  assert.deepEqual(st["resumable"], []);
+  // Wrong state once active.
+  assert.equal(app.call("resume", {}, true)?.isError, true);
+});
+
+test("resume replay failure names the line, removes the new pid file and keeps the journal", () => {
+  const dir = sandbox();
+  seedUnfinished(dir, "iv-a", dead("iv-a"));
+  appendFileSync(
+    join(dir, "iv-a.jsonl"),
+    `${JSON.stringify({ v: 3, seq: 3, kind: "hook" })}\n`,
+  );
+  const app = new App();
+  const r = app.call("resume", { id: "iv-a" }, true);
+  assert.equal(r?.isError, true);
+  assert.match(r?.text ?? "", /replay failed at line 3(?!\d)/);
+  assert.equal(existsSync(join(dir, "iv-a.pid")), false);
+  assert.ok(existsSync(join(dir, "iv-a.jsonl")));
+  assert.equal(call(app, "status")["state"], "none");
+});
+
+test("resume cuts a torn final line before appending", () => {
+  const dir = sandbox();
+  seedUnfinished(dir, "iv-a", null);
+  appendFileSync(join(dir, "iv-a.jsonl"), '{"v":2,"ts"');
+  const app = new App();
+  assert.equal(call(app, "resume")["last_event"], 2);
+  for (const l of readFileSync(join(dir, "iv-a.jsonl"), "utf8")
+    .trim()
+    .split("\n")) {
+    JSON.parse(l);
+  }
+});
+
+test("resume while pending stands the pending interview down after success", () => {
+  const dir = sandbox();
+  seedUnfinished(dir, "iv-a", dead("iv-a"));
+  const app = new App();
+  app.call(
+    "skill_started",
+    { tool_schema: 4, session_id: "s", skill: "grill-me" },
+    false,
+  );
+  const pendingId = call(app, "status")["interview_id"];
+  call(app, "resume");
+  assert.equal(call(app, "status")["interview_id"], "iv-a");
+  const archived = readFileSync(
+    join(dir, "archive", `${pendingId}.jsonl`),
+    "utf8",
+  );
+  assert.match(archived, /"reason":"replaced by resume"/);
+  assert.equal(existsSync(join(dir, `${pendingId}.pid`)), false);
 });

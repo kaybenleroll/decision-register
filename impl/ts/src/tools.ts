@@ -3,11 +3,14 @@
 // I1 and I2: the register tools and the three hook-facing tools, with a minimal journal.
 
 import { randomBytes } from "node:crypto";
+import { readFileSync, truncateSync } from "node:fs";
+import { join } from "node:path";
 
 import pkg from "../package.json" with { type: "json" };
 import { type Classification, classify } from "./classifier.ts";
 import { DecisionLog, type LogMode, type LogState } from "./declog.ts";
 import { Journal, projectDir } from "./journal.ts";
+import { ClaimError, claim, pidPath, readPid, removeFile } from "./pidfile.ts";
 import {
   type Actor,
   type Answer,
@@ -22,6 +25,7 @@ import {
   Register,
   RegisterError,
 } from "./register.ts";
+import { replay } from "./replay.ts";
 import { archiveJournal, scanUnfinished } from "./store.ts";
 
 export type JsonObject = Record<string, unknown>;
@@ -581,10 +585,92 @@ export class App {
     return { interview_id: id, archived: true };
   }
 
-  /** `resume`: not built yet; refuses with the same rules as `discard`. */
+  /**
+   * `resume` (REQ-52): claims the journal's pid file (rename-aside, verify, exclusive
+   * create), replays it, rebinds to last_seen_session_id and returns to `active`. A
+   * replay failure removes the new pid file and leaves the journal unfinished. A pending
+   * interview is stood down once the resume has succeeded.
+   */
   private resume(args: JsonObject): JsonObject {
-    this.pickUnfinished(args);
-    throw new ToolError("resume is not implemented in this build");
+    const id = this.pickUnfinished(args);
+    const dir = projectDir();
+    const pid = pidPath(dir, id);
+    try {
+      claim(dir, id, readPid(pid));
+    } catch (e) {
+      if (e instanceof ClaimError) throw new ToolError(e.message);
+      throw new ToolError(
+        `cannot claim ${id}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    const file = join(dir, `${id}.jsonl`);
+    let result: ReturnType<typeof replay>;
+    let text = "";
+    try {
+      text = readFileSync(file, "utf8");
+      result = replay(text);
+    } catch (e) {
+      removeFile(pid);
+      throw new ToolError(
+        `cannot read ${id}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    if (!result.ok) {
+      removeFile(pid);
+      throw new ToolError(
+        `replay failed at line ${result.line}: ${result.why}`,
+      );
+    }
+    const s = result.state;
+    try {
+      // A torn final line must go, or the next event would be glued to it.
+      if (text !== "" && !text.endsWith("\n")) {
+        truncateSync(
+          file,
+          Buffer.byteLength(text.slice(0, text.lastIndexOf("\n") + 1)),
+        );
+      }
+    } catch {
+      // fail open: the append below may then fail and set write_error
+    }
+    if (this.state === "pending") {
+      this.finish(
+        "stood_down",
+        "not_engaged",
+        "replaced by resume",
+        "replaced by resume",
+      );
+    }
+    this.register = s.register;
+    this.interviewId = id;
+    const journal = new Journal(id, s.lastSeq);
+    journal.adoptPidFile();
+    this.journal = journal;
+    this.declog = new DecisionLog(id);
+    this.state = "active";
+    this.implicitStart = s.implicit;
+    this.boundSession = this.lastSeenSessionId;
+    this.promptSeen = false;
+    this.hookNotePrompt = s.hookNotePrompt;
+    this.hookSkillStarted = s.hookSkillStarted;
+    this.hookCheckStop = s.hookCheckStop;
+    this.blocks = { ...s.blocks };
+    this.emit("resume", {
+      session_id: this.lastSeenSessionId,
+      from_seq: s.lastSeq,
+    });
+    const c = s.register.counts();
+    return {
+      interview_id: id,
+      state: "active",
+      last_event: s.lastSeq,
+      items: {
+        open: c.open,
+        resolved: c.resolved,
+        parked: c.parked,
+        stale: c.stale,
+      },
+    };
   }
 
   private endResult(
