@@ -1,7 +1,6 @@
 //! Tool handlers. The tool schemas themselves come from `contract/tools.json`.
 //!
-//! I1 scope: the register tools plus `note_prompt`. There is no journal yet, so
-//! `last_event` counts the state changes a journal would record.
+//! The register tools, the hook-facing tools and the minimal journal writer (I2).
 
 use std::collections::hash_map::RandomState;
 use std::fmt::Display;
@@ -10,6 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Map, Value, json};
 
+use crate::journal::{Journal, civil_from_days};
 use crate::register::{
     Actor, Answer, Item, Kind, NewItem, Register, Status, is_nonblank, is_valid_id,
 };
@@ -162,19 +162,6 @@ fn item_json(i: &Item) -> Value {
     })
 }
 
-/// Days since 1970-01-01 to (year, month, day), proleptic Gregorian.
-fn civil_from_days(days: i64) -> (i64, i64, i64) {
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    (yoe + era * 400 + i64::from(m <= 2), m, d)
-}
-
 /// `iv-YYYYMMDDTHHMMSSZ-<8 hex>`; the suffix comes from the std randomly seeded hasher.
 fn new_interview_id() -> String {
     let now = SystemTime::now()
@@ -195,11 +182,19 @@ fn new_interview_id() -> String {
     )
 }
 
+/// How an interview came to start (journal `start.route`).
+enum Route {
+    Hook(String),
+    Begin(String),
+    Implicit,
+}
+
 #[derive(Default)]
 pub struct App {
     register: Register,
     interview_id: Option<String>,
-    events: u64,
+    journal: Option<Journal>,
+    last_seen_session: Option<String>,
     prompt_seen: bool,
     hook_note_prompt: u64,
     hook_skill_started: u64,
@@ -252,20 +247,86 @@ impl App {
         }
     }
 
-    /// Starts the interview if none is active; returns its id.
-    fn ensure_started(&mut self) -> String {
-        if let Some(id) = &self.interview_id {
-            self.pending = false; // a model-facing call engages a pending interview
-            return id.clone();
+    /// Queues a journal event; nothing is written while no interview exists.
+    fn emit(&mut self, kind: &str, fields: Value) {
+        if let Some(j) = &mut self.journal {
+            j.event(kind, fields);
+        }
+    }
+
+    /// Starts the interview if none is active; returns its id. A model-facing call
+    /// (`via`) engages a pending interview and writes the `engage` event.
+    fn ensure_started(&mut self, via: &str, route: Route) -> String {
+        if let Some(id) = self.interview_id.clone() {
+            if self.pending {
+                self.pending = false;
+                self.emit("engage", json!({"via": via}));
+            }
+            return id;
         }
         let id = new_interview_id();
         self.interview_id = Some(id.clone());
-        self.events += 1;
+        self.journal = Some(Journal::new(&id));
         // The prompt before the start counts once; earlier inactive ones are not counted.
-        self.hook_note_prompt = u64::from(self.prompt_seen);
+        let prompt_count = u64::from(self.prompt_seen);
+        self.hook_note_prompt = prompt_count;
         self.hook_skill_started = 0;
         self.prompt_seen = false;
+        let (route, skill) = match route {
+            Route::Hook(s) => ("hook", Some(s)),
+            Route::Begin(s) => ("begin_interview", Some(s)),
+            Route::Implicit => ("implicit", None),
+        };
+        let session = self.last_seen_session.clone().or_else(|| {
+            std::env::var("CLAUDE_CODE_SESSION_ID")
+                .ok()
+                .filter(|v| !v.is_empty())
+        });
+        self.emit(
+            "start",
+            json!({
+                "interview_id": id,
+                "route": route,
+                "implicit": skill.is_none(),
+                "skill": skill,
+                "session_id": session,
+                "prompt_count": prompt_count,
+            }),
+        );
         id
+    }
+
+    /// Writes the `item` event for a freshly logged item, and `resolve` if it came
+    /// with an answer.
+    fn journal_logged(&mut self, id: &str) {
+        let Some(item) = self.register.get(id).cloned() else {
+            return;
+        };
+        self.emit(
+            "item",
+            json!({
+                "id": item.id,
+                "item_kind": item.kind.as_str(),
+                "text": item.text,
+                "parent": item.parent,
+                "depends_on": item.depends_on,
+            }),
+        );
+        if let Status::Resolved(a) = &item.status {
+            self.journal_resolved(id, a);
+        }
+    }
+
+    fn journal_resolved(&mut self, id: &str, a: &Answer) {
+        self.emit(
+            "resolve",
+            json!({
+                "id": id,
+                "answer": a.text(),
+                "source": a.source().as_str(),
+                "rationale": a.rationale(),
+            }),
+        );
     }
 
     fn begin_interview(&mut self, args: &Args) -> Result<Value, String> {
@@ -276,7 +337,7 @@ impl App {
                 .map(|v| v.as_u64().filter(|n| *n >= 1)),
         )?
         .ok_or_else(|| bad("tool_schema must be an integer >= 1"))?;
-        text_arg(args, "skill")?;
+        let skill = text_arg(args, "skill")?;
         if required("mode", str_arg(args, "mode")?)? != "register" {
             return Err(bad("mode must be register"));
         }
@@ -288,7 +349,7 @@ impl App {
         }
         self.version_mismatch = None;
         let existing = self.interview_id.is_some();
-        let id = self.ensure_started();
+        let id = self.ensure_started("begin_interview", Route::Begin(skill));
         Ok(json!({"interview_id": id, "state": "active", "existing": existing}))
     }
 
@@ -337,8 +398,8 @@ impl App {
         };
         let (id, status) = self.register.log(new).map_err(|e| e.to_string())?;
         // A rule error above leaves the state untouched; success starts an interview.
-        self.ensure_started();
-        self.events += 1;
+        self.ensure_started("log_item", Route::Implicit);
+        self.journal_logged(&id);
         Ok(json!({"id": id, "status": status}))
     }
 
@@ -351,9 +412,9 @@ impl App {
             self.user_authority()?;
         }
         self.register
-            .resolve(&id, answer)
+            .resolve(&id, answer.clone())
             .map_err(|e| e.to_string())?;
-        self.events += 1;
+        self.journal_resolved(&id, &answer);
         Ok(json!({"id": id, "status": "Resolved"}))
     }
 
@@ -368,16 +429,22 @@ impl App {
         self.register
             .park(&id, by, &reason)
             .map_err(|e| e.to_string())?;
-        self.events += 1;
+        self.emit(
+            "park",
+            json!({"id": id, "reason": reason, "parked_by": by.as_str()}),
+        );
         Ok(json!({"id": id, "status": "Parked"}))
     }
 
     fn reopen(&mut self, args: &Args) -> Result<Value, String> {
         check_known(args, &["id", "reason"])?;
         let id = id_arg(args, "id")?;
-        text_arg(args, "reason")?; // required now; kept once the journal exists
+        let reason = text_arg(args, "reason")?;
         let stale = self.register.reopen(&id).map_err(|e| e.to_string())?;
-        self.events += 1;
+        self.emit(
+            "reopen",
+            json!({"id": id, "reason": reason, "stale": stale}),
+        );
         Ok(json!({"id": id, "status": "Open", "stale": stale}))
     }
 
@@ -402,24 +469,31 @@ impl App {
                 "check_stop": 0,
                 "prompt_seen": self.prompt_seen,
             },
-            "last_event": self.events,
+            "last_event": self.journal.as_ref().map_or(0, Journal::seq),
             "resumable": [],
             "version_mismatch": self.version_mismatch.map(|(p, s)| {
                 json!({"plugin_tool_schema": p, "server_tool_schema": s})
             }),
             "decision_log": null,
-            "write_error": null,
+            "write_error": self.journal.as_ref().and_then(Journal::write_error),
         }))
     }
 
     /// Hook-facing. In I1 this only keeps the prompt counters; nothing consumes them yet.
     fn note_prompt(&mut self, args: &Args) -> Result<Value, String> {
         check_known(args, &["session_id", "prompt"])?;
-        text_arg(args, "session_id")?;
+        let session = text_arg(args, "session_id")?;
         let prompt = required("prompt", str_arg(args, "prompt")?)?;
         if !prompt.starts_with(AGENT_MESSAGE_PREFIX) {
+            self.last_seen_session = Some(session.clone());
             if self.interview_id.is_some() {
                 self.hook_note_prompt += 1;
+                self.emit(
+                    "hook",
+                    json!({"tool": "note_prompt", "session_id": session}),
+                );
+                let count = self.hook_note_prompt;
+                self.emit("prompt", json!({"session_id": session, "count": count}));
             } else {
                 self.prompt_seen = true;
             }
@@ -437,17 +511,29 @@ impl App {
                 .map(|v| v.as_u64().filter(|n| *n >= 1)),
         )?
         .ok_or_else(|| bad("tool_schema must be an integer >= 1"))?;
-        text_arg(args, "session_id")?;
+        let session = text_arg(args, "session_id")?;
         let skill = text_arg(args, "skill")?;
+        self.last_seen_session = Some(session.clone());
         // A listed name starts the interview even on a schema mismatch, which is then
-        // only recorded for `status` (REQ-77).
-        if self.interview_id.is_none() && SKILL_LIST.contains(&skill.as_str()) {
-            self.ensure_started();
+        // only recorded for `status` (REQ-77). The starting call writes `start`, not `hook`.
+        if self.interview_id.is_some() {
+            self.emit(
+                "hook",
+                json!({"tool": "skill_started", "session_id": session}),
+            );
+        } else if SKILL_LIST.contains(&skill.as_str()) {
+            self.ensure_started("skill_started", Route::Hook(skill));
             self.pending = true;
         }
         self.version_mismatch = (ts != TOOL_SCHEMA).then_some((ts, TOOL_SCHEMA));
         if self.interview_id.is_some() {
             self.hook_skill_started += 1;
+            if ts != TOOL_SCHEMA {
+                self.emit(
+                    "mismatch",
+                    json!({"plugin_tool_schema": ts, "server_tool_schema": TOOL_SCHEMA}),
+                );
+            }
         }
         Ok(json!({}))
     }
