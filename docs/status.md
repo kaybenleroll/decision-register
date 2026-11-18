@@ -279,3 +279,11 @@ Open items for the user:
 - Not done: language-experiment build-table row (columns parked); facts are in `.scratch/i1ts-experiment-facts.md` (not committed). Nothing pushed.
 - Verified: the four Python checks, `npm run typecheck`, `npm test` and `npm run build` exit 0 before each commit.
 
+
+## 2026-11-18 (I1 COMPLETE in Rust and TypeScript; #34)
+
+- Slice I1 is complete in both languages. Merged: #44 (Rust, closes #17), #46 (labels.json), #47 (V5 cycle fix and S-36b), #48 (TypeScript, closes #45).
+- Seven I1 scenarios on both builds: S-30a, S-31a, S-35b, S-36b, S-38a, S-45a pass; S-30b red as planned (`check_stop` is not in I1). Whole suite: 12 of 129 scenarios pass on both builds, the same 12.
+- Resolved-without-answer guarantee differs in strength: Rust makes it unrepresentable in the type system; TypeScript only at compile time (branded `Answer`, one factory), backed at runtime by the REQ-31 interface check. Drop rule not triggered.
+- Awaiting user confirmation: TypeScript tooling decisions (npm + lockfile, Node 26 via engines and .nvmrc, TypeScript 7 strict, esbuild bundle, `node:test`, no lint tool), recorded in the build plan under "I1 TypeScript implementation decisions".
+- Parked on Q7: the language-experiment build-table row (columns undecided). Raw facts are in `.scratch/i1-experiment-facts.md` and `.scratch/i1ts-experiment-facts.md` (untracked).
