@@ -275,6 +275,8 @@ pub struct App {
     /// The interview began with an implicit start (log header `implicit_start`).
     implicit: bool,
     declog: DecisionLog,
+    /// The session the interview is bound to (REQ-26); None until a hook call names one.
+    bound_session: Option<String>,
 }
 
 impl App {
@@ -379,6 +381,7 @@ impl App {
                 .ok()
                 .filter(|v| !v.is_empty())
         });
+        self.bound_session = session.clone();
         self.emit(
             "start",
             json!({
@@ -656,6 +659,31 @@ impl App {
         Err("no unfinished journal".to_string())
     }
 
+    /// REQ-26: a hook call from another session ends the interview bound to the old one
+    /// before the call is handled, as if no interview existed. A pending one is stood
+    /// down, a complete one ends after completion, an active one ends `normal` with
+    /// nothing open and `abandoned` otherwise.
+    fn session_guard(&mut self, session: &str) {
+        if self.interview_id.is_none() {
+            return;
+        }
+        match self.bound_session.as_deref() {
+            None => self.bound_session = Some(session.to_string()),
+            Some(bound) if bound == session => {}
+            Some(_) => {
+                if self.pending {
+                    self.end_current("stood_down", "not_engaged", Some("session change"));
+                } else if self.complete {
+                    self.end_current("ended_after_completion", "register", None);
+                } else if self.unresolved().is_empty() {
+                    self.end_current("normal", "register", None);
+                } else {
+                    self.end_current("abandoned", "register", Some("session change"));
+                }
+            }
+        }
+    }
+
     fn end_interview(&mut self, args: &Args) -> Result<Value, String> {
         check_known(args, &["mode", "abandon", "reason"])?;
         let plain = match str_arg(args, "mode")? {
@@ -761,6 +789,7 @@ impl App {
         let session = text_arg(args, "session_id")?;
         let prompt = required("prompt", str_arg(args, "prompt")?)?;
         if !prompt.starts_with(AGENT_MESSAGE_PREFIX) {
+            self.session_guard(&session);
             self.last_seen_session = Some(session.clone());
             self.prompt_since_stop = true;
             self.allowance = if self.unknown_seen {
@@ -800,6 +829,7 @@ impl App {
         .ok_or_else(|| bad("tool_schema must be an integer >= 1"))?;
         let session = text_arg(args, "session_id")?;
         let skill = text_arg(args, "skill")?;
+        self.session_guard(&session);
         self.last_seen_session = Some(session.clone());
         // A listed name starts the interview even on a schema mismatch, which is then
         // only recorded for `status` (REQ-77). The starting call writes `start`, not `hook`.
@@ -833,6 +863,7 @@ impl App {
             "last_assistant_message",
             str_arg(args, "last_assistant_message")?,
         )?;
+        self.session_guard(&session);
         self.last_seen_session = Some(session.clone());
         self.prompt_since_stop = false;
         if self.interview_id.is_none() {
@@ -1009,6 +1040,13 @@ impl App {
 mod tests {
     use super::*;
 
+    /// A new app that does not depend on the session id of the shell running the tests.
+    fn fresh() -> App {
+        // SAFETY: tests only ever clear this variable, none sets it.
+        unsafe { std::env::remove_var("CLAUDE_CODE_SESSION_ID") };
+        App::new()
+    }
+
     fn call(app: &mut App, name: &str, args: Value) -> Result<Value, String> {
         let r = app.call(name, &args, !HOOK_FACING.contains(&name)).unwrap();
         if r.is_error {
@@ -1019,7 +1057,7 @@ mod tests {
     }
 
     fn started() -> App {
-        let mut app = App::new();
+        let mut app = fresh();
         let args = json!({"tool_schema": 4, "skill": "grill-me", "mode": "register"});
         call(&mut app, "begin_interview", args).unwrap();
         app
@@ -1046,7 +1084,7 @@ mod tests {
 
     #[test]
     fn begin_is_idempotent_and_checks_schema() {
-        let mut app = App::new();
+        let mut app = fresh();
         let args = json!({"tool_schema": 4, "skill": "x", "mode": "register"});
         let a = call(&mut app, "begin_interview", args.clone()).unwrap();
         let b = call(&mut app, "begin_interview", args).unwrap();
@@ -1064,7 +1102,7 @@ mod tests {
 
     #[test]
     fn log_item_starts_implicitly_and_errors_do_not() {
-        let mut app = App::new();
+        let mut app = fresh();
         let orphan = json!({"kind": "subquestion", "text": "t"});
         let e = call(&mut app, "log_item", orphan).unwrap_err();
         assert!(e.contains("subquestion needs a parent"));
@@ -1132,7 +1170,7 @@ mod tests {
 
     #[test]
     fn note_prompt_rules() {
-        let mut app = App::new();
+        let mut app = fresh();
         let p = |s: &str| json!({"session_id": "s", "prompt": s});
         call(&mut app, "note_prompt", p("hello")).unwrap();
         call(&mut app, "note_prompt", p("<agent-message from=\"a\">\nx")).unwrap();
@@ -1161,7 +1199,7 @@ mod tests {
 
     #[test]
     fn hook_facing_tools_reject_model_calls_without_effect() {
-        let mut app = App::new();
+        let mut app = fresh();
         let sk = json!({"tool_schema": 4, "session_id": "s", "skill": "grill-me"});
         let r = hook_call(&mut app, "skill_started", sk.clone(), true);
         assert!(r.is_error && r.text.contains("skill_started") && r.text.contains("hook-facing"));
@@ -1183,7 +1221,7 @@ mod tests {
 
     #[test]
     fn skill_started_starts_pending_and_begin_engages() {
-        let mut app = App::new();
+        let mut app = fresh();
         let sk =
             |skill: &str, ts: u64| json!({"tool_schema": ts, "session_id": "s", "skill": skill});
         call(&mut app, "skill_started", sk("other-skill", 4)).unwrap();
@@ -1297,7 +1335,7 @@ mod tests {
 
     #[test]
     fn tools_without_an_interview_find_no_item() {
-        let mut app = App::new();
+        let mut app = fresh();
         let e = call(&mut app, "resolve", resolve_args("q1")).unwrap_err();
         assert!(e.contains("no such item: q1"));
         let e = call(&mut app, "reopen", json!({"id": "q1", "reason": "r"})).unwrap_err();
@@ -1409,7 +1447,7 @@ mod tests {
         let project = std::env::temp_dir().join(format!("regspike-p-{}", std::process::id()));
         // SAFETY: no other test reads CLAUDE_PROJECT_DIR for anything but a journal key.
         unsafe { std::env::set_var("CLAUDE_PROJECT_DIR", &project) };
-        let mut app = App::new();
+        let mut app = fresh();
         let err = call(&mut app, "end_interview", json!({})).unwrap_err();
         assert!(err.contains("no interview to end"));
         let err = call(&mut app, "end_interview", json!({"abandon": true})).unwrap_err();
