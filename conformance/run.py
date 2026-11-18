@@ -28,6 +28,11 @@ RUN_DIR = None  # unique per invocation (set in main), so concurrent runs never 
 TIMEOUT = 20
 EXIT_WAIT = 5
 MODEL_META = {"claudecode/toolUseId": "toolu_conformance"}
+# REQ-90 thresholds (S-90a). Start: process launch to the initialize reply; memory: resident set of the server's
+# process group once idle. 200 MB is read as 200 MiB (204800 KiB).
+START_MAX_SECONDS = 1.0
+IDLE_RSS_MAX_KIB = 200 * 1024
+MEASURE_STARTS_MIN, MEASURE_STARTS_MAX = 3, 21
 TS_RE = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|\+00:00)$")
 
 
@@ -263,6 +268,25 @@ def check_assert(name, a, body, vars_):
     if op == "ge" and not val >= want:
         raise AssertionError("%s is %r, expected at least %r" % (where, val, want))
     return "%s=%s" % (where, json.dumps(val)[:60])
+
+
+def group_rss_kib(pgid):
+    """Resident set size, in KiB, summed over every process in the process group (a launcher may have children)."""
+    total = 0
+    for d in os.listdir("/proc"):
+        if not d.isdigit():
+            continue
+        try:
+            with open("/proc/%s/stat" % d) as f:
+                if int(f.read().rsplit(")", 1)[1].split()[2]) != pgid:
+                    continue
+            with open("/proc/%s/status" % d) as f:
+                for line in f:
+                    if line.startswith("VmRSS:"):
+                        total += int(line.split()[1])
+        except (OSError, ValueError, IndexError):
+            continue  # the process exited meanwhile
+    return total
 
 
 def proc_start(pid):
@@ -531,6 +555,39 @@ class Run:
                     raise AssertionError("%s content does not match /%s/: %r" % (p, rx, content[:120]))
                 self.obs.append("%s content ok (%d bytes)" % (a["path"], len(content)))
 
+    def do_measure_start(self, st):
+        """REQ-90: n cold starts, each a fresh server on fresh directories. Start-to-ready is the time from launching
+        the process to the initialize reply; idle RSS is sampled only after settle_seconds of no traffic. The median of
+        each is checked against START_MAX_SECONDS and IDLE_RSS_MAX_KIB. Works for any command, launcher or not."""
+        n, settle = st.get("starts", 5), st.get("settle_seconds", 1.0)
+        times, rss = [], []
+        for i in range(n):
+            d = os.path.join(self.dir, "measure", str(i))
+            dirs = {k: os.path.join(d, k) for k in ("data", "project", "cwd")}
+            for p in dirs.values():
+                os.makedirs(p)
+            env = dict(os.environ, CLAUDE_PLUGIN_DATA=dirs["data"], CLAUDE_PROJECT_DIR=dirs["project"])
+            for k in ("CLAUDE_CODE_SESSION_ID", "REGSPIKE_CLOCK_OFFSET_SECONDS"):
+                env.pop(k, None)
+            t0 = time.perf_counter()
+            srv = Server(self.cmd, env, os.path.join(d, "server.stderr.log"), dirs["cwd"])
+            try:
+                srv.initialize()
+                times.append(time.perf_counter() - t0)
+                time.sleep(settle)
+                rss.append(group_rss_kib(srv.p.pid))
+            finally:
+                srv.close()
+        med_t, med_r = sorted(times)[n // 2], sorted(rss)[n // 2]
+        self.obs.append("start median %.0f ms of %d (max %.0f; limit %.0f)" % (
+            med_t * 1000, n, max(times) * 1000, START_MAX_SECONDS * 1000))
+        self.obs.append("idle RSS median %.1f MiB (max %.1f; limit %.0f)" % (
+            med_r / 1024, max(rss) / 1024, IDLE_RSS_MAX_KIB / 1024))
+        assert med_t < START_MAX_SECONDS, "median start %.3f s is not under %.1f s (REQ-90); samples %s" % (
+            med_t, START_MAX_SECONDS, ["%.3f" % t for t in times])
+        assert 0 < med_r < IDLE_RSS_MAX_KIB, "median idle RSS %d KiB is not under %d KiB (REQ-90); samples %s" % (
+            med_r, IDLE_RSS_MAX_KIB, rss)
+
     def step(self, st):
         op = st.get("op", "call")
         if op == "call":
@@ -557,6 +614,8 @@ class Run:
             self.do_utime(st)
         elif op == "tools_list":
             self.do_tools_list(st)
+        elif op == "measure_start":
+            self.do_measure_start(st)
         elif op == "repeat":
             for row in repeat_rows(st):
                 self.vars.update(row)
@@ -827,6 +886,7 @@ STEP_KEYS = {
     "repeat": {"op", "count", "var", "rows", "steps"},
     "stderr": {"op", "assert"},
     "utime": {"op", "path", "root", "age_seconds"},
+    "measure_start": {"op", "starts", "settle_seconds"},
     "seed": {"op", "path", "root", "content", "lines", "json", "mkdir", "mode"},
 }
 MAX_REPEAT = 200
@@ -983,6 +1043,12 @@ def validate_step(where, st, tools, validator, errs):
             errs.append("%s: utime needs a path" % where)
         if not is_seconds(st.get("age_seconds")):
             errs.append("%s: utime needs age_seconds, a number of seconds, zero or more" % where)
+    elif op == "measure_start":
+        n, settle = st.get("starts", 5), st.get("settle_seconds", 1.0)
+        if not (isinstance(n, int) and not isinstance(n, bool) and MEASURE_STARTS_MIN <= n <= MEASURE_STARTS_MAX):
+            errs.append("%s: measure_start starts is an integer from %d to %d" % (where, MEASURE_STARTS_MIN, MEASURE_STARTS_MAX))
+        if not (is_seconds(settle) and settle >= 0.1):
+            errs.append("%s: measure_start settle_seconds is a number, at least 0.1" % where)
     elif op == "stderr":
         if not isinstance(st.get("assert"), list) or not st["assert"]:
             errs.append("%s: stderr step needs a non-empty assert list" % where)
@@ -1074,6 +1140,9 @@ def track_servers(where, steps, running, errs):
             if name in running:
                 errs.append("%s: server %s is already running" % (at, name))
             running.add(name)
+        elif op == "measure_start":
+            if running:
+                errs.append("%s: measure_start needs every server stopped (stop the main server first)" % at)
         elif op in ("stop", "kill", "restart", "tools_list", "call"):
             if name not in running:
                 errs.append("%s: server %s is not running" % (at, name))

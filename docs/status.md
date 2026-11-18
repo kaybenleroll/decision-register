@@ -360,3 +360,18 @@ Open items for the user:
   2. A journal holding an `end` event but still in the project directory (not archived) counts as an unknown interview id for `resume` and `discard`, not as unfinished. The contract says an unfinished journal has no `end` event but does not say what an ended one left in the project directory is.
   3. The pid-file JSON key order `pid`, `start`, `interview_id` is required by the scenario regexes (S-L1) but the runtime.md "Pid file and claim" section gives it only in the example, not as a rule. A JSON library that sorts keys (serde_json does) breaks it silently.
   4. Replay of a v1 journal: a v1 journal has no `start` event, so the interview id comes from the file name. The journal contract does not say this.
+
+## 2026-11-18 (I5 parity check, Rust versus TypeScript; #67 AC3; branch issue-67-i5-rs)
+
+- One identical 21-call session against both builds (Rust at the S-90a harness commit; TypeScript at 17e5c6c of issue-68-i5-ts). After normalising only timestamps, the interview id and the scratch path prefix, 4 differences. Contract text and both builds unchanged; each is an input to a user-owned decision. Detail: `docs/evidence/i5-parity.md`.
+  1. Journal `end.reason` for `end_interview` on a complete interview: Rust `null`, TypeScript `"end_interview"` (journal.md does not say what a plain `end_interview` writes).
+  2. `check_stop` block reason for an unlogged question: different wording, and Rust lists the open items (not pinned by a scenario).
+  3. Decision log body layout differs (Rust per-item sections; TypeScript `## Items` list plus `## Hook health`); only the header is fixed by runtime.md.
+  4. JSON key order: Rust alphabetical, TypeScript schema order; equal as JSON, different as text.
+- Not a permanent harness; if the differences matter, a text-level journal comparison belongs with CI issue #32.
+
+## 2026-11-18 (I5 Rust: non-functional and parity; #67; branch issue-67-i5-rs)
+
+- Done: scenario S-90a with the `measure_start` step in `conformance/run.py` (shared with the TypeScript build, #68): median of 5 cold starts under 1 s and median idle RSS (process group, sampled 1 s after the reply) under 200 MiB, hard-failing; thresholds are constants `START_MAX_SECONDS` and `IDLE_RSS_MAX_KIB`. Rust: start 1 ms, idle RSS 2.7 MiB (TypeScript at the same commit: 41 ms, 53.3 MiB). Suite 135/135 on the Rust build; selftest 41/41. Measurements in `docs/evidence/language-experiment.md` section 4a; parity in `docs/evidence/i5-parity.md` (entry above). Rust README added (folded-in AC4).
+- Judgement calls for the user: "200 MB" is read as 200 MiB; page cache is not dropped, so "cold" means a new process, not a cold disk; S-90a requires the main server to be stopped first (the validator enforces it).
+- Tokens for the I5 row: not yet measured. Nothing merged.

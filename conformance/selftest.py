@@ -357,6 +357,30 @@ def mtimes_run():
     fails("does not exist", {"op": "utime", "path": "nothing", "age_seconds": 5})
 
 
+@test
+def measure_start_parsed_and_enforced():
+    stop, ms = {"op": "stop"}, {"op": "measure_start", "starts": 3, "settle_seconds": 0.1}
+    accepts(stop, ms, {"op": "measure_start"})
+    rejects("needs every server stopped", ms)
+    rejects("starts is an integer", stop, {"op": "measure_start", "starts": 1})
+    rejects("starts is an integer", stop, {"op": "measure_start", "starts": True})
+    rejects("settle_seconds", stop, {"op": "measure_start", "settle_seconds": 0})
+    rejects("unknown key", stop, {"op": "measure_start", "runs": 3})
+    plays(stop, ms)
+    old = run.START_MAX_SECONDS
+    run.START_MAX_SECONDS = 0.0
+    try:
+        fails("REQ-90", stop, ms)
+    finally:
+        run.START_MAX_SECONDS = old
+    old = run.IDLE_RSS_MAX_KIB
+    run.IDLE_RSS_MAX_KIB = 1
+    try:
+        fails("idle RSS", stop, ms)
+    finally:
+        run.IDLE_RSS_MAX_KIB = old
+
+
 # ---------------------------------------------------------------- SIGKILL
 
 @test
