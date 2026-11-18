@@ -321,6 +321,11 @@ Open items for the user:
 - Verified: the four checks exit 0 before each commit.
 
 
+## 2026-11-18 (TypeScript build: closing-replay rule e5; #51, #18; branch issue-51-i2-ts)
+
+- Done: `impl/ts/src/classifier.ts` implements the closing-replay rule (contract section 4(a) to (c), evaluation order of section 4) as `closureSentence`, `closingReplayPrefix`, `isClosingReplay`, wired into `classify` after the section 5 concern. Unit tests for each clause, positive and negative, in `impl/ts/test/classifier.test.ts`. No schema or journal change (`tool_schema` stays 4).
+- Verified: against the built bundle, S-43v, S-43w and S-43x pass; all 57 I2-owned scenarios pass; 77 of 132 scenarios pass in total (the rest are owned by I3 and I4 and not yet implemented). Before the change: 74 of 129.
+
 ## 2026-11-18 (live defect: end_interview inputSchema had no top-level type; #34)
 
 - Finding: Claude Code 2.1.327 rejects a `tools/list` that contains a tool whose inputSchema lacks a top-level `"type": "object"` (`tools.8.inputSchema.type: expected object`), and the rejection hides every tool of the server (no begin_interview, status, ...). By script over contract/tools.json, only `end_interview` was affected (its input was a bare `oneOf`); the other 11 already had `type: object`. Neither build serves end_interview yet (7 of 12 tools), so the live failure appeared once a build listed it; it would have bitten at I4.
