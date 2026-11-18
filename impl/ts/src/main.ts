@@ -9,4 +9,5 @@ rl.on("line", (line) => {
   const reply = server.handleLine(line);
   if (reply !== null) process.stdout.write(reply + "\n");
 });
+rl.on("close", () => server.onEof());
 // The process exits by itself once stdin reaches EOF and stdout has drained.

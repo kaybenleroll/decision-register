@@ -432,6 +432,32 @@ export class App {
   }
 
   /**
+   * Graceful exit on stdin EOF (runtime.md "Interview ends and server exit"): pending is
+   * stood down, complete is ended, an active interview keeps its journal unfinished
+   * (pid file removed, log flagged `interrupted`), none does nothing.
+   */
+  onEof(): void {
+    if (this.state === "pending") {
+      this.finish(
+        "stood_down",
+        "not_engaged",
+        "server exit while pending",
+        "server exited before the skill engaged",
+      );
+    } else if (this.state === "complete") {
+      this.finish("ended_after_completion", "register", "server exit", null);
+    } else if (this.state === "active") {
+      this.writeLog(
+        "active",
+        "register",
+        "interrupted",
+        "interrupted: the server exited while the interview was running",
+      );
+      this.journal?.removePidFile();
+    }
+  }
+
+  /**
    * REQ-26: a hook call whose session id differs from the bound one ends the interview
    * (normal, abandoned if items are open, "ended after completion", or stood down if
    * pending); the caller then behaves as with no interview.

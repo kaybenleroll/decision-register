@@ -75,6 +75,11 @@ export class Server {
     }
   }
 
+  /** Called once at stdin EOF, before the process exits. */
+  onEof(): void {
+    this.app.onEof();
+  }
+
   private toolsCall(id: Id, params: unknown): string {
     const p = isObject(params) ? params : {};
     const name = p["name"];
