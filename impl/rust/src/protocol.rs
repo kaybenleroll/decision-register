@@ -178,7 +178,9 @@ mod tests {
     #[test]
     fn unbuilt_tool_returns_not_implemented_error_result() {
         let mut s = Server::new();
-        for name in ["discard", "end_interview", "resume"] {
+        // Every contract tool is built from I3 on, so the fallback is unreachable for them.
+        // `resume` and `discard` answer with a domain error result, never a protocol error.
+        for name in ["discard", "resume"] {
             let line = format!(
                 r#"{{"id":1,"method":"tools/call","params":{{"name":"{name}","arguments":{{}}}}}}"#
             );
@@ -186,7 +188,7 @@ mod tests {
             assert!(r.get("error").is_none());
             assert_eq!(r["result"]["isError"], true);
             let text = r["result"]["content"][0]["text"].as_str().unwrap();
-            assert_eq!(text, format!("not implemented in this build: {name}"));
+            assert_eq!(text, "no unfinished journal");
         }
     }
 

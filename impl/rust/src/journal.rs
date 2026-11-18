@@ -57,17 +57,22 @@ fn env_nonempty(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|v| !v.is_empty())
 }
 
+/// The project path: `CLAUDE_PROJECT_DIR` verbatim, else the working directory.
+pub fn project_path() -> String {
+    env_nonempty("CLAUDE_PROJECT_DIR").unwrap_or_else(|| {
+        std::env::current_dir()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    })
+}
+
 /// `<data root>/<project key>`: key is the first 16 hex digits of SHA-256(project path).
 pub fn project_dir() -> PathBuf {
     let root = env_nonempty("CLAUDE_PLUGIN_DATA").map_or_else(
         || std::env::temp_dir().join("decision-register-data"),
         PathBuf::from,
     );
-    let project = env_nonempty("CLAUDE_PROJECT_DIR").unwrap_or_else(|| {
-        std::env::current_dir()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_default()
-    });
+    let project = project_path();
     let digest = Sha256::digest(project.as_bytes());
     let key: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
     root.join(key)
@@ -118,6 +123,26 @@ impl Journal {
         self.queue.push(Value::Object(line).to_string());
     }
 
+    /// Moves the journal to `archive/` (a rename, never a copy). Call after a flush; a
+    /// journal that was never written has nothing to move. Errors are reported, not raised.
+    pub fn archive(&mut self) {
+        if !self.queue.is_empty() || !self.path.exists() {
+            return;
+        }
+        let Some(dir) = self.path.parent() else {
+            return;
+        };
+        let archive = dir.join("archive");
+        let moved = fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&archive)
+            .and_then(|()| fs::rename(&self.path, archive.join(self.path.file_name().unwrap())));
+        if let Err(e) = moved {
+            self.write_error = Some(format!("journal archive failed: {e}"));
+        }
+    }
+
     /// Writes the queued events in order; on failure keeps them for the next flush.
     pub fn flush(&mut self) {
         if self.queue.is_empty() {
@@ -158,6 +183,19 @@ mod tests {
     fn rfc3339_known_instants() {
         assert_eq!(rfc3339(0), "1970-01-01T00:00:00Z");
         assert_eq!(rfc3339(1_795_000_000), "2026-11-18T11:06:40Z");
+    }
+
+    #[test]
+    fn archive_moves_a_flushed_journal() {
+        let dir = std::env::temp_dir().join(format!("regspike-j-{}", std::process::id()));
+        let mut j = Journal::new("iv-arch");
+        j.path = dir.join("iv-arch.jsonl");
+        j.event("hook", json!({"tool": "check_stop", "session_id": "s"}));
+        j.flush();
+        j.archive();
+        assert!(!dir.join("iv-arch.jsonl").exists());
+        assert!(dir.join("archive/iv-arch.jsonl").exists());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

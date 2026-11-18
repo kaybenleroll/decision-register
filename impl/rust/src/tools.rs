@@ -10,19 +10,23 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::{Map, Value, json};
 
 use crate::classifier::{Class, ClassItem, classify};
+use crate::declog::{DecisionLog, LogView};
 use crate::journal::{Journal, civil_from_days};
 use crate::register::{
     Actor, Answer, Item, Kind, NewItem, Register, Status, is_nonblank, is_valid_id,
 };
 
 /// Tools this build implements, in the order they are listed.
-pub const IMPLEMENTED: [&str; 9] = [
+pub const IMPLEMENTED: [&str; 12] = [
     "begin_interview",
     "log_item",
     "resolve",
     "park",
     "reopen",
     "status",
+    "resume",
+    "discard",
+    "end_interview",
     "note_prompt",
     "skill_started",
     "check_stop",
@@ -268,6 +272,11 @@ pub struct App {
     /// A hook start not yet engaged by a model-facing call (REQ-27).
     pending: bool,
     version_mismatch: Option<(u64, u64)>,
+    /// The interview began with an implicit start (log header `implicit_start`).
+    implicit: bool,
+    declog: DecisionLog,
+    /// The session the interview is bound to (REQ-26); None until a hook call names one.
+    bound_session: Option<String>,
 }
 
 impl App {
@@ -311,6 +320,8 @@ impl App {
             "park" => self.park(args),
             "reopen" => self.reopen(args),
             "status" => self.status(args),
+            "end_interview" => self.end_interview(args),
+            "resume" | "discard" => self.resume_or_discard(args),
             "note_prompt" => self.note_prompt(args),
             "skill_started" => self.skill_started(args),
             "check_stop" => self.check_stop(args),
@@ -351,6 +362,8 @@ impl App {
         self.hook_skill_started = 0;
         self.hook_check_stop = 0;
         self.complete = false;
+        self.implicit = matches!(route, Route::Implicit);
+        self.declog = DecisionLog::default();
         self.blocks = Blocks::default();
         if !self.prompt_seen {
             self.allowance = 0;
@@ -368,6 +381,7 @@ impl App {
                 .ok()
                 .filter(|v| !v.is_empty())
         });
+        self.bound_session = session.clone();
         self.emit(
             "start",
             json!({
@@ -440,7 +454,9 @@ impl App {
         self.version_mismatch = None;
         let existing = self.interview_id.is_some();
         let id = self.ensure_started("begin_interview", Route::Begin(skill));
-        Ok(json!({"interview_id": id, "state": "active", "existing": existing}))
+        // A start while complete is a no-op that stays complete (tools.json state_matrix).
+        let state = if self.complete { "complete" } else { "active" };
+        Ok(json!({"interview_id": id, "state": state, "existing": existing}))
     }
 
     fn log_item(&mut self, args: &Args) -> Result<Value, String> {
@@ -584,6 +600,164 @@ impl App {
         Ok(json!({"id": id, "status": "Open", "stale": stale}))
     }
 
+    /// Writes the decision log now (REQ-23): the queue is flushed first so the position
+    /// is durable. Returns the log path; a write failure only sets `write_error`.
+    fn write_log(&mut self, state: &str, mode: &str, end_kind: &str) -> Option<String> {
+        let id = self.interview_id.clone()?;
+        self.flush_journal();
+        let position = self.journal.as_ref().map_or(0, Journal::seq);
+        let note = match (end_kind, mode) {
+            ("stood_down", "plain") => "Stood down by the model (mode plain): nothing was logged.",
+            ("stood_down", _) => {
+                "The skill did not engage the register: the interview was stood down."
+            }
+            ("ended_incomplete_by_model", _) => "Ended incomplete by the model with items open.",
+            ("abandoned", _) => "Abandoned: the session changed with items open (incomplete).",
+            ("interrupted", _) => "Interrupted: the server exited with the interview unfinished.",
+            _ => "",
+        };
+        let view = LogView {
+            interview_id: &id,
+            position,
+            state,
+            mode,
+            end_kind,
+            note,
+            implicit: self.implicit,
+            items: self.register.ordered(),
+        };
+        Some(self.declog.write(&view).to_string_lossy().into_owned())
+    }
+
+    /// Ends the interview (REQ-23): the `end` event, the flush, the log, the archive
+    /// rename, then the state back to none. Returns the interview id and the log path.
+    fn end_current(
+        &mut self,
+        end_kind: &str,
+        journal_mode: &str,
+        reason: Option<&str>,
+    ) -> (String, String) {
+        let id = self.interview_id.clone().unwrap_or_default();
+        self.emit(
+            "end",
+            json!({"end_kind": end_kind, "mode": journal_mode, "reason": reason}),
+        );
+        let log_mode = journal_mode.replace('_', " ");
+        let log = self.write_log("ended", &log_mode, end_kind);
+        if let Some(j) = &mut self.journal {
+            j.archive();
+        }
+        self.register = Register::default();
+        self.interview_id = None;
+        self.journal = None;
+        self.complete = false;
+        self.pending = false;
+        self.implicit = false;
+        self.declog = DecisionLog::default();
+        (id, log.unwrap_or_default())
+    }
+
+    /// `resume` and `discard`: only the state check (state_matrix) in I3. There is no
+    /// unfinished-journal scan yet, so from none or pending both report that nothing
+    /// can be resumed; the scan, claim and replay are I4.
+    fn resume_or_discard(&mut self, args: &Args) -> Result<Value, String> {
+        check_known(args, &["id"])?;
+        opt_id_arg(args, "id")?;
+        if self.interview_id.is_some() && !self.pending {
+            let state = if self.complete { "complete" } else { "active" };
+            return Err(format!("wrong state: {state}"));
+        }
+        Err("no unfinished journal".to_string())
+    }
+
+    /// REQ-26: a hook call from another session ends the interview bound to the old one
+    /// before the call is handled, as if no interview existed. A pending one is stood
+    /// down, a complete one ends after completion, an active one ends `normal` with
+    /// nothing open and `abandoned` otherwise.
+    fn session_guard(&mut self, session: &str) {
+        if self.interview_id.is_none() {
+            return;
+        }
+        match self.bound_session.as_deref() {
+            None => self.bound_session = Some(session.to_string()),
+            Some(bound) if bound == session => {}
+            Some(_) => {
+                if self.pending {
+                    self.end_current("stood_down", "not_engaged", Some("session change"));
+                } else if self.complete {
+                    self.end_current("ended_after_completion", "register", None);
+                } else if self.unresolved().is_empty() {
+                    self.end_current("normal", "register", None);
+                } else {
+                    self.end_current("abandoned", "register", Some("session change"));
+                }
+            }
+        }
+    }
+
+    fn end_interview(&mut self, args: &Args) -> Result<Value, String> {
+        check_known(args, &["mode", "abandon", "reason"])?;
+        let plain = match str_arg(args, "mode")? {
+            Some("plain") => true,
+            Some(_) => return Err(bad("mode must be plain")),
+            None => false,
+        };
+        if plain && args.len() > 1 {
+            return Err(bad("mode plain takes no other argument"));
+        }
+        let abandon = match args.get("abandon") {
+            None => false,
+            Some(Value::Bool(true)) => true,
+            Some(_) => return Err(bad("abandon must be true")),
+        };
+        let reason = if args.contains_key("reason") {
+            Some(text_arg(args, "reason")?)
+        } else {
+            None
+        };
+        if abandon != reason.is_some() {
+            return Err(bad("abandon and reason must be given together"));
+        }
+        if self.interview_id.is_none() {
+            return Err("no interview to end".to_string());
+        }
+        if self.pending {
+            if !plain {
+                return Err("pending interview: use mode plain".to_string());
+            }
+            return Ok(self.ended("stood_down", "plain", None));
+        }
+        if plain {
+            return Err("mode plain applies only to a pending interview".to_string());
+        }
+        let open = self.unresolved();
+        if self.complete {
+            if abandon {
+                return Err("nothing is open: abandon does not apply".to_string());
+            }
+            return Ok(self.ended("ended_after_completion", "register", None));
+        }
+        match (open.is_empty(), abandon) {
+            (true, true) => Err("nothing is open: abandon does not apply".to_string()),
+            (true, false) => Ok(self.ended("normal", "register", None)),
+            (false, false) => {
+                let ids: Vec<&str> = open.iter().filter_map(|l| l.split(' ').next()).collect();
+                Err(format!(
+                    "items are open: {}; resolve or park them, or end with abandon true and a reason",
+                    ids.join(", ")
+                ))
+            }
+            (false, true) => {
+                Ok(self.ended("ended_incomplete_by_model", "register", reason.as_deref()))
+            }
+        }
+    }
+
+    fn ended(&mut self, end_kind: &str, mode: &str, reason: Option<&str>) -> Value {
+        let (id, log) = self.end_current(end_kind, mode, reason);
+        json!({"interview_id": id, "state": "ended", "end_kind": end_kind, "decision_log": log})
+    }
+
     fn status(&self, args: &Args) -> Result<Value, String> {
         check_known(args, &[])?;
         let c = self.register.counts();
@@ -611,8 +785,12 @@ impl App {
             "version_mismatch": self.version_mismatch.map(|(p, s)| {
                 json!({"plugin_tool_schema": p, "server_tool_schema": s})
             }),
-            "decision_log": null,
-            "write_error": self.journal.as_ref().and_then(Journal::write_error),
+            "decision_log": self.declog.path().map(|p| p.to_string_lossy().into_owned()),
+            "write_error": self
+                .journal
+                .as_ref()
+                .and_then(Journal::write_error)
+                .or_else(|| self.declog.error()),
         }))
     }
 
@@ -622,6 +800,7 @@ impl App {
         let session = text_arg(args, "session_id")?;
         let prompt = required("prompt", str_arg(args, "prompt")?)?;
         if !prompt.starts_with(AGENT_MESSAGE_PREFIX) {
+            self.session_guard(&session);
             self.last_seen_session = Some(session.clone());
             self.prompt_since_stop = true;
             self.allowance = if self.unknown_seen {
@@ -661,6 +840,7 @@ impl App {
         .ok_or_else(|| bad("tool_schema must be an integer >= 1"))?;
         let session = text_arg(args, "session_id")?;
         let skill = text_arg(args, "skill")?;
+        self.session_guard(&session);
         self.last_seen_session = Some(session.clone());
         // A listed name starts the interview even on a schema mismatch, which is then
         // only recorded for `status` (REQ-77). The starting call writes `start`, not `hook`.
@@ -694,6 +874,7 @@ impl App {
             "last_assistant_message",
             str_arg(args, "last_assistant_message")?,
         )?;
+        self.session_guard(&session);
         self.last_seen_session = Some(session.clone());
         self.prompt_since_stop = false;
         if self.interview_id.is_none() {
@@ -702,6 +883,16 @@ impl App {
         }
         self.hook_check_stop += 1;
         self.emit("hook", json!({"tool": "check_stop", "session_id": session}));
+        // A pending interview survives one Stop check; the second, with no model-facing
+        // register call in between, stands it down (REQ-27 rule 3).
+        if self.pending && self.hook_check_stop >= 2 {
+            self.end_current(
+                "stood_down",
+                "not_engaged",
+                Some("second Stop check without a register call"),
+            );
+            return Ok(json!({}));
+        }
         let result = if self.pending || self.complete {
             json!({})
         } else {
@@ -732,6 +923,12 @@ impl App {
             if verdict.completes {
                 self.complete = true;
                 self.emit("complete", json!({}));
+            }
+            // Every allowed finish attempt writes the log (REQ-23), also one allowed
+            // because the caps are spent.
+            if verdict.reason.is_none() && verdict.classification == "finish" {
+                let state = if self.complete { "complete" } else { "active" };
+                self.write_log(state, "register", "none");
             }
             match verdict.reason {
                 Some(reason) => json!({"decision": "block", "reason": reason}),
@@ -864,6 +1061,13 @@ impl App {
 mod tests {
     use super::*;
 
+    /// A new app that does not depend on the session id of the shell running the tests.
+    fn fresh() -> App {
+        // SAFETY: tests only ever clear this variable, none sets it.
+        unsafe { std::env::remove_var("CLAUDE_CODE_SESSION_ID") };
+        App::new()
+    }
+
     fn call(app: &mut App, name: &str, args: Value) -> Result<Value, String> {
         let r = app.call(name, &args, !HOOK_FACING.contains(&name)).unwrap();
         if r.is_error {
@@ -874,7 +1078,7 @@ mod tests {
     }
 
     fn started() -> App {
-        let mut app = App::new();
+        let mut app = fresh();
         let args = json!({"tool_schema": 4, "skill": "grill-me", "mode": "register"});
         call(&mut app, "begin_interview", args).unwrap();
         app
@@ -901,7 +1105,7 @@ mod tests {
 
     #[test]
     fn begin_is_idempotent_and_checks_schema() {
-        let mut app = App::new();
+        let mut app = fresh();
         let args = json!({"tool_schema": 4, "skill": "x", "mode": "register"});
         let a = call(&mut app, "begin_interview", args.clone()).unwrap();
         let b = call(&mut app, "begin_interview", args).unwrap();
@@ -919,7 +1123,7 @@ mod tests {
 
     #[test]
     fn log_item_starts_implicitly_and_errors_do_not() {
-        let mut app = App::new();
+        let mut app = fresh();
         let orphan = json!({"kind": "subquestion", "text": "t"});
         let e = call(&mut app, "log_item", orphan).unwrap_err();
         assert!(e.contains("subquestion needs a parent"));
@@ -987,7 +1191,7 @@ mod tests {
 
     #[test]
     fn note_prompt_rules() {
-        let mut app = App::new();
+        let mut app = fresh();
         let p = |s: &str| json!({"session_id": "s", "prompt": s});
         call(&mut app, "note_prompt", p("hello")).unwrap();
         call(&mut app, "note_prompt", p("<agent-message from=\"a\">\nx")).unwrap();
@@ -1016,7 +1220,7 @@ mod tests {
 
     #[test]
     fn hook_facing_tools_reject_model_calls_without_effect() {
-        let mut app = App::new();
+        let mut app = fresh();
         let sk = json!({"tool_schema": 4, "session_id": "s", "skill": "grill-me"});
         let r = hook_call(&mut app, "skill_started", sk.clone(), true);
         assert!(r.is_error && r.text.contains("skill_started") && r.text.contains("hook-facing"));
@@ -1038,7 +1242,7 @@ mod tests {
 
     #[test]
     fn skill_started_starts_pending_and_begin_engages() {
-        let mut app = App::new();
+        let mut app = fresh();
         let sk =
             |skill: &str, ts: u64| json!({"tool_schema": ts, "session_id": "s", "skill": skill});
         call(&mut app, "skill_started", sk("other-skill", 4)).unwrap();
@@ -1152,7 +1356,7 @@ mod tests {
 
     #[test]
     fn tools_without_an_interview_find_no_item() {
-        let mut app = App::new();
+        let mut app = fresh();
         let e = call(&mut app, "resolve", resolve_args("q1")).unwrap_err();
         assert!(e.contains("no such item: q1"));
         let e = call(&mut app, "reopen", json!({"id": "q1", "reason": "r"})).unwrap_err();
@@ -1256,6 +1460,57 @@ mod tests {
         assert_eq!(stop(&mut app, "anything at all"), json!({}));
         q(&mut app, "late");
         assert!(!app.complete);
+    }
+
+    #[test]
+    fn session_change_and_second_stop_end_interviews() {
+        let project = std::env::temp_dir().join(format!("regspike-s-{}", std::process::id()));
+        // SAFETY: no other test reads CLAUDE_PROJECT_DIR for anything but a journal key.
+        unsafe { std::env::set_var("CLAUDE_PROJECT_DIR", &project) };
+        let mut app = fresh();
+        let state = |a: &App| a.status(&Map::new()).unwrap()["state"].clone();
+        prompt(&mut app);
+        q(&mut app, "q1");
+        assert_eq!(state(&app), "active");
+        // A hook call from another session abandons the bound interview.
+        let other = json!({"session_id": "other", "prompt": "hello"});
+        call(&mut app, "note_prompt", other).unwrap();
+        assert_eq!(state(&app), "none");
+        // A pending interview survives one Stop check and is stood down by the second.
+        let sk = json!({"tool_schema": 4, "session_id": "other", "skill": "grill-me"});
+        call(&mut app, "skill_started", sk).unwrap();
+        let stop = json!({"session_id": "other", "last_assistant_message": "hm?"});
+        call(&mut app, "check_stop", stop.clone()).unwrap();
+        assert_eq!(state(&app), "pending");
+        call(&mut app, "check_stop", stop).unwrap();
+        assert_eq!(state(&app), "none");
+        let _ = std::fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn end_interview_follows_the_state_matrix() {
+        // Decision logs go under the project path; keep them out of the source tree.
+        let project = std::env::temp_dir().join(format!("regspike-p-{}", std::process::id()));
+        // SAFETY: no other test reads CLAUDE_PROJECT_DIR for anything but a journal key.
+        unsafe { std::env::set_var("CLAUDE_PROJECT_DIR", &project) };
+        let mut app = fresh();
+        let err = call(&mut app, "end_interview", json!({})).unwrap_err();
+        assert!(err.contains("no interview to end"));
+        let err = call(&mut app, "end_interview", json!({"abandon": true})).unwrap_err();
+        assert!(err.contains("invalid arguments"));
+        q(&mut app, "q1");
+        let err = call(&mut app, "end_interview", json!({})).unwrap_err();
+        assert!(err.contains("q1"));
+        let err = call(&mut app, "end_interview", json!({"mode": "plain"})).unwrap_err();
+        assert!(err.contains("mode plain applies only to a pending interview"));
+        let ended = call(
+            &mut app,
+            "end_interview",
+            json!({"abandon": true, "reason": "stop"}),
+        )
+        .unwrap();
+        assert_eq!(ended["end_kind"], "ended_incomplete_by_model");
+        assert_eq!(app.status(&Map::new()).unwrap()["state"], "none");
     }
 
     #[test]
