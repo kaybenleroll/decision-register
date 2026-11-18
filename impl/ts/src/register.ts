@@ -21,7 +21,8 @@ export const isOneline = (s: string): boolean =>
   isNonblank(s) && !/[\r\n\v\f\x85\u2028\u2029]/.test(s);
 
 /** Ids match `^[A-Za-z0-9_.-]{1,64}$`. */
-export const isValidId = (s: string): boolean => /^[A-Za-z0-9_.-]{1,64}$/.test(s);
+export const isValidId = (s: string): boolean =>
+  /^[A-Za-z0-9_.-]{1,64}$/.test(s);
 
 declare const answerBrand: unique symbol;
 
@@ -35,13 +36,26 @@ export interface Answer {
 
 export type AnswerResult =
   | { readonly ok: true; readonly answer: Answer }
-  | { readonly ok: false; readonly param: "answer" | "rationale"; readonly why: string };
+  | {
+      readonly ok: false;
+      readonly param: "answer" | "rationale";
+      readonly why: string;
+    };
 
 /** The one validating factory for Answer. */
-export function makeAnswer(text: string, source: Actor, rationale: string): AnswerResult {
-  if (!isNonblank(text)) return { ok: false, param: "answer", why: "must not be blank" };
+export function makeAnswer(
+  text: string,
+  source: Actor,
+  rationale: string,
+): AnswerResult {
+  if (!isNonblank(text))
+    return { ok: false, param: "answer", why: "must not be blank" };
   if (!isOneline(rationale)) {
-    return { ok: false, param: "rationale", why: "must be a single non-blank line" };
+    return {
+      ok: false,
+      param: "rationale",
+      why: "must be a single non-blank line",
+    };
   }
   const answer = Object.freeze({ text, source, rationale }) as Answer;
   return { ok: true, answer };
@@ -59,7 +73,12 @@ export type StatusName = Status["kind"];
 const OPEN: Status = Object.freeze({ kind: "Open" });
 
 /** Position in the `status` tree order: Open, Stale, Parked, Resolved. */
-const RANK: Record<StatusName, number> = { Open: 0, Stale: 1, Parked: 2, Resolved: 3 };
+const RANK: Record<StatusName, number> = {
+  Open: 0,
+  Stale: 1,
+  Parked: 2,
+  Resolved: 3,
+};
 
 export interface Item {
   readonly id: string;
@@ -116,8 +135,12 @@ export class Register {
     if (n.kind === "subquestion" && n.parent === null) {
       throw new RegisterError("subquestion needs a parent");
     }
-    for (const dep of [...(n.parent === null ? [] : [n.parent]), ...n.dependsOn]) {
-      if (this.get(dep) === undefined) throw new RegisterError(`missing item: ${dep}`);
+    for (const dep of [
+      ...(n.parent === null ? [] : [n.parent]),
+      ...n.dependsOn,
+    ]) {
+      if (this.get(dep) === undefined)
+        throw new RegisterError(`missing item: ${dep}`);
     }
     const id = n.id ?? this.freshId();
     const status: Status =
@@ -140,7 +163,9 @@ export class Register {
   }
 
   private static reject(action: string, item: Item): never {
-    throw new RegisterError(`cannot ${action} ${item.id}: item is ${item.status.kind}`);
+    throw new RegisterError(
+      `cannot ${action} ${item.id}: item is ${item.status.kind}`,
+    );
   }
 
   /** Resolve accepts Open, Stale and Parked (either parker); rejects Resolved. */
@@ -155,7 +180,9 @@ export class Register {
     const item = this.lookup(id);
     const s = item.status;
     const allowed =
-      s.kind === "Open" || s.kind === "Stale" || (s.kind === "Parked" && s.by === "model");
+      s.kind === "Open" ||
+      s.kind === "Stale" ||
+      (s.kind === "Parked" && s.by === "model");
     if (!allowed) Register.reject("park", item);
     item.status = { kind: "Parked", by, reason };
   }
@@ -188,7 +215,9 @@ export class Register {
 
   /** Items in `status` order: Open, Stale, Parked, Resolved; creation order within. */
   ordered(): Item[] {
-    return [...this.items].sort((a, b) => RANK[a.status.kind] - RANK[b.status.kind]);
+    return [...this.items].sort(
+      (a, b) => RANK[a.status.kind] - RANK[b.status.kind],
+    );
   }
 
   counts(): Counts {

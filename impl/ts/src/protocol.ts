@@ -51,7 +51,9 @@ export class Server {
     const method = msg["method"];
     if (typeof method !== "string") {
       const isResponse = "result" in msg || "error" in msg;
-      return isResponse ? null : replyErr(id ?? null, -32600, "invalid request");
+      return isResponse
+        ? null
+        : replyErr(id ?? null, -32600, "invalid request");
     }
     if (id === undefined) return null; // a notification, never answered
     const params = msg["params"] ?? null;
@@ -81,12 +83,19 @@ export class Server {
     }
     const rawArgs = p["arguments"];
     if (rawArgs !== undefined && rawArgs !== null && !isObject(rawArgs)) {
-      return replyErr(id, -32602, "malformed params: arguments must be an object");
+      return replyErr(
+        id,
+        -32602,
+        "malformed params: arguments must be an object",
+      );
     }
     const meta = p["_meta"];
     const modelFacing = isObject(meta) && "claudecode/toolUseId" in meta;
     const r = this.app.call(name, rawArgs ?? {}, modelFacing);
     if (r === null) return replyErr(id, -32602, `unknown tool: ${name}`);
-    return replyOk(id, { content: [{ type: "text", text: r.text }], isError: r.isError });
+    return replyOk(id, {
+      content: [{ type: "text", text: r.text }],
+      isError: r.isError,
+    });
   }
 }

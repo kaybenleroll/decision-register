@@ -10,14 +10,14 @@ import {
   type Actor,
   type Answer,
   type Item,
-  type Kind,
-  Register,
-  RegisterError,
   isNonblank,
   isValidId,
+  type Kind,
   makeAnswer,
   parseActor,
   parseKind,
+  Register,
+  RegisterError,
 } from "./register.ts";
 
 export type JsonObject = Record<string, unknown>;
@@ -47,7 +47,8 @@ export interface ToolResult {
 /** A domain failure; becomes an `isError: true` result, never a JSON-RPC error. */
 class ToolError extends Error {}
 
-const bad = (msg: string): ToolError => new ToolError(`invalid arguments: ${msg}`);
+const bad = (msg: string): ToolError =>
+  new ToolError(`invalid arguments: ${msg}`);
 
 const isObject = (v: unknown): v is JsonObject =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -101,7 +102,9 @@ function actorArg(args: JsonObject, name: string): Actor | undefined {
  * unless `mustExist`.
  */
 function answerGroup(args: JsonObject, mustExist: boolean): Answer | null {
-  const any = ["answer", "source", "rationale"].some((k) => Object.hasOwn(args, k));
+  const any = ["answer", "source", "rationale"].some((k) =>
+    Object.hasOwn(args, k),
+  );
   if (!any && !mustExist) return null;
   const answer = strArg(args, "answer");
   const source = actorArg(args, "source");
@@ -127,7 +130,8 @@ function answerGroup(args: JsonObject, mustExist: boolean): Answer | null {
 
 function itemJson(i: Item): JsonObject {
   const s = i.status;
-  const answered = s.kind === "Resolved" || s.kind === "Stale" ? s.answer : null;
+  const answered =
+    s.kind === "Resolved" || s.kind === "Stale" ? s.answer : null;
   const parked = s.kind === "Parked" ? s : null;
   return {
     id: i.id,
@@ -146,7 +150,10 @@ function itemJson(i: Item): JsonObject {
 
 /** `iv-YYYYMMDDTHHMMSSZ-<8 hex>`. */
 function newInterviewId(): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d+/, "");
   return `iv-${stamp}-${randomBytes(4).toString("hex")}`;
 }
 
@@ -162,7 +169,10 @@ export class App {
   call(name: string, args: unknown, modelFacing: boolean): ToolResult | null {
     if (!IMPLEMENTED.includes(name)) return null;
     try {
-      return { text: JSON.stringify(this.dispatch(name, args, modelFacing)), isError: false };
+      return {
+        text: JSON.stringify(this.dispatch(name, args, modelFacing)),
+        isError: false,
+      };
     } catch (e) {
       if (e instanceof ToolError || e instanceof RegisterError) {
         return { text: e.message, isError: true };
@@ -171,7 +181,11 @@ export class App {
     }
   }
 
-  private dispatch(name: string, rawArgs: unknown, modelFacing: boolean): JsonObject {
+  private dispatch(
+    name: string,
+    rawArgs: unknown,
+    modelFacing: boolean,
+  ): JsonObject {
     if (name === "note_prompt" && modelFacing) {
       throw new ToolError(
         "note_prompt is hook-facing: a call carrying _meta claudecode/toolUseId is rejected",
@@ -221,7 +235,9 @@ export class App {
     }
     if (ts !== TOOL_SCHEMA) {
       this.versionMismatch = { plugin: ts, server: TOOL_SCHEMA };
-      throw new ToolError(`tool_schema mismatch: plugin ${ts}, server ${TOOL_SCHEMA}`);
+      throw new ToolError(
+        `tool_schema mismatch: plugin ${ts}, server ${TOOL_SCHEMA}`,
+      );
     }
     this.versionMismatch = null;
     const existing = this.interviewId !== null;
@@ -241,21 +257,33 @@ export class App {
       "rationale",
     ]);
     const id = optIdArg(args, "id");
-    const kind: Kind | undefined = parseKind(required("kind", strArg(args, "kind")));
-    if (kind === undefined) throw bad("kind must be one of question, subquestion, decision");
+    const kind: Kind | undefined = parseKind(
+      required("kind", strArg(args, "kind")),
+    );
+    if (kind === undefined)
+      throw bad("kind must be one of question, subquestion, decision");
     const text = textArg(args, "text");
     const parent = optIdArg(args, "parent");
     const rawDeps = args["depends_on"];
     let dependsOn: string[] = [];
     if (rawDeps !== undefined) {
-      if (!Array.isArray(rawDeps)) throw bad("depends_on must be an array of ids");
+      if (!Array.isArray(rawDeps))
+        throw bad("depends_on must be an array of ids");
       dependsOn = rawDeps.map((v: unknown) => {
-        if (typeof v !== "string") throw bad("depends_on must be an array of ids");
+        if (typeof v !== "string")
+          throw bad("depends_on must be an array of ids");
         return idValue("depends_on", v);
       });
     }
     const answer = answerGroup(args, false);
-    const logged = this.register.log({ id, kind, text, parent, dependsOn, answer });
+    const logged = this.register.log({
+      id,
+      kind,
+      text,
+      parent,
+      dependsOn,
+      answer,
+    });
     // A rule error above leaves the state untouched; success starts an interview.
     this.ensureStarted();
     this.events += 1;
@@ -300,7 +328,12 @@ export class App {
       journal_schema: JOURNAL_SCHEMA,
       state: this.interviewId !== null ? "active" : "none",
       interview_id: this.interviewId,
-      items: { open: c.open, resolved: c.resolved, parked: c.parked, stale: c.stale },
+      items: {
+        open: c.open,
+        resolved: c.resolved,
+        parked: c.parked,
+        stale: c.stale,
+      },
       tree: this.register.ordered().map(itemJson),
       hook_health: {
         note_prompt: this.hookNotePrompt,
