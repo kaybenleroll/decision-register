@@ -122,14 +122,16 @@ fn random_hex() -> String {
 /// (rename aside, verify, create exclusively, delete the aside). Errors name the failure
 /// as `journal already claimed`.
 pub fn claim(dir: &Path, id: &str) -> Result<(), String> {
+    claim_as(dir, id, std::process::id(), &own_content(id))
+}
+
+/// [`claim`] for a claimant with the given pid and pid-file content (a test can then run
+/// two claimants in one process, as two real servers would differ in both).
+fn claim_as(dir: &Path, id: &str, pid: u32, content: &str) -> Result<(), String> {
     let lost = || format!("journal already claimed: {id}");
     let pid_file = pid_path(dir, id);
     if let Ok(seen) = fs::read_to_string(&pid_file) {
-        let aside = dir.join(format!(
-            "{id}.pid.stale-{}-{}",
-            std::process::id(),
-            random_hex()
-        ));
+        let aside = dir.join(format!("{id}.pid.stale-{pid}-{}", random_hex()));
         if fs::rename(&pid_file, &aside).is_ok() {
             if fs::read_to_string(&aside).ok().as_deref() != Some(seen.as_str()) {
                 // Another claimer's live file: put it back unless a newer one exists.
@@ -138,14 +140,15 @@ pub fn claim(dir: &Path, id: &str) -> Result<(), String> {
                 }
                 return Err(lost());
             }
-            create_new_for_claim(dir, id).map_err(|_| lost())?;
+            create_with(dir, id, content).map_err(|_| lost())?;
             let _ = fs::remove_file(&aside);
             return Ok(());
         }
     }
-    create_new_for_claim(dir, id).map_err(|_| lost())
+    create_with(dir, id, content).map_err(|_| lost())
 }
 
+#[cfg(test)]
 fn create_new_for_claim(dir: &Path, id: &str) -> io::Result<()> {
     create_with(dir, id, &own_content(id))
 }
@@ -386,6 +389,45 @@ mod tests {
         let err = create_new_for_claim(&dir, "iv-c").unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn two_claimants_of_one_stale_pid_file_have_exactly_one_winner() {
+        use std::sync::{Arc, Barrier};
+        // A scratch directory under the build tree, not a shared temp directory.
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/claim-race-scratch");
+        let _ = fs::remove_dir_all(&root);
+        for round in 0..40 {
+            let dir = root.join(format!("r{round}"));
+            fs::create_dir_all(&dir).unwrap();
+            // Rounds alternate between a stale file to replace and no file at all.
+            if round % 2 == 0 {
+                let stale = "{\"pid\":999999999,\"start\":1,\"interview_id\":\"iv-r\"}\n";
+                fs::write(pid_path(&dir, "iv-r"), stale).unwrap();
+            }
+            let gate = Arc::new(Barrier::new(2));
+            let handles: Vec<_> = (0..2)
+                .map(|who| {
+                    let (dir, gate) = (dir.clone(), Arc::clone(&gate));
+                    std::thread::spawn(move || {
+                        let content = format!(
+                            "{{\"pid\":{},\"start\":null,\"interview_id\":\"iv-r\"}}\n",
+                            1000 + who
+                        );
+                        gate.wait();
+                        claim_as(&dir, "iv-r", 1000 + who, &content)
+                    })
+                })
+                .collect();
+            let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+            let wins = results.iter().filter(|r| r.is_ok()).count();
+            assert_eq!(wins, 1, "round {round}: {results:?}");
+            for r in results.iter().filter_map(|r| r.as_ref().err()) {
+                assert!(r.starts_with("journal already claimed"), "{r}");
+            }
+            assert!(parse(&fs::read_to_string(pid_path(&dir, "iv-r")).unwrap()).is_some());
+        }
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
