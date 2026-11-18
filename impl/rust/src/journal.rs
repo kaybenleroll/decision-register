@@ -114,8 +114,8 @@ impl Journal {
     }
 
     /// A journal reopened by `resume`: later events continue after `seq`.
-    pub fn resumed(interview_id: &str, seq: u64) -> Self {
-        let mut j = Self::new(interview_id);
+    pub fn resumed(dir: &Path, interview_id: &str, seq: u64) -> Self {
+        let mut j = Self::in_dir(dir, interview_id);
         j.seq = seq;
         j
     }
@@ -226,7 +226,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("regspike-r-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         claim::create_new(&dir, "iv-rel").unwrap();
-        let mut j = Journal::resumed("iv-rel", 7);
+        let mut j = Journal::resumed(&dir, "iv-rel", 7);
         j.path = dir.join("iv-rel.jsonl");
         j.event("resume", json!({"session_id": null, "from_seq": 7}));
         assert_eq!(j.seq(), 8);

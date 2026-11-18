@@ -17,6 +17,7 @@ use crate::journal::{Journal, civil_from_days, project_dir};
 use crate::register::{
     Actor, Answer, Item, Kind, NewItem, Register, Status, is_nonblank, is_valid_id,
 };
+use crate::replay::replay;
 
 /// Tools this build implements, in the order they are listed.
 pub const IMPLEMENTED: [&str; 12] = [
@@ -338,11 +339,21 @@ impl App {
             "reopen" => self.reopen(args),
             "status" => self.status(args),
             "end_interview" => self.end_interview(args),
-            "resume" | "discard" => self.resume_or_discard(args),
+            "resume" => self.resume_or_discard(false, args),
+            "discard" => self.resume_or_discard(true, args),
             "note_prompt" => self.note_prompt(args),
             "skill_started" => self.skill_started(args),
             "check_stop" => self.check_stop(args),
             _ => Err(format!("tool not implemented: {name}")),
+        }
+    }
+
+    /// An app that keeps its journals in `dir` instead of the environment's project
+    /// directory (unit tests).
+    pub fn with_dir(dir: PathBuf) -> Self {
+        Self {
+            dir: Some(dir),
+            ..Self::default()
         }
     }
 
@@ -732,17 +743,114 @@ impl App {
         (id, log.unwrap_or_default())
     }
 
-    /// `resume` and `discard`: only the state check (state_matrix) in I3. There is no
-    /// unfinished-journal scan yet, so from none or pending both report that nothing
-    /// can be resumed; the scan, claim and replay are I4.
-    fn resume_or_discard(&mut self, args: &Args) -> Result<Value, String> {
+    /// Picks the journal `resume` or `discard` acts on (error rows 6 of tools.json):
+    /// the named one, or the only unfinished one.
+    fn pick_unfinished(&self, id: Option<String>) -> Result<String, String> {
+        let dir = self.dir();
+        let list = self.unfinished();
+        match id {
+            Some(id) if list.iter().any(|u| u.id == id) => Ok(id),
+            // Present but not offered: a live owner (it wins over "no unfinished journal").
+            Some(id)
+                if dir.join(format!("{id}.jsonl")).exists()
+                    && (self.interview_id.as_deref() == Some(id.as_str())
+                        || claim::owner_alive(&dir, &id, self.interview_id.as_deref())) =>
+            {
+                Err(format!("journal is live-owned: {id}"))
+            }
+            Some(id) => Err(format!("unknown interview id: {id}")),
+            None => match list.as_slice() {
+                [] => Err("no unfinished journal".to_string()),
+                [only] => Ok(only.id.clone()),
+                many => {
+                    let ids: Vec<&str> = many.iter().map(|u| u.id.as_str()).collect();
+                    Err(format!("several unfinished journals: {}", ids.join(", ")))
+                }
+            },
+        }
+    }
+
+    /// `resume` and `discard` (REQ-52): accepted in none and pending only.
+    fn resume_or_discard(&mut self, discard: bool, args: &Args) -> Result<Value, String> {
         check_known(args, &["id"])?;
-        opt_id_arg(args, "id")?;
+        let id = opt_id_arg(args, "id")?;
         if self.interview_id.is_some() && !self.pending {
             let state = if self.complete { "complete" } else { "active" };
             return Err(format!("wrong state: {state}"));
         }
-        Err("no unfinished journal".to_string())
+        let id = self.pick_unfinished(id)?;
+        if discard {
+            self.discard(&id)
+        } else {
+            self.resume(&id)
+        }
+    }
+
+    /// Archives an unfinished journal (a rename) and removes its pid file.
+    fn discard(&mut self, id: &str) -> Result<Value, String> {
+        let dir = self.dir();
+        crate::journal::archive_file(&dir.join(format!("{id}.jsonl")))
+            .map_err(|e| format!("discard failed: {e}"))?;
+        claim::remove(&dir, id);
+        Ok(json!({"interview_id": id, "archived": true}))
+    }
+
+    /// Claims the journal (pid file), replays it, then replaces a pending interview and
+    /// writes the `resume` event. A replay failure removes the new pid file and changes
+    /// nothing else.
+    fn resume(&mut self, id: &str) -> Result<Value, String> {
+        let dir = self.dir();
+        claim::claim(&dir, id)?;
+        let replayed = std::fs::read_to_string(dir.join(format!("{id}.jsonl")))
+            .map_err(|e| format!("cannot read journal: {e}"))
+            .and_then(|text| replay(&text));
+        let replayed = match replayed {
+            Ok(r) => r,
+            Err(e) => {
+                claim::remove(&dir, id);
+                return Err(e);
+            }
+        };
+        if self.pending {
+            self.end_current("stood_down", "not_engaged", Some("replaced by resume"));
+        }
+        let session = self.last_seen_session.clone();
+        self.interview_id = Some(id.to_string());
+        let mut journal = Journal::resumed(&dir, id, replayed.last_seq);
+        journal.event(
+            "resume",
+            json!({"session_id": session, "from_seq": replayed.last_seq}),
+        );
+        journal.flush();
+        self.journal = Some(journal);
+        self.register = replayed.register;
+        self.hook_note_prompt = replayed.hook_note_prompt;
+        self.hook_skill_started = replayed.hook_skill_started;
+        self.hook_check_stop = replayed.hook_check_stop;
+        self.blocks = Blocks {
+            prompt: replayed.blocks.0,
+            finish: replayed.blocks.1,
+            unlogged: replayed.blocks.2,
+        };
+        self.implicit = replayed.implicit;
+        self.bound_session = session;
+        self.complete = false;
+        self.pending = false;
+        self.prompt_seen = false;
+        self.allowance = 0;
+        self.spent = 0;
+        self.volunteered = 0;
+        self.prompt_since_stop = false;
+        self.presented.clear();
+        self.unknown_seen = false;
+        self.declog = DecisionLog::default();
+        let c = self.register.counts();
+        Ok(json!({
+            "interview_id": id,
+            "state": "active",
+            "last_event": replayed.last_seq,
+            "items": {"open": c.open, "resolved": c.resolved, "parked": c.parked, "stale": c.stale},
+        }))
     }
 
     /// REQ-26: a hook call from another session ends the interview bound to the old one
@@ -1133,10 +1241,10 @@ impl App {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    fn scratch_dir() -> PathBuf {
+    pub(crate) fn scratch_dir() -> PathBuf {
         use std::sync::atomic::{AtomicU64, Ordering};
         static N: AtomicU64 = AtomicU64::new(0);
         std::env::temp_dir().join(format!(
@@ -1150,9 +1258,7 @@ mod tests {
     fn fresh() -> App {
         // SAFETY: tests only ever clear this variable, none sets it.
         unsafe { std::env::remove_var("CLAUDE_CODE_SESSION_ID") };
-        let mut app = App::new();
-        app.dir = Some(scratch_dir());
-        app
+        App::with_dir(scratch_dir())
     }
 
     fn call(app: &mut App, name: &str, args: Value) -> Result<Value, String> {
@@ -1625,5 +1731,97 @@ mod tests {
         );
         let r = stop(&mut app, "done");
         assert!(r["reason"].as_str().unwrap().contains("p parent"), "{r}");
+    }
+
+    fn seed_journal(app: &App, id: &str, extra: &[&str]) {
+        let dir = app.dir();
+        std::fs::create_dir_all(&dir).unwrap();
+        let start = format!(
+            r#"{{"v":2,"ts":"t","seq":1,"kind":"start","interview_id":"{id}","route":"begin_interview","skill":"grill-me","session_id":"old","implicit":false,"prompt_count":0}}"#
+        );
+        let mut text = start + "\n";
+        for l in extra {
+            text.push_str(l);
+            text.push('\n');
+        }
+        std::fs::write(dir.join(format!("{id}.jsonl")), text).unwrap();
+    }
+
+    const ITEM2: &str = r#"{"v":2,"ts":"t","seq":2,"kind":"item","id":"q1","item_kind":"question","text":"t","parent":null,"depends_on":[]}"#;
+
+    #[test]
+    fn unfinished_journal_is_offered_refuses_writes_and_resumes() {
+        let mut app = fresh();
+        seed_journal(&app, "iv-old", &[ITEM2]);
+        let st = call(&mut app, "status", json!({})).unwrap();
+        assert_eq!(
+            st["resumable"],
+            json!([{"interview_id": "iv-old", "last_event": 2}])
+        );
+        let err = call(
+            &mut app,
+            "log_item",
+            json!({"kind": "question", "text": "x"}),
+        )
+        .unwrap_err();
+        assert_eq!(err, "unfinished journal: call resume or discard");
+        let r = call(&mut app, "resume", json!({})).unwrap();
+        assert_eq!(
+            (r["interview_id"].as_str(), r["last_event"].as_u64()),
+            (Some("iv-old"), Some(2))
+        );
+        assert_eq!(r["items"]["open"], 1);
+        let st = call(&mut app, "status", json!({})).unwrap();
+        assert_eq!(
+            (st["state"].as_str(), st["last_event"].as_u64()),
+            (Some("active"), Some(3))
+        );
+        assert_eq!(st["resumable"], json!([]));
+        assert!(
+            call(&mut app, "resume", json!({}))
+                .unwrap_err()
+                .contains("wrong state: active")
+        );
+        assert!(app.dir().join("iv-old.pid").exists());
+        let _ = std::fs::remove_dir_all(app.dir());
+    }
+
+    #[test]
+    fn resume_failure_names_the_line_and_leaves_no_pid_file_or_state() {
+        let mut app = fresh();
+        let bad = ITEM2.replace("\"v\":2", "\"v\":3");
+        seed_journal(&app, "iv-bad", &[&bad]);
+        let err = call(&mut app, "resume", json!({"id": "iv-bad"})).unwrap_err();
+        assert!(err.starts_with("replay failed at line 2"));
+        assert!(!app.dir().join("iv-bad.pid").exists());
+        assert_eq!(
+            call(&mut app, "status", json!({})).unwrap()["state"],
+            "none"
+        );
+        let _ = std::fs::remove_dir_all(app.dir());
+    }
+
+    #[test]
+    fn discard_and_resume_error_rows() {
+        let mut app = fresh();
+        for name in ["resume", "discard"] {
+            assert_eq!(
+                call(&mut app, name, json!({})).unwrap_err(),
+                "no unfinished journal"
+            );
+            assert_eq!(
+                call(&mut app, name, json!({"id": "iv-x"})).unwrap_err(),
+                "unknown interview id: iv-x"
+            );
+        }
+        seed_journal(&app, "iv-a", &[]);
+        seed_journal(&app, "iv-b", &[]);
+        let many = call(&mut app, "discard", json!({})).unwrap_err();
+        assert!(many.starts_with("several unfinished journals: ") && many.contains("iv-a"));
+        let d = call(&mut app, "discard", json!({"id": "iv-a"})).unwrap();
+        assert_eq!(d, json!({"interview_id": "iv-a", "archived": true}));
+        assert!(app.dir().join("archive/iv-a.jsonl").exists());
+        assert!(!app.dir().join("iv-a.jsonl").exists());
+        let _ = std::fs::remove_dir_all(app.dir());
     }
 }

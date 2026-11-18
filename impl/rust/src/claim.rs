@@ -12,7 +12,7 @@ use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-use serde_json::{Value, json};
+use serde_json::Value;
 
 /// What a pid file records.
 #[derive(Debug, PartialEq, Eq)]
@@ -44,9 +44,11 @@ pub fn pid_path(dir: &Path, id: &str) -> PathBuf {
 /// The one-line JSON content of this process's pid file for `id`.
 pub fn own_content(id: &str) -> String {
     let pid = u64::from(std::process::id());
+    // Written by hand: the key order pid, start, interview_id is part of the contract.
+    let start = proc_start(pid).map_or_else(|| "null".to_string(), |s| s.to_string());
     format!(
-        "{}\n",
-        json!({"pid": pid, "start": proc_start(pid), "interview_id": id})
+        "{{\"pid\":{pid},\"start\":{start},\"interview_id\":{}}}\n",
+        Value::from(id)
     )
 }
 
@@ -158,13 +160,20 @@ pub struct Unfinished {
 /// The last valid event number of a journal text (a torn final line is ignored; v1 lines
 /// take their line number).
 pub fn last_event(text: &str) -> u64 {
-    let mut last = 0;
+    scan_text(text).0
+}
+
+/// The last valid event number and whether an `end` event is present: a journal that
+/// holds one is finished and is never offered, whatever its file name says.
+fn scan_text(text: &str) -> (u64, bool) {
+    let (mut last, mut ended) = (0, false);
     for (n, line) in text.lines().enumerate() {
         if let Ok(Value::Object(o)) = serde_json::from_str::<Value>(line) {
             last = o.get("seq").and_then(Value::as_u64).unwrap_or(n as u64 + 1);
+            ended |= o.get("kind").and_then(Value::as_str) == Some("end");
         }
     }
-    last
+    (last, ended)
 }
 
 /// Unfinished journals with no live owner (`own_claim` is this server's current
@@ -189,7 +198,10 @@ pub fn unfinished(dir: &Path, own_claim: Option<&str>) -> Vec<Unfinished> {
             .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
             .map_or(0, |d| d.as_nanos());
         let text = fs::read_to_string(entry.path()).unwrap_or_default();
-        found.push((mtime, id.to_string(), last_event(&text)));
+        let (last, ended) = scan_text(&text);
+        if !ended {
+            found.push((mtime, id.to_string(), last));
+        }
     }
     found.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
     found
@@ -201,6 +213,7 @@ pub fn unfinished(dir: &Path, own_claim: Option<&str>) -> Vec<Unfinished> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     fn scratch(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("regspike-claim-{tag}-{}", std::process::id()));
@@ -326,6 +339,26 @@ mod tests {
         assert!(pid_path(&dir, "iv-c").exists());
         let err = create_new_for_claim(&dir, "iv-c").unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn own_content_has_the_contract_key_order() {
+        let text = own_content("iv-k");
+        assert!(text.starts_with("{\"pid\":") && text.ends_with("\"interview_id\":\"iv-k\"}\n"));
+        assert!(text.find("\"start\"").unwrap() < text.find("\"interview_id\"").unwrap());
+        assert!(parse(&text).is_some());
+    }
+
+    #[test]
+    fn a_journal_with_an_end_event_is_not_unfinished() {
+        let dir = scratch("ended");
+        fs::write(
+            dir.join("iv-e.jsonl"),
+            "{\"v\":2,\"seq\":1,\"kind\":\"start\"}\n{\"v\":2,\"seq\":2,\"kind\":\"end\"}\n",
+        )
+        .unwrap();
+        assert!(unfinished(&dir, None).is_empty());
         let _ = fs::remove_dir_all(&dir);
     }
 
