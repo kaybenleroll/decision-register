@@ -6,7 +6,7 @@ use std::fmt::Write as _;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::journal::project_path;
 use crate::register::{Item, Status};
@@ -31,6 +31,7 @@ pub struct LogView<'a> {
 pub struct DecisionLog {
     dir: Option<PathBuf>,
     path: Option<PathBuf>,
+    error: Option<String>,
 }
 
 impl DecisionLog {
@@ -39,58 +40,70 @@ impl DecisionLog {
         self.path.as_ref()
     }
 
-    /// Writes the log through a temporary file renamed over the final name.
-    pub fn write(&mut self, view: &LogView<'_>) -> Result<PathBuf, String> {
-        let dir = self.directory().map_err(|e| format!("decision log: {e}"))?;
+    /// The last write failure, cleared by the next success (REQ-50).
+    pub fn error(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+
+    /// Writes the log through a temporary file renamed over the final name and returns
+    /// its path. A failure is kept in [`DecisionLog::error`] and never raised.
+    pub fn write(&mut self, view: &LogView<'_>) -> PathBuf {
+        let dir = self.dir.clone().unwrap_or_else(choose_directory);
+        self.dir = Some(dir.clone());
         let name = format!("decision-{}.md", view.interview_id);
         let final_path = dir.join(&name);
-        let tmp = dir.join(format!("{name}.tmp"));
-        let _ = fs::remove_file(&tmp);
-        let result = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&tmp)
-            .and_then(|mut f| f.write_all(render(view).as_bytes()))
-            .and_then(|()| fs::rename(&tmp, &final_path));
+        let result = prepare(&dir).and_then(|()| {
+            let tmp = dir.join(format!("{name}.tmp"));
+            let _ = fs::remove_file(&tmp);
+            OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&tmp)
+                .and_then(|mut f| f.write_all(render(view).as_bytes()))
+                .and_then(|()| fs::rename(&tmp, &final_path))
+        });
         match result {
             Ok(()) => {
                 self.path = Some(final_path.clone());
-                Ok(final_path)
+                self.error = None;
             }
-            Err(e) => Err(format!("decision log write failed: {e}")),
+            Err(e) => self.error = Some(format!("decision log write failed: {e}")),
         }
+        final_path
     }
+}
 
-    fn directory(&mut self) -> std::io::Result<PathBuf> {
-        if let Some(d) = &self.dir {
-            return Ok(d.clone());
-        }
-        let project = PathBuf::from(project_path());
-        let scratch = project.join(".scratch");
-        let dir = if scratch.is_dir() {
-            scratch
-        } else {
-            let logs = project.join("decision-logs");
-            fs::DirBuilder::new()
-                .recursive(true)
-                .mode(0o700)
-                .create(&logs)?;
-            let ignore = logs.join(".gitignore");
-            if !ignore.exists() {
-                OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .mode(0o600)
-                    .open(&ignore)?
-                    .write_all(b"*\n")?;
-            }
-            logs
-        };
-        self.dir = Some(dir.clone());
-        Ok(dir)
+/// `<project>/.scratch` if it exists now, else `<project>/decision-logs`.
+fn choose_directory() -> PathBuf {
+    let project = PathBuf::from(project_path());
+    let scratch = project.join(".scratch");
+    if scratch.is_dir() {
+        scratch
+    } else {
+        project.join("decision-logs")
     }
+}
+
+/// Creates the `decision-logs` directory (mode 0700) with its ignore-all `.gitignore`.
+fn prepare(dir: &Path) -> std::io::Result<()> {
+    if dir.file_name().is_some_and(|n| n == "decision-logs") {
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(dir)?;
+        let ignore = dir.join(".gitignore");
+        if !ignore.exists() {
+            OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&ignore)?
+                .write_all(b"*\n")?;
+        }
+    }
+    Ok(())
 }
 
 fn render(v: &LogView<'_>) -> String {
