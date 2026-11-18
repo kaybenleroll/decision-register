@@ -872,6 +872,16 @@ impl App {
         }
         self.hook_check_stop += 1;
         self.emit("hook", json!({"tool": "check_stop", "session_id": session}));
+        // A pending interview survives one Stop check; the second, with no model-facing
+        // register call in between, stands it down (REQ-27 rule 3).
+        if self.pending && self.hook_check_stop >= 2 {
+            self.end_current(
+                "stood_down",
+                "not_engaged",
+                Some("second Stop check without a register call"),
+            );
+            return Ok(json!({}));
+        }
         let result = if self.pending || self.complete {
             json!({})
         } else {
