@@ -287,6 +287,76 @@ fn closure_sentence(sentence: &str) -> bool {
     })
 }
 
+/// Openers of the final sentence (contract section 4(b)).
+const REPLAY_OPENERS: [&[&str]; 6] = [
+    &["shall", "i"],
+    &["should", "i"],
+    &["want", "me", "to"],
+    &["ready", "to"],
+    &["do", "you", "want", "me", "to"],
+    &["would", "you", "like", "me", "to"],
+];
+
+/// Closure pieces: split at each newline and after each `.`, `!` or `:` followed by whitespace.
+fn closure_pieces(t: &str) -> Vec<&str> {
+    let mut pieces = Vec::new();
+    let mut start = 0;
+    let mut chars = t.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        let end = if c == '\n' {
+            Some(i)
+        } else if matches!(c, '.' | '!' | ':')
+            && chars.peek().is_some_and(|(_, n)| n.is_whitespace())
+        {
+            Some(i + 1)
+        } else {
+            None
+        };
+        if let Some(e) = end {
+            pieces.push(&t[start..e]);
+            start = i + c.len_utf8();
+        }
+    }
+    pieces.push(&t[start..]);
+    pieces
+}
+
+/// The tail rules of a closing replay (contract section 4(a)-(c)) on the stripped text `S`.
+/// The caller has already established that the message concerns no Open or Stale item.
+#[allow(dead_code)] // wired into `classify` by the next commit
+fn closing_replay(s: &str) -> bool {
+    let Some(q) = s.find('?') else { return false };
+    let after = &s[q + 1..];
+    if after.contains('?')
+        || !after
+            .chars()
+            .all(|c| c.is_whitespace() || "*_)\"'".contains(c))
+    {
+        return false;
+    }
+    let before = &s[..q];
+    // the final sentence starts after the last newline or after the last `.`, `!` or `:`
+    // that is followed by a space, whichever is later
+    let nl = before.rfind('\n').map_or(0, |i| i + 1);
+    let punct = before
+        .match_indices(['.', '!', ':'])
+        .filter(|(i, _)| before[i + 1..].starts_with(' '))
+        .map(|(i, _)| i + 1)
+        .max()
+        .unwrap_or(0);
+    let start = nl.max(punct);
+    let opener = tokens(&before[start..]);
+    if !REPLAY_OPENERS
+        .iter()
+        .any(|o| opener.len() >= o.len() && opener.iter().zip(o.iter()).all(|(a, b)| a == b))
+    {
+        return false;
+    }
+    closure_pieces(&before[..start])
+        .into_iter()
+        .any(closure_sentence)
+}
+
 pub fn classify(message: &str, items: &[ClassItem<'_>]) -> Class {
     if message.trim().is_empty() {
         return Class::Empty;
