@@ -304,9 +304,15 @@ export class App {
     skill: string | null,
     sessionId: string | null,
   ): string {
-    const id = newInterviewId();
+    let id = newInterviewId();
+    let journal = new Journal(id);
+    // The pid file is created exclusively before the first event; a clash draws a new id.
+    while (!journal.createPidFile()) {
+      id = newInterviewId();
+      journal = new Journal(id);
+    }
     this.interviewId = id;
-    this.journal = new Journal(id);
+    this.journal = journal;
     this.declog = new DecisionLog(id);
     this.implicitStart = route === "implicit";
     this.state = route === "hook" ? "pending" : "active";
@@ -386,6 +392,7 @@ export class App {
       journalMode === "not_engaged" ? "not engaged" : journalMode;
     this.emit("end", { end_kind: endKind, mode: journalMode, reason });
     this.journal?.archive();
+    this.journal?.removePidFile();
     this.writeLog("ended", logMode, endKind, note);
     const path = this.declog?.path ?? null;
     this.register = new Register();

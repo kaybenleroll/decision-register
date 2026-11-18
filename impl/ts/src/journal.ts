@@ -9,6 +9,8 @@ import { appendFileSync, mkdirSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
+import { createPid, ownRecord, pidPath, removeFile } from "./pidfile.ts";
+
 const nonEmpty = (v: string | undefined): string | undefined =>
   v === undefined || v === "" ? undefined : v;
 
@@ -25,18 +27,53 @@ export const projectPath = (): string =>
 export const projectKey = (): string =>
   createHash("sha256").update(projectPath(), "utf8").digest("hex").slice(0, 16);
 
+/** The project folder `<data root>/<project key>` that holds journals and pid files. */
+export const projectDir = (): string => join(dataRoot(), projectKey());
+
 export type JournalFields = Record<string, unknown>;
 
 export class Journal {
   /** The `seq` of the last event; also `status.last_event`. */
   seq = 0;
   writeError: string | null = null;
+  /** True while this journal's pid file was created (or claimed) by this process. */
+  hasPid = false;
   private readonly dir: string;
   private readonly file: string;
+  private readonly id: string;
 
-  constructor(interviewId: string) {
-    this.dir = join(dataRoot(), projectKey());
+  /** `seq` is the last event number already in the file (a resumed journal). */
+  constructor(interviewId: string, seq = 0) {
+    this.id = interviewId;
+    this.seq = seq;
+    this.dir = projectDir();
     this.file = join(this.dir, `${interviewId}.jsonl`);
+  }
+
+  /**
+   * Creates the pid file exclusively, before the first event (REQ-52). Returns false when
+   * the id is already taken (draw another); any other failure fails open and returns true.
+   */
+  createPidFile(): boolean {
+    try {
+      mkdirSync(this.dir, { recursive: true, mode: 0o700 });
+      createPid(pidPath(this.dir, this.id), ownRecord(this.id));
+      this.hasPid = true;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "EEXIST") return false;
+    }
+    return true;
+  }
+
+  /** Marks the pid file as claimed by this process (after a resume claim). */
+  adoptPidFile(): void {
+    this.hasPid = true;
+  }
+
+  /** Removes this journal's pid file, if this process owns one. */
+  removePidFile(): void {
+    if (this.hasPid) removeFile(pidPath(this.dir, this.id));
+    this.hasPid = false;
   }
 
   append(kind: string, fields: JournalFields): void {
