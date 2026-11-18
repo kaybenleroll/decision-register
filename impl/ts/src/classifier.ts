@@ -61,6 +61,60 @@ function contentWords(s: string): Set<string> {
   return out;
 }
 
+/** Section 5 tokeniser: lower-case maximal runs of `[a-z0-9]`. */
+const tokensOf = (s: string): string[] =>
+  s.replace(/[A-Z]/g, (c) => c.toLowerCase()).match(/[a-z0-9]+/g) ?? [];
+
+const GUARD_WORDS: ReadonlySet<string> = new Set([
+  "except",
+  "but",
+  "apart",
+  "besides",
+  "remaining",
+  "still",
+  "only",
+  "though",
+  "however",
+]);
+
+const OPEN_NOUNS: ReadonlySet<string> = new Set([
+  "items",
+  "threads",
+  "branches",
+  "questions",
+  "decisions",
+]);
+
+/** Closure sentence (contract section 4(c)): no guard word, and a closing phrase. */
+export function closureSentence(sentence: string): boolean {
+  const t = tokensOf(sentence);
+  if (t.some((w) => GUARD_WORDS.has(w))) return false;
+  for (let i = 0; i < t.length; i++) {
+    const w = t[i] as string;
+    if (
+      (w === "all" || w === "everything") &&
+      t.slice(i + 1, i + 5).includes("resolved")
+    ) {
+      return true;
+    }
+    if (
+      (w === "nothing" || w === "none") &&
+      t.slice(i + 1, i + 3).includes("unresolved")
+    ) {
+      return true;
+    }
+    if (w === "no" && t[i + 1] === "unresolved") return true;
+    if (
+      w === "no" &&
+      t[i + 1] === "open" &&
+      OPEN_NOUNS.has(t[i + 2] as string)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const unresolved = (i: ItemView): boolean =>
   i.status === "Open" || i.status === "Stale";
 
