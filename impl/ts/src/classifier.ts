@@ -115,6 +115,38 @@ export function closureSentence(sentence: string): boolean {
   return false;
 }
 
+const OPENERS: readonly (readonly string[])[] = [
+  ["shall", "i"],
+  ["should", "i"],
+  ["want", "me", "to"],
+  ["ready", "to"],
+  ["do", "you", "want", "me", "to"],
+  ["would", "you", "like", "me", "to"],
+];
+
+/**
+ * Closing replay, tail rules (contract section 4(a) and (b)) on the stripped message `S`:
+ * exactly one `?`, only whitespace or `*_)"'` after it, and a final sentence that starts
+ * with a closed offer. Returns the text before the final sentence, or null.
+ */
+export function closingReplayPrefix(stripped: string): string | null {
+  const q = stripped.indexOf("?");
+  if (q === -1 || q !== stripped.lastIndexOf("?")) return null;
+  if (!/^[\s*_)"']*$/.test(stripped.slice(q + 1))) return null;
+  // Final sentence: after the last newline, or after the last `.`, `!` or `:` that is
+  // followed by a space, whichever is later.
+  let start = 0;
+  const nl = stripped.lastIndexOf("\n", q);
+  if (nl !== -1) start = nl + 1;
+  for (const p of [". ", "! ", ": "]) {
+    const k = stripped.lastIndexOf(p, q);
+    if (k !== -1 && k + 2 > start) start = k + 2;
+  }
+  const ft = tokensOf(stripped.slice(start, q + 1));
+  if (!OPENERS.some((o) => o.every((w, i) => ft[i] === w))) return null;
+  return stripped.slice(0, start);
+}
+
 const unresolved = (i: ItemView): boolean =>
   i.status === "Open" || i.status === "Stale";
 
