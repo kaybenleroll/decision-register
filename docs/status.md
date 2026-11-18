@@ -269,3 +269,13 @@ Open items for the user:
 - New scenario S-36b (A resolved; B depends on A and is parked; C depends on B and is resolved; D depends on C and is resolved). Reopen A: `stale` lists C and D, B stays Parked, C and D keep their answers. Re-resolve C and A, reopen A again: `stale` lists only C, D is not listed again. Model-sourced calls only; no `check_stop`. Suite 128 -> 129 scenarios (`run.py --validate`). Listed in the build plan scenario table and the I1 scenario list (it uses only I1 tools).
 - Rust (`impl/rust`, release build from this branch): S-36b passes, as do S-30a, S-31a, S-35b, S-38a and S-45a (S-30b stays red in I1 as recorded).
 - Verified: the four checks exit 0 before the commit.
+
+## 2026-11-18 (I1 TypeScript phase 1; #45, tracking #34)
+
+- Branch `issue-45-i1-core-register-ts`: `impl/ts/` implements the I1 scope (begin_interview, log_item, resolve, park, reopen, status, note_prompt; tools/list from contract/tools.json; Stale per the 2026-11-18 decision). Unit tests: 19 `node:test` cases, offline.
+- Tooling decisions were unrecorded, so the implementer chose them; recorded in the build plan under "I1 TypeScript implementation decisions" for the user to confirm or change (npm + lockfile, Node 26 via engines and .nvmrc, TypeScript 7 strict, esbuild bundle to `dist/regspike.mjs`, `node:test`, no lint tool).
+- Suite, seven I1 scenarios against the TS bundle and the Rust release binary: S-30a, S-31a, S-35b, S-36b, S-38a, S-45a pass on both; S-30b red on both (check_stop not implemented, as recorded). Whole suite: the same 12 scenarios pass on both. No scenario edited.
+- Resolved-without-answer: unrepresentable at compile time only (branded `Answer`, one factory); weaker than Rust. REQ-31 interface check backs it at runtime. The drop rule is therefore not triggered, but the guarantee is recorded as weaker.
+- Not done: language-experiment build-table row (columns parked); facts are in `.scratch/i1ts-experiment-facts.md` (not committed). Nothing pushed.
+- Verified: the four Python checks, `npm run typecheck`, `npm test` and `npm run build` exit 0 before each commit.
+
