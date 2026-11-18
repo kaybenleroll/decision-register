@@ -478,4 +478,155 @@ mod tests {
         assert_eq!(classify("a ``?`` b", &it), q(&[]));
         assert_eq!(classify("a `x?` b", &it), Class::Finish);
     }
+
+    const CLOSED: &str = "All threads are resolved. ";
+
+    fn replay(s: &str) -> bool {
+        closing_replay(s)
+    }
+
+    #[test]
+    fn closure_sentence_phrases() {
+        assert!(closure_sentence("Everything is now resolved"));
+        assert!(closure_sentence("all the items are resolved"));
+        assert!(!closure_sentence(
+            "all of the five items are fully resolved"
+        ));
+        assert!(closure_sentence("Nothing is unresolved"));
+        assert!(closure_sentence("none unresolved"));
+        assert!(!closure_sentence("nothing at all is unresolved"));
+        assert!(closure_sentence("No unresolved items"));
+        assert!(closure_sentence("There are no open decisions"));
+        assert!(closure_sentence("no open threads left"));
+        assert!(!closure_sentence("no open issues"));
+        assert!(!closure_sentence("no open"));
+        assert!(!closure_sentence("resolved all"));
+    }
+
+    #[test]
+    fn closure_sentence_guard_words_void_it() {
+        for g in [
+            "except",
+            "but",
+            "apart",
+            "besides",
+            "remaining",
+            "still",
+            "only",
+            "though",
+            "however",
+        ] {
+            let text = format!("all resolved {g} one");
+            assert!(!closure_sentence(&text), "{g}");
+        }
+    }
+
+    #[test]
+    fn closing_replay_accepts_each_opener() {
+        for o in [
+            "Shall I",
+            "should i",
+            "Want me to",
+            "Ready to",
+            "Do you want me to",
+            "Would you like me to",
+        ] {
+            assert!(replay(&format!("{CLOSED}{o} finish?")), "{o}");
+        }
+        assert!(!replay(&format!("{CLOSED}Can I finish?")));
+        assert!(!replay(&format!("{CLOSED}Shall we finish?")));
+        assert!(!replay(&format!("{CLOSED}Do you want to finish?")));
+    }
+
+    #[test]
+    fn closing_replay_question_mark_must_be_single_and_last() {
+        assert!(replay(&format!("{CLOSED}Shall I stop?")));
+        assert!(replay(&format!("{CLOSED}Shall I stop?  \n")));
+        assert!(replay(&format!("{CLOSED}**Shall I stop?**")));
+        assert!(replay(&format!("{CLOSED}(Shall I stop?)")));
+        assert!(replay(&format!("{CLOSED}\"Shall I stop?\"")));
+        assert!(replay(&format!("{CLOSED}'Shall I stop?'")));
+        assert!(!replay(&format!("{CLOSED}Shall I stop?!")));
+        assert!(!replay(&format!("{CLOSED}Shall I stop? Thanks")));
+        assert!(!replay(&format!("{CLOSED}Shall I stop??")));
+        assert!(!replay(&format!("Is it done? {CLOSED}Shall I stop?")));
+        assert!(!replay(&format!("{CLOSED}Shall I stop")));
+    }
+
+    #[test]
+    fn closing_replay_final_sentence_boundaries() {
+        // after a newline, after `.`/`!`/`:` followed by a space; the later boundary wins
+        assert!(replay("All resolved\nShall I stop?"));
+        assert!(replay("All resolved! Shall I stop?"));
+        assert!(replay("All resolved: shall I stop?"));
+        assert!(replay("All resolved. Ok\nShall I stop?"));
+        // a `.` without a following space does not end a sentence
+        assert!(!replay("All resolved.Shall I stop?"));
+        // an opener buried mid-sentence is not the opener
+        assert!(!replay("All resolved, so shall I stop?"));
+        // the opener sentence itself cannot supply the closure
+        assert!(!replay("Shall I stop now that all is resolved?"));
+        assert!(!replay("Shall I stop?"));
+    }
+
+    #[test]
+    fn closing_replay_closure_pieces_split_and_guard_independently() {
+        assert!(replay("Done.\nAll resolved\nShall I stop?"));
+        assert!(replay(
+            "Everything resolved! Nothing is unresolved. Shall I stop?"
+        ));
+        // a guard word voids only its own sentence
+        assert!(replay("Still working. All resolved. Shall I stop?"));
+        assert!(!replay("All resolved but one. Shall I stop?"));
+        assert!(!replay("All resolved, however. Shall I stop?"));
+        assert!(!replay("Done. Shall I stop?"));
+    }
+
+    #[test]
+    fn classify_closing_replay_is_a_finish_attempt() {
+        let it = items();
+        assert_eq!(classify("All resolved. Shall I stop?", &it), Class::Finish);
+        assert_eq!(classify("All resolved. Shall I stop", &it), Class::Finish);
+        // closure sentence inside code or a quote line is invisible
+        assert_eq!(classify("> all resolved\nShall I stop?", &it), q(&[]));
+        assert_eq!(classify("`all resolved` Shall I stop?", &it), q(&[]));
+        // ordinary questions are unchanged
+        assert_eq!(classify("Done. Shall I stop?", &it), q(&[]));
+    }
+
+    #[test]
+    fn classify_closing_replay_concerning_an_item_stays_a_question() {
+        let it = items();
+        // a label for an Open item
+        assert_eq!(
+            classify("All resolved. Shall I stop? Q1: unsure", &it),
+            q(&["Q1"])
+        );
+        assert_eq!(classify("Q1: all resolved. Shall I stop?", &it), q(&["Q1"]));
+        // three shared content words with an Open item
+        assert_eq!(
+            classify(
+                "All resolved, storage engine choice included. Shall I stop?",
+                &it
+            ),
+            q(&["Q1"])
+        );
+        // a label for a Resolved item concerns nothing, so the replay still finishes
+        assert_eq!(
+            classify("Q3: all resolved. Shall I stop?", &it),
+            Class::Finish
+        );
+        // two shared words are not enough
+        assert_eq!(
+            classify("All resolved, storage engine settled. Shall I stop?", &it),
+            Class::Finish
+        );
+    }
+
+    #[test]
+    fn classify_empty_and_single_request_precede_the_replay_rule() {
+        let it = items();
+        assert_eq!(classify("   ", &it), Class::Empty);
+        assert_eq!(classify("Q1: all resolved, shall I stop?", &it), q(&["Q1"]));
+    }
 }
