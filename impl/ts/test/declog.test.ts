@@ -71,7 +71,8 @@ test("an unwritable log directory fails open", () => {
   process.env["CLAUDE_PROJECT_DIR"] = file;
   const log = new DecisionLog("iv-3");
   log.write(snap());
-  assert.equal(log.path, null);
+  assert.equal(log.written, false);
+  assert.equal(log.path, join(file, "decision-logs", "decision-iv-3.md"));
   assert.notEqual(log.writeError, null);
 });
 

@@ -5,13 +5,7 @@
 // `<project>/.scratch/` if that directory exists at the interview's first log, else
 // `<project>/decision-logs/` (created with a `.gitignore` holding `*`).
 
-import {
-  existsSync,
-  mkdirSync,
-  renameSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { projectPath } from "./journal.ts";
@@ -34,6 +28,9 @@ export interface LogSnapshot {
   items: readonly Item[];
   hookHealth: Record<string, number>;
 }
+
+/** Keeps a server-created `decision-logs/` folder out of version control (REQ-62). */
+const IGNORE_FILE = ".gitignore";
 
 const isDir = (p: string): boolean => {
   try {
@@ -84,11 +81,12 @@ export function render(snap: LogSnapshot): string {
 }
 
 export class DecisionLog {
-  /** The absolute path once a log has been written; null before. */
+  /** The log's absolute path once its directory is chosen, even if writing failed. */
   path: string | null = null;
+  /** True once a write has succeeded. */
+  written = false;
   writeError: string | null = null;
   private dir: string | null = null;
-
   private readonly interviewId: string;
 
   constructor(interviewId: string) {
@@ -97,32 +95,30 @@ export class DecisionLog {
 
   /** Writes (replaces) the log atomically. Fails open: a failure sets `writeError`. */
   write(snap: LogSnapshot): void {
+    const dir = this.chooseDir();
+    const file = join(dir, `decision-${this.interviewId}.md`);
+    this.path = file;
     try {
-      const dir = this.chooseDir();
-      const file = join(dir, `decision-${this.interviewId}.md`);
+      if (!isDir(dir)) {
+        mkdirSync(dir, { recursive: true, mode: 0o700 });
+        writeFileSync(join(dir, IGNORE_FILE), "*\n", { mode: 0o600 });
+      }
       const tmp = `${file}.tmp`;
       writeFileSync(tmp, render(snap), { mode: 0o600 });
       renameSync(tmp, file);
-      this.path = file;
+      this.written = true;
       this.writeError = null;
     } catch (e) {
       this.writeError = e instanceof Error ? e.message : String(e);
     }
   }
 
+  /** `.scratch/` if it exists at the first write, else `decision-logs/`; then kept. */
   private chooseDir(): string {
     if (this.dir !== null) return this.dir;
     const project = projectPath();
     const scratch = join(project, ".scratch");
-    let dir = scratch;
-    if (!isDir(scratch)) {
-      dir = join(project, "decision-logs");
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true, mode: 0o700 });
-        writeFileSync(join(dir, ".gitignore"), "*\n", { mode: 0o600 });
-      }
-    }
-    this.dir = dir;
-    return dir;
+    this.dir = isDir(scratch) ? scratch : join(project, "decision-logs");
+    return this.dir;
   }
 }
