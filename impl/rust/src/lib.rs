@@ -1,5 +1,6 @@
 //! regspike-rs: structured decision register served over MCP stdio.
 
+pub mod claim;
 pub mod classifier;
 pub mod declog;
 pub mod journal;
