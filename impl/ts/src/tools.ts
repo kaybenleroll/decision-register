@@ -288,7 +288,7 @@ export class App {
       case "skill_started":
         return this.skillStarted(args);
       case "check_stop":
-        return this.checkStop(args);
+        return this.checkStopAndFlush(args);
       case "end_interview":
         return this.endInterview(args);
       case "resume":
@@ -360,6 +360,8 @@ export class App {
       implicit: route === "implicit",
       prompt_count: promptCount,
     });
+    // The file is created with its first event; later events are write-behind.
+    journal.flush();
     return id;
   }
 
@@ -383,6 +385,7 @@ export class App {
     note: string | null,
   ): void {
     if (this.declog === null || this.interviewId === null) return;
+    this.journal?.flush(); // so the logged position is durable
     this.declog.write({
       interviewId: this.interviewId,
       journalPosition: this.journal?.seq ?? 0,
@@ -685,6 +688,7 @@ export class App {
       session_id: this.lastSeenSessionId,
       from_seq: s.lastSeq,
     });
+    journal.flush();
     const c = s.register.counts();
     return {
       interview_id: id,
@@ -1030,6 +1034,13 @@ export class App {
       .map((i) => `- ${i.id}: ${truncate(i.text)}`);
     const rest = open.length > 10 ? `\n${open.length - 10} more` : "";
     return `Items are still unresolved in the decision register. Resolve, park or ask about each before finishing:\n${lines.join("\n")}${rest}`;
+  }
+
+  /** A Stop check flushes the journal queue (journal.md). */
+  private checkStopAndFlush(args: JsonObject): JsonObject {
+    const r = this.checkStop(args);
+    this.journal?.flush();
+    return r;
   }
 
   /** Hook-facing. Always returns `{}` or a block decision (REQ-42, 43, 45). */
