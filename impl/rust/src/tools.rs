@@ -352,6 +352,10 @@ impl App {
                 "prompt_count": prompt_count,
             }),
         );
+        // The file is created with its first event (runtime.md); later events are write-behind.
+        if let Some(j) = &mut self.journal {
+            j.flush();
+        }
         id
     }
 
@@ -1116,5 +1120,127 @@ mod tests {
             call(&mut app, "status", json!({})).unwrap()["state"],
             "none"
         );
+    }
+
+    fn stop(app: &mut App, msg: &str) -> Value {
+        let args = json!({"session_id": "s", "last_assistant_message": msg});
+        let r = app.call("check_stop", &args, false).expect("known tool");
+        assert!(!r.is_error, "{}", r.text);
+        serde_json::from_str(&r.text).unwrap()
+    }
+
+    fn prompt(app: &mut App) {
+        let args = json!({"session_id": "s", "prompt": "answer"});
+        assert!(!app.call("note_prompt", &args, false).unwrap().is_error);
+    }
+
+    #[test]
+    fn stop_reason_lists_ten_items_then_n_more() {
+        let mut app = started();
+        for n in 0..10 {
+            q(&mut app, &format!("a{n}"));
+        }
+        let r = stop(&mut app, "done");
+        let reason = r["reason"].as_str().unwrap();
+        assert!(
+            reason.contains("a9") && !reason.contains(" more"),
+            "{reason}"
+        );
+        prompt(&mut app);
+        q(&mut app, "a10");
+        q(&mut app, "a11");
+        let r = stop(&mut app, "done");
+        let reason = r["reason"].as_str().unwrap();
+        assert!(reason.contains("a9") && !reason.contains("a10"), "{reason}");
+        assert!(reason.ends_with("2 more"), "{reason}");
+    }
+
+    #[test]
+    fn caps_fail_open_and_a_prompt_resets_only_its_own_count() {
+        let mut app = started();
+        q(&mut app, "a");
+        assert_eq!(stop(&mut app, "done")["decision"], "block");
+        assert_eq!(stop(&mut app, "done")["decision"], "block");
+        assert_eq!(stop(&mut app, "done"), json!({}));
+        assert_eq!(
+            app.blocks,
+            Blocks {
+                prompt: 2,
+                finish: 2,
+                unlogged: 0
+            }
+        );
+        prompt(&mut app);
+        assert_eq!(
+            app.blocks,
+            Blocks {
+                prompt: 0,
+                finish: 2,
+                unlogged: 0
+            }
+        );
+        assert_eq!(
+            stop(&mut app, "What about the weather today?")["decision"],
+            "block"
+        );
+        assert_eq!(
+            app.blocks,
+            Blocks {
+                prompt: 1,
+                finish: 2,
+                unlogged: 1
+            }
+        );
+    }
+
+    #[test]
+    fn unknown_classification_fails_open_and_gives_the_flat_budget() {
+        let mut app = started();
+        q(&mut app, "a");
+        let v = app.gate(Class::Unknown);
+        assert_eq!(v.reason, None);
+        assert_eq!((v.classification, v.presented), ("unknown", None));
+        prompt(&mut app);
+        assert_eq!(app.allowance, FLAT_BUDGET);
+        // an empty presented list gives 1, which is distinct from unknown
+        prompt(&mut app);
+        assert_eq!(app.allowance, 1);
+    }
+
+    #[test]
+    fn clean_finish_completes_and_a_mutation_returns_to_active() {
+        let mut app = started();
+        assert_eq!(stop(&mut app, "done"), json!({}));
+        assert!(app.complete);
+        assert_eq!(stop(&mut app, "anything at all"), json!({}));
+        q(&mut app, "late");
+        assert!(!app.complete);
+    }
+
+    #[test]
+    fn undersized_parent_blocks_unless_the_user_resolved_it() {
+        let mut app = started();
+        prompt(&mut app);
+        let ok = |app: &mut App, n: &str, args: Value| {
+            let r = app.call(n, &args, true).unwrap();
+            assert!(!r.is_error, "{}", r.text);
+        };
+        ok(
+            &mut app,
+            "log_item",
+            json!({"id": "p", "kind": "question", "text": "parent"}),
+        );
+        ok(
+            &mut app,
+            "resolve",
+            json!({"id": "p", "answer": "a", "source": "model", "rationale": "r"}),
+        );
+        ok(
+            &mut app,
+            "log_item",
+            json!({"id": "c", "kind": "subquestion", "text": "child", "parent": "p", "answer": "a", "source": "model", "rationale": "r"}),
+        );
+        let r = stop(&mut app, "done");
+        assert!(r["reason"].as_str().unwrap().contains("p parent"), "{r}");
     }
 }
