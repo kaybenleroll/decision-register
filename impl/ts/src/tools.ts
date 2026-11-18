@@ -22,7 +22,7 @@ import {
   Register,
   RegisterError,
 } from "./register.ts";
-import { scanUnfinished } from "./store.ts";
+import { archiveJournal, scanUnfinished } from "./store.ts";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -288,8 +288,9 @@ export class App {
       case "end_interview":
         return this.endInterview(args);
       case "resume":
+        return this.resume(args);
       case "discard":
-        return this.refuseUnfinished(args);
+        return this.discard(args);
       default:
         throw new ToolError(`tool not implemented: ${name}`);
     }
@@ -537,17 +538,53 @@ export class App {
   }
 
   /**
-   * `resume` and `discard`, refusals only (I3): the wrong-state rule of REQ-52 and the
-   * "nothing to act on" answer. Unfinished journals are listed, resumed and discarded
-   * in I4, so until then there is never one to act on.
+   * Picks the journal `resume` or `discard` acts on (REQ-52). Errors, in order: wrong
+   * state; for an id, live-owned or unknown; without one, none or several.
    */
-  private refuseUnfinished(args: JsonObject): JsonObject {
+  private pickUnfinished(args: JsonObject): string {
     checkKnown(args, ["id"]);
-    optIdArg(args, "id");
+    const id = optIdArg(args, "id");
     if (this.state === "active" || this.state === "complete") {
       throw new ToolError(`wrong state: ${this.state}`);
     }
-    throw new ToolError("no unfinished journal");
+    const all = scanUnfinished(projectDir(), this.interviewId);
+    if (id !== null) {
+      const found = all.find((j) => j.id === id);
+      if (found === undefined && id !== this.interviewId) {
+        throw new ToolError(`unknown interview id: ${id}`);
+      }
+      if (found === undefined || found.alive) {
+        throw new ToolError(`journal is live-owned: ${id}`);
+      }
+      return id;
+    }
+    const dead = all.filter((j) => !j.alive);
+    const first = dead[0];
+    if (first === undefined) throw new ToolError("no unfinished journal");
+    if (dead.length > 1) {
+      const ids = dead.map((j) => j.id).join(", ");
+      throw new ToolError(`several unfinished journals: ${ids}`);
+    }
+    return first.id;
+  }
+
+  /** `discard`: archives an unfinished journal and starts nothing (REQ-52). */
+  private discard(args: JsonObject): JsonObject {
+    const id = this.pickUnfinished(args);
+    try {
+      archiveJournal(projectDir(), id);
+    } catch (e) {
+      throw new ToolError(
+        `cannot archive ${id}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    return { interview_id: id, archived: true };
+  }
+
+  /** `resume`: not built yet; refuses with the same rules as `discard`. */
+  private resume(args: JsonObject): JsonObject {
+    this.pickUnfinished(args);
+    throw new ToolError("resume is not implemented in this build");
   }
 
   private endResult(

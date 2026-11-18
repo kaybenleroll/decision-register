@@ -177,7 +177,7 @@ test("an allowed finish attempt writes the log; status reports its path", () => 
 test("resume and discard refuse: nothing unfinished, or the wrong state", () => {
   const app = new App();
   fails(app, "resume", {}, /no unfinished journal/);
-  fails(app, "discard", { id: "iv-1" }, /no unfinished journal/);
+  fails(app, "discard", { id: "iv-1" }, /unknown interview id: iv-1/);
   call(app, "begin_interview", BEGIN);
   fails(app, "resume", {}, /wrong state: active/);
   fails(app, "discard", {}, /wrong state: active/);

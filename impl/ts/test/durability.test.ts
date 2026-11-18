@@ -127,3 +127,60 @@ test("status lists unfinished journals with dead owners, and the item tools refu
   }
   assert.equal(call(app, "status")["state"], "none");
 });
+
+const live = (id: string): string =>
+  `${JSON.stringify({ pid: process.ppid, start: startTime(process.ppid), interview_id: id })}\n`;
+const dead = (id: string): string =>
+  `${JSON.stringify({ pid: 2 ** 30, start: null, interview_id: id })}\n`;
+
+test("discard errors: nothing, unknown, live-owned, several, wrong state", () => {
+  const dir = sandbox();
+  const app = new App();
+  const err = (name: string, args: R = {}): string => {
+    const r = app.call(name, args, true);
+    assert.equal(r?.isError, true);
+    return r?.text ?? "";
+  };
+  assert.match(err("discard"), /no unfinished journal/);
+  seedUnfinished(dir, "iv-a", dead("iv-a"));
+  seedUnfinished(dir, "iv-b", null);
+  seedUnfinished(dir, "iv-c", live("iv-c"));
+  assert.match(
+    err("discard", { id: "iv-zzz" }),
+    /unknown interview id: iv-zzz/,
+  );
+  assert.match(err("discard", { id: "iv-c" }), /journal is live-owned: iv-c/);
+  assert.match(
+    err("discard"),
+    /several unfinished journals: .*iv-a.*iv-b|several unfinished journals: .*iv-b.*iv-a/,
+  );
+  assert.deepEqual(call(app, "discard", { id: "iv-a" }), {
+    interview_id: "iv-a",
+    archived: true,
+  });
+  assert.equal(existsSync(join(dir, "iv-a.jsonl")), false);
+  assert.equal(existsSync(join(dir, "iv-a.pid")), false);
+  assert.ok(existsSync(join(dir, "archive", "iv-a.jsonl")));
+  // The one left is taken without an id; an archived id is unknown.
+  assert.equal(call(app, "discard")["interview_id"], "iv-b");
+  assert.match(err("discard", { id: "iv-a" }), /unknown interview id/);
+  call(app, "begin_interview", begin);
+  assert.match(err("discard"), /wrong state: active/);
+  assert.match(err("resume"), /wrong state: active/);
+});
+
+test("discard in pending leaves the pending interview alone", () => {
+  const dir = sandbox();
+  seedUnfinished(dir, "iv-a", null);
+  const app = new App();
+  app.call(
+    "skill_started",
+    { tool_schema: 4, session_id: "s", skill: "grill-me" },
+    false,
+  );
+  assert.equal(call(app, "status")["state"], "pending");
+  call(app, "discard");
+  const st = call(app, "status");
+  assert.equal(st["state"], "pending");
+  assert.deepEqual(st["resumable"], []);
+});
