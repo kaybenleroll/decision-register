@@ -37,10 +37,12 @@ export const IMPLEMENTED: readonly string[] = [
   "skill_started",
   "check_stop",
   "end_interview",
+  "resume",
+  "discard",
 ];
 
-/** Tools in the contract that a later slice builds (resume, discard: I4). */
-const NOT_YET: readonly string[] = ["resume", "discard"];
+/** Tools in the contract that a later slice builds (none: resume and discard only refuse until I4). */
+const NOT_YET: readonly string[] = [];
 
 /** Hook-facing tools reject any call carrying `_meta` `claudecode/toolUseId` (REQ-40). */
 export const HOOK_FACING: readonly string[] = [
@@ -284,6 +286,9 @@ export class App {
         return this.checkStop(args);
       case "end_interview":
         return this.endInterview(args);
+      case "resume":
+      case "discard":
+        return this.refuseUnfinished(args);
       default:
         throw new ToolError(`tool not implemented: ${name}`);
     }
@@ -470,6 +475,20 @@ export class App {
     }
     const path = this.finish("normal", "register", "end_interview", null);
     return this.endResult(id, "normal", path);
+  }
+
+  /**
+   * `resume` and `discard`, refusals only (I3): the wrong-state rule of REQ-52 and the
+   * "nothing to act on" answer. Unfinished journals are listed, resumed and discarded
+   * in I4, so until then there is never one to act on.
+   */
+  private refuseUnfinished(args: JsonObject): JsonObject {
+    checkKnown(args, ["id"]);
+    optIdArg(args, "id");
+    if (this.state === "active" || this.state === "complete") {
+      throw new ToolError(`wrong state: ${this.state}`);
+    }
+    throw new ToolError("no unfinished journal");
   }
 
   private endResult(
