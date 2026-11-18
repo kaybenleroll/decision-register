@@ -162,6 +162,7 @@ pub struct Item {
     pub status: Status,
 }
 
+#[derive(Clone)]
 pub struct NewItem {
     pub id: Option<String>,
     pub kind: Kind,
@@ -198,7 +199,7 @@ impl fmt::Display for RegisterError {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Register {
     items: Vec<Item>,
     next_auto: u64,
@@ -284,10 +285,17 @@ impl Register {
             .ok_or_else(|| RegisterError::NoSuchItem(id.to_string()))
     }
 
-    /// Resolve accepts Open, Stale and Parked (either parker); rejects Resolved.
-    pub fn resolve(&mut self, id: &str, answer: Answer) -> Result<(), RegisterError> {
-        let i = self.lookup(id)?;
-        let item = &mut self.items[i];
+    /// Number of children (items naming `id` as parent), of any kind and status (REQ-35).
+    pub fn child_count(&self, id: &str) -> usize {
+        self.items
+            .iter()
+            .filter(|i| i.parent.as_deref() == Some(id))
+            .count()
+    }
+
+    /// Whether `resolve` is allowed from the item's current status (REQ-38).
+    pub fn check_resolve(&self, id: &str) -> Result<(), RegisterError> {
+        let item = &self.items[self.lookup(id)?];
         if matches!(item.status, Status::Resolved(_)) {
             return Err(RegisterError::Transition {
                 action: "resolve",
@@ -295,27 +303,41 @@ impl Register {
                 status: item.status.name(),
             });
         }
-        item.status = Status::Resolved(answer);
         Ok(())
     }
 
-    /// Park accepts Open, Stale and model-Parked; rejects Resolved and user-Parked.
-    pub fn park(&mut self, id: &str, by: Actor, reason: &str) -> Result<(), RegisterError> {
-        let i = self.lookup(id)?;
-        let item = &mut self.items[i];
+    /// Whether `park` is allowed from the item's current status (REQ-38).
+    pub fn check_park(&self, id: &str) -> Result<(), RegisterError> {
+        let item = &self.items[self.lookup(id)?];
         let allowed = match &item.status {
             Status::Open | Status::Stale(_) => true,
             Status::Parked { by, .. } => *by == Actor::Model,
             Status::Resolved(_) => false,
         };
-        if !allowed {
-            return Err(RegisterError::Transition {
+        if allowed {
+            Ok(())
+        } else {
+            Err(RegisterError::Transition {
                 action: "park",
                 id: id.to_string(),
                 status: item.status.name(),
-            });
+            })
         }
-        item.status = Status::Parked {
+    }
+
+    /// Resolve accepts Open, Stale and Parked (either parker); rejects Resolved.
+    pub fn resolve(&mut self, id: &str, answer: Answer) -> Result<(), RegisterError> {
+        self.check_resolve(id)?;
+        let i = self.lookup(id)?;
+        self.items[i].status = Status::Resolved(answer);
+        Ok(())
+    }
+
+    /// Park accepts Open, Stale and model-Parked; rejects Resolved and user-Parked.
+    pub fn park(&mut self, id: &str, by: Actor, reason: &str) -> Result<(), RegisterError> {
+        self.check_park(id)?;
+        let i = self.lookup(id)?;
+        self.items[i].status = Status::Parked {
             by,
             reason: reason.to_string(),
         };

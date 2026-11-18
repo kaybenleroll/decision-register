@@ -32,6 +32,13 @@ const HOOK_FACING: [&str; 3] = ["note_prompt", "skill_started", "check_stop"];
 /// The configured skill-name list (REQ-24), matched exactly as received.
 const SKILL_LIST: [&str; 1] = ["grill-me"];
 
+/// Budget when the classifier returned `unknown` (REQ-32), and the volunteered-answer cap.
+const FLAT_BUDGET: usize = 4;
+const VOLUNTEERED_CAP: usize = 4;
+
+/// A branch is a parent with at least this many children (REQ-35).
+const BRANCH_MIN: usize = 2;
+
 const TOOL_SCHEMA: u64 = 4;
 const JOURNAL_SCHEMA: u64 = 2;
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -195,6 +202,17 @@ pub struct App {
     interview_id: Option<String>,
     journal: Option<Journal>,
     last_seen_session: Option<String>,
+    /// Per-prompt budget of `source: user` answers and parks (REQ-32).
+    allowance: usize,
+    spent: usize,
+    /// Volunteered `log_item` answers accepted for the current prompt.
+    volunteered: usize,
+    /// A user prompt arrived since the previous Stop-hook call.
+    prompt_since_stop: bool,
+    /// Distinct items the classifier presented since the previous user prompt.
+    presented: Vec<String>,
+    /// The classifier returned `unknown` since the previous user prompt.
+    unknown_seen: bool,
     prompt_seen: bool,
     hook_note_prompt: u64,
     hook_skill_started: u64,
@@ -271,6 +289,11 @@ impl App {
         let prompt_count = u64::from(self.prompt_seen);
         self.hook_note_prompt = prompt_count;
         self.hook_skill_started = 0;
+        if !self.prompt_seen {
+            self.allowance = 0;
+            self.spent = 0;
+            self.volunteered = 0;
+        }
         self.prompt_seen = false;
         let (route, skill) = match route {
             Route::Hook(s) => ("hook", Some(s)),
@@ -385,9 +408,6 @@ impl App {
             Some(_) => return Err(bad("depends_on must be an array of ids")),
         };
         let answer = answer_group(args, false)?;
-        if answer.as_ref().is_some_and(|a| a.source() == Actor::User) {
-            self.user_authority()?;
-        }
         let new = NewItem {
             id,
             kind,
@@ -396,7 +416,23 @@ impl App {
             depends_on,
             answer,
         };
-        let (id, status) = self.register.log(new).map_err(|e| e.to_string())?;
+        // Rules run in the contract's order (lookups, kind rules, user-prompt rules) on a
+        // trial copy, so a rejection changes nothing.
+        let source = new.answer.as_ref().map(Answer::source);
+        let named = new.id.clone().unwrap_or_else(|| "(new item)".to_string());
+        let is_decision = new.kind == Kind::Decision;
+        let mut trial = self.register.clone();
+        let (id, status) = trial.log(new).map_err(|e| e.to_string())?;
+        if is_decision && source == Some(Actor::Model) {
+            return Err(format!(
+                "decision {named}: a decision can be answered only with source user"
+            ));
+        }
+        if source == Some(Actor::User) {
+            self.user_gate(true)?;
+            self.volunteered += 1;
+        }
+        self.register = trial;
         // A rule error above leaves the state untouched; success starts an interview.
         self.ensure_started("log_item", Route::Implicit);
         self.journal_logged(&id);
@@ -408,8 +444,25 @@ impl App {
         let id = id_arg(args, "id")?;
         let answer = answer_group(args, true)?
             .ok_or_else(|| bad("answer, source and rationale are required"))?;
-        if answer.source() == Actor::User {
-            self.user_authority()?;
+        self.register
+            .check_resolve(&id)
+            .map_err(|e| e.to_string())?;
+        if answer.source() == Actor::Model {
+            let item = self.register.get(&id).expect("checked by check_resolve");
+            if item.kind == Kind::Decision {
+                return Err(format!(
+                    "decision {id}: a decision can be resolved only with source user"
+                ));
+            }
+            let children = self.register.child_count(&id);
+            if (1..BRANCH_MIN).contains(&children) {
+                return Err(format!(
+                    "{id} is a branch with {children} sub-question(s), fewer than {BRANCH_MIN}: only the user can resolve it"
+                ));
+            }
+        } else {
+            self.user_gate(false)?;
+            self.spent += 1;
         }
         self.register
             .resolve(&id, answer.clone())
@@ -423,8 +476,20 @@ impl App {
         let id = id_arg(args, "id")?;
         let reason = text_arg(args, "reason")?;
         let by = required("parked_by", actor_arg(args, "parked_by")?)?;
-        if by == Actor::User {
-            self.user_authority()?;
+        self.register.check_park(&id).map_err(|e| e.to_string())?;
+        if by == Actor::Model {
+            if self
+                .register
+                .get(&id)
+                .is_some_and(|i| i.kind == Kind::Decision)
+            {
+                return Err(format!(
+                    "decision {id}: a decision can be parked only with parked_by user"
+                ));
+            }
+        } else {
+            self.user_gate(false)?;
+            self.spent += 1;
         }
         self.register
             .park(&id, by, &reason)
@@ -486,6 +551,16 @@ impl App {
         let prompt = required("prompt", str_arg(args, "prompt")?)?;
         if !prompt.starts_with(AGENT_MESSAGE_PREFIX) {
             self.last_seen_session = Some(session.clone());
+            self.prompt_since_stop = true;
+            self.allowance = if self.unknown_seen {
+                FLAT_BUDGET
+            } else {
+                self.presented.len().max(1)
+            };
+            self.spent = 0;
+            self.volunteered = 0;
+            self.presented.clear();
+            self.unknown_seen = false;
             if self.interview_id.is_some() {
                 self.hook_note_prompt += 1;
                 self.emit(
@@ -538,17 +613,36 @@ impl App {
         Ok(json!({}))
     }
 
-    /// REQ-44: a user-sourced answer needs a prompt hook call seen at all. The
-    /// per-prompt budget (REQ-32) follows in phase B.
-    fn user_authority(&self) -> Result<(), String> {
-        if self.prompt_seen || self.hook_note_prompt > 0 {
-            Ok(())
-        } else {
-            Err(
+    /// REQ-44 then REQ-32: a user-sourced answer needs a prompt hook call seen at all;
+    /// a volunteered one also a prompt since the previous Stop check and room under the
+    /// cap of 4 per prompt; any other the per-prompt budget max(1, p). Callers count the
+    /// point only once the call is certain to succeed.
+    fn user_gate(&self, volunteered: bool) -> Result<(), String> {
+        if !(self.prompt_seen || self.hook_note_prompt > 0) {
+            return Err(
                 "user-sourced answer rejected: hooks are not firing (no prompt hook call seen)"
                     .to_string(),
-            )
+            );
         }
+        if volunteered {
+            if !self.prompt_since_stop {
+                return Err(
+                    "volunteered user answer rejected: no user prompt since the previous Stop check"
+                        .to_string(),
+                );
+            }
+            if self.volunteered >= VOLUNTEERED_CAP {
+                return Err(format!(
+                    "volunteered-answer cap reached: {VOLUNTEERED_CAP} per user prompt"
+                ));
+            }
+        } else if self.spent >= self.allowance {
+            return Err(format!(
+                "user-answer budget spent: budget spent: used {}, allowed {} for this prompt; a new user prompt is needed",
+                self.spent, self.allowance
+            ));
+        }
+        Ok(())
     }
 }
 
