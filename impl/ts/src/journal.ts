@@ -9,7 +9,14 @@ import { appendFileSync, mkdirSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { createPid, ownRecord, pidPath, removeFile } from "./pidfile.ts";
+import {
+  createPid,
+  dropClaim,
+  noteClaim,
+  ownRecord,
+  pidPath,
+  removeFile,
+} from "./pidfile.ts";
 
 const nonEmpty = (v: string | undefined): string | undefined =>
   v === undefined || v === "" ? undefined : v;
@@ -59,6 +66,7 @@ export class Journal {
       mkdirSync(this.dir, { recursive: true, mode: 0o700 });
       createPid(pidPath(this.dir, this.id), ownRecord(this.id));
       this.hasPid = true;
+      noteClaim(this.id);
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "EEXIST") return false;
     }
@@ -68,12 +76,14 @@ export class Journal {
   /** Marks the pid file as claimed by this process (after a resume claim). */
   adoptPidFile(): void {
     this.hasPid = true;
+    noteClaim(this.id);
   }
 
   /** Removes this journal's pid file, if this process owns one. */
   removePidFile(): void {
     if (this.hasPid) removeFile(pidPath(this.dir, this.id));
     this.hasPid = false;
+    dropClaim(this.id);
   }
 
   append(kind: string, fields: JournalFields): void {

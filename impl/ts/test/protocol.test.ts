@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import contract from "../../../contract/tools.json" with { type: "json" };
 import { PROTOCOL_VERSION, Server } from "../src/protocol.ts";
+
+// Journals and pid files go to a fresh directory, never the shared default data root.
+process.env["CLAUDE_PLUGIN_DATA"] = mkdtempSync(join(tmpdir(), "reg-data-"));
+process.env["CLAUDE_PROJECT_DIR"] = mkdtempSync(join(tmpdir(), "reg-proj-"));
 
 function rpc(s: Server, line: string): Record<string, any> {
   const r = s.handleLine(line);

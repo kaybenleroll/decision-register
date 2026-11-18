@@ -23,6 +23,16 @@ export interface PidRecord {
   interview_id: string;
 }
 
+/**
+ * Interview ids whose pid file this process currently holds. A pid file naming this
+ * process is alive only if it is one of these (a leftover from an earlier run that
+ * reused the pid is not).
+ */
+const heldClaims = new Set<string>();
+export const holdsClaim = (id: string): boolean => heldClaims.has(id);
+export const noteClaim = (id: string): void => void heldClaims.add(id);
+export const dropClaim = (id: string): void => void heldClaims.delete(id);
+
 /** Raised when another claimer wins (message `journal already claimed`). */
 export class ClaimError extends Error {}
 

@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import pkg from "../package.json" with { type: "json" };
 import { type Classification, classify } from "./classifier.ts";
 import { DecisionLog, type LogMode, type LogState } from "./declog.ts";
-import { Journal } from "./journal.ts";
+import { Journal, projectDir } from "./journal.ts";
 import {
   type Actor,
   type Answer,
@@ -22,6 +22,7 @@ import {
   Register,
   RegisterError,
 } from "./register.ts";
+import { scanUnfinished } from "./store.ts";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -291,6 +292,23 @@ export class App {
         return this.refuseUnfinished(args);
       default:
         throw new ToolError(`tool not implemented: ${name}`);
+    }
+  }
+
+  /** Unfinished journals with no live owner, most recently modified first. */
+  private resumable(): { interview_id: string; last_event: number }[] {
+    return scanUnfinished(projectDir(), this.interviewId)
+      .filter((j) => !j.alive)
+      .map((j) => ({ interview_id: j.id, last_event: j.lastEvent }));
+  }
+
+  /** begin_interview and the item tools are refused while a journal waits (REQ-52). */
+  private refuseWhileUnfinished(): void {
+    if (
+      (this.state === "none" || this.state === "pending") &&
+      this.resumable().length > 0
+    ) {
+      throw new ToolError("unfinished journal: call resume or discard");
     }
   }
 
@@ -568,6 +586,7 @@ export class App {
         `tool_schema mismatch: plugin ${ts}, server ${TOOL_SCHEMA}`,
       );
     }
+    this.refuseWhileUnfinished();
     this.versionMismatch = null;
     if (this.state === "none") {
       const id = this.startInterview("begin_interview", skill, null);
@@ -639,6 +658,7 @@ export class App {
     }
     const answer = answerGroup(args, false);
     const item: NewItem = { id, kind, text, parent, dependsOn, answer };
+    this.refuseWhileUnfinished();
     // Rule errors, in contract order, leave the state untouched.
     this.register.checkLog(item);
     if (answer !== null) {
@@ -679,6 +699,7 @@ export class App {
     const id = idArg(args, "id");
     const answer = answerGroup(args, true);
     if (answer === null) throw bad("answer, source and rationale are required");
+    this.refuseWhileUnfinished();
     const item = this.register.assertResolvable(id);
     if (answer.source === "model") {
       if (item.kind === "decision") {
@@ -712,6 +733,7 @@ export class App {
     const id = idArg(args, "id");
     const reason = textArg(args, "reason");
     const by = required("parked_by", actorArg(args, "parked_by"));
+    this.refuseWhileUnfinished();
     const item = this.register.assertParkable(id);
     if (by === "model") {
       if (item.kind === "decision") {
@@ -733,6 +755,7 @@ export class App {
     checkKnown(args, ["id", "reason"]);
     const id = idArg(args, "id");
     const reason = textArg(args, "reason");
+    this.refuseWhileUnfinished();
     const stale = this.register.reopen(id);
     this.engage("reopen");
     this.emit("reopen", { id, reason, stale });
@@ -762,7 +785,7 @@ export class App {
         prompt_seen: this.promptSeen,
       },
       last_event: this.journal?.seq ?? 0,
-      resumable: [],
+      resumable: this.resumable(),
       version_mismatch:
         this.versionMismatch === null
           ? null
