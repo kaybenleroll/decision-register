@@ -606,12 +606,23 @@ impl App {
         let id = self.interview_id.clone()?;
         self.flush_journal();
         let position = self.journal.as_ref().map_or(0, Journal::seq);
+        let note = match (end_kind, mode) {
+            ("stood_down", "plain") => "Stood down by the model (mode plain): nothing was logged.",
+            ("stood_down", _) => {
+                "The skill did not engage the register: the interview was stood down."
+            }
+            ("ended_incomplete_by_model", _) => "Ended incomplete by the model with items open.",
+            ("abandoned", _) => "Abandoned: the session changed with items open (incomplete).",
+            ("interrupted", _) => "Interrupted: the server exited with the interview unfinished.",
+            _ => "",
+        };
         let view = LogView {
             interview_id: &id,
             position,
             state,
             mode,
             end_kind,
+            note,
             implicit: self.implicit,
             items: self.register.ordered(),
         };

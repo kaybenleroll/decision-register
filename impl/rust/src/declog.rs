@@ -24,6 +24,8 @@ pub struct LogView<'a> {
     pub end_kind: &'a str,
     pub implicit: bool,
     pub items: Vec<&'a Item>,
+    /// One line saying how the interview ended or stands; empty for none.
+    pub note: &'a str,
 }
 
 /// Where the logs of one interview go; the directory is chosen at the first write.
@@ -115,6 +117,9 @@ fn render(v: &LogView<'_>) -> String {
     let _ = writeln!(s, "end_kind: {}", v.end_kind);
     let _ = writeln!(s, "implicit_start: {}", v.implicit);
     let _ = writeln!(s, "\n# Decision log {}\n", v.interview_id);
+    if !v.note.is_empty() {
+        let _ = writeln!(s, "{}\n", v.note);
+    }
     if v.items.is_empty() {
         s.push_str("No items were logged.\n");
     }
@@ -160,6 +165,7 @@ mod tests {
             mode: "not engaged",
             end_kind: "stood_down",
             implicit: false,
+            note: "",
             items: Vec::new(),
         });
         let head: Vec<&str> = text.lines().take(6).collect();
