@@ -201,5 +201,10 @@ export function classify(
       return shared >= 3;
     })
     .map((i) => i.id);
+  // Closing replay (section 4): a message that concerns no Open/Stale item and offers a
+  // closed next step after a closure sentence is a finish attempt, not a question turn.
+  if (presented.length === 0 && isClosingReplay(stripForQuestionMark(u))) {
+    return { kind: "finish" };
+  }
   return { kind: "question", presented };
 }
