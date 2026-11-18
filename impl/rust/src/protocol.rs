@@ -47,7 +47,7 @@ impl Server {
 
     /// Called at end of input: flushes journal events queued since the last `check_stop`.
     pub fn finish(&mut self) {
-        self.app.flush_journal();
+        self.app.shutdown();
     }
 
     /// Handles one input line; `None` when no reply is due (notifications).

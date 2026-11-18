@@ -5,13 +5,15 @@
 use std::collections::hash_map::RandomState;
 use std::fmt::Display;
 use std::hash::{BuildHasher, Hasher};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Map, Value, json};
 
+use crate::claim;
 use crate::classifier::{Class, ClassItem, classify};
 use crate::declog::{DecisionLog, LogView};
-use crate::journal::{Journal, civil_from_days};
+use crate::journal::{Journal, civil_from_days, project_dir};
 use crate::register::{
     Actor, Answer, Item, Kind, NewItem, Register, Status, is_nonblank, is_valid_id,
 };
@@ -212,6 +214,19 @@ fn new_interview_id() -> String {
     )
 }
 
+/// Draws an interview id and creates its pid file exclusively before the journal's first
+/// event; a clash draws again. Any other failure is fail-open (runtime.md): no pid file.
+fn claim_new_id(dir: &Path) -> String {
+    let mut id = new_interview_id();
+    for _ in 0..16 {
+        match claim::create_new(dir, &id) {
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => id = new_interview_id(),
+            _ => break,
+        }
+    }
+    id
+}
+
 /// The three block counters of REQ-42, after the latest decision.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 struct Blocks {
@@ -277,6 +292,8 @@ pub struct App {
     declog: DecisionLog,
     /// The session the interview is bound to (REQ-26); None until a hook call names one.
     bound_session: Option<String>,
+    /// Overrides the project directory; None means the environment decides.
+    dir: Option<PathBuf>,
 }
 
 impl App {
@@ -329,7 +346,58 @@ impl App {
         }
     }
 
-    /// Writes any queued journal events (end of input; other flush points are I4).
+    /// The project directory (tests point it at a scratch directory).
+    fn dir(&self) -> PathBuf {
+        self.dir.clone().unwrap_or_else(project_dir)
+    }
+
+    /// Unfinished journals no live process owns, most recently modified first.
+    fn unfinished(&self) -> Vec<claim::Unfinished> {
+        claim::unfinished(&self.dir(), self.interview_id.as_deref())
+    }
+
+    fn resumable(&self) -> Vec<Value> {
+        self.unfinished()
+            .into_iter()
+            .map(|u| json!({"interview_id": u.id, "last_event": u.last_event}))
+            .collect()
+    }
+
+    /// Error row 5: while an unfinished journal exists and no interview is active, the
+    /// register-writing tools are refused until `resume` or `discard`.
+    fn refuse_if_unfinished(&self) -> Result<(), String> {
+        let idle = self.interview_id.is_none() || self.pending;
+        if idle && !self.unfinished().is_empty() {
+            return Err("unfinished journal: call resume or discard".to_string());
+        }
+        Ok(())
+    }
+
+    /// Graceful exit on stdin EOF (runtime.md "Interview ends and server exit"): a pending
+    /// interview stands down, a complete one ends; an active one keeps its journal
+    /// unfinished, writes its log flagged `interrupted` and loses only its pid file.
+    pub fn shutdown(&mut self) {
+        if self.interview_id.is_none() {
+            return;
+        }
+        if self.pending {
+            self.end_current(
+                "stood_down",
+                "not_engaged",
+                Some("server exit while pending"),
+            );
+        } else if self.complete {
+            self.end_current("ended_after_completion", "register", None);
+        } else {
+            self.write_log("active", "register", "interrupted");
+            self.flush_journal();
+            if let Some(j) = &self.journal {
+                j.release();
+            }
+        }
+    }
+
+    /// Writes any queued journal events.
     pub fn flush_journal(&mut self) {
         if let Some(j) = &mut self.journal {
             j.flush();
@@ -353,9 +421,10 @@ impl App {
             }
             return id;
         }
-        let id = new_interview_id();
+        let dir = self.dir();
+        let id = claim_new_id(&dir);
         self.interview_id = Some(id.clone());
-        self.journal = Some(Journal::new(&id));
+        self.journal = Some(Journal::in_dir(&dir, &id));
         // The prompt before the start counts once; earlier inactive ones are not counted.
         let prompt_count = u64::from(self.prompt_seen);
         self.hook_note_prompt = prompt_count;
@@ -451,6 +520,7 @@ impl App {
                 "tool_schema mismatch: plugin {ts}, server {TOOL_SCHEMA}"
             ));
         }
+        self.refuse_if_unfinished()?;
         self.version_mismatch = None;
         let existing = self.interview_id.is_some();
         let id = self.ensure_started("begin_interview", Route::Begin(skill));
@@ -491,6 +561,7 @@ impl App {
             Some(_) => return Err(bad("depends_on must be an array of ids")),
         };
         let answer = answer_group(args, false)?;
+        self.refuse_if_unfinished()?;
         let new = NewItem {
             id,
             kind,
@@ -528,6 +599,7 @@ impl App {
         let id = id_arg(args, "id")?;
         let answer = answer_group(args, true)?
             .ok_or_else(|| bad("answer, source and rationale are required"))?;
+        self.refuse_if_unfinished()?;
         self.register
             .check_resolve(&id)
             .map_err(|e| e.to_string())?;
@@ -561,6 +633,7 @@ impl App {
         let id = id_arg(args, "id")?;
         let reason = text_arg(args, "reason")?;
         let by = required("parked_by", actor_arg(args, "parked_by")?)?;
+        self.refuse_if_unfinished()?;
         self.register.check_park(&id).map_err(|e| e.to_string())?;
         if by == Actor::Model {
             if self
@@ -591,6 +664,7 @@ impl App {
         check_known(args, &["id", "reason"])?;
         let id = id_arg(args, "id")?;
         let reason = text_arg(args, "reason")?;
+        self.refuse_if_unfinished()?;
         let stale = self.register.reopen(&id).map_err(|e| e.to_string())?;
         self.complete = false;
         self.emit(
@@ -646,6 +720,7 @@ impl App {
         let log = self.write_log("ended", &log_mode, end_kind);
         if let Some(j) = &mut self.journal {
             j.archive();
+            j.release();
         }
         self.register = Register::default();
         self.interview_id = None;
@@ -781,7 +856,7 @@ impl App {
                 "prompt_seen": self.prompt_seen,
             },
             "last_event": self.journal.as_ref().map_or(0, Journal::seq),
-            "resumable": [],
+            "resumable": self.resumable(),
             "version_mismatch": self.version_mismatch.map(|(p, s)| {
                 json!({"plugin_tool_schema": p, "server_tool_schema": s})
             }),
@@ -1061,11 +1136,23 @@ impl App {
 mod tests {
     use super::*;
 
+    fn scratch_dir() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static N: AtomicU64 = AtomicU64::new(0);
+        std::env::temp_dir().join(format!(
+            "regspike-app-{}-{}",
+            std::process::id(),
+            N.fetch_add(1, Ordering::Relaxed)
+        ))
+    }
+
     /// A new app that does not depend on the session id of the shell running the tests.
     fn fresh() -> App {
         // SAFETY: tests only ever clear this variable, none sets it.
         unsafe { std::env::remove_var("CLAUDE_CODE_SESSION_ID") };
-        App::new()
+        let mut app = App::new();
+        app.dir = Some(scratch_dir());
+        app
     }
 
     fn call(app: &mut App, name: &str, args: Value) -> Result<Value, String> {
