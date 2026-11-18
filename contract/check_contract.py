@@ -95,6 +95,7 @@ EXPECTED_ERRORS = [  # (tools, precedence check, fragment of message_names); the
     ("log_item", 7, "subquestion needs a parent"),
     ("log_item", 9, "decision item can be answered by the user only: <id>"),
     ("resolve|log_item", 10, "user-answer budget spent:"),
+    ("log_item", 10, "no user prompt since the"),
     ("log_item", 10, "volunteered-answer cap reached"),
 ]
 MUTATING = {"log_item", "resolve", "park", "reopen"}
