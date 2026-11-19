@@ -1,0 +1,14 @@
+{
+  "skill": "grill-me",
+  "skill_file": "skills/grill-me/SKILL.md",
+  "sessions": {"typed": "smoke-typed", "model": "smoke-model", "unrelated": "smoke-unrelated", "gate": "smoke-gate"},
+  "prompts": {
+    "typed": "/grill-me the cache design",
+    "model": "Please use the grill-me skill to interview me about the cache design.",
+    "unrelated": "What is the capital of France?"
+  },
+  "assistant": {
+    "finish": "All done. The design is settled and nothing else is open.",
+    "question": "Which eviction policy would you pick for the cache, LRU or LFU?"
+  }
+}
