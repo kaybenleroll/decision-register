@@ -172,7 +172,7 @@
     "reason": "r"
    },
    "expect": "error",
-   "mention": "nothing is open"
+   "mention": "nothing is open: abandon is not needed"
   },
   {
    "call": "end_interview",
@@ -262,7 +262,7 @@
     "reason": "r"
    },
    "expect": "error",
-   "mention": "nothing is open"
+   "mention": "nothing is open: abandon is not needed"
   },
   {
    "call": "status",

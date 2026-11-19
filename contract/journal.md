@@ -5,6 +5,7 @@ Authority: REQ-60, REQ-61, REQ-27 rule 5, REQ-52. Changing anything here bumps `
 ## File
 
 - One JSON object per line (JSONL), UTF-8, appended; written write-behind. The queue is flushed (written and fsync not required) at every `check_stop` call, at the end of an interview, and on stdin EOF before the server exits (REQ-60 says "at least"; EOF is the user decision of 2026-11-16 so a graceful exit loses nothing). A hard crash can still lose the events since the last flush; `status.last_event` and `resume.last_event` make the loss visible.
+- Key order: the order of keys inside a journal line, a tool reply or any other JSON object is not significant; readers and the suite compare parsed JSON, never text. The one exception is the pid file, whose key order is fixed (runtime.md, "Pid file and claim"). This is how REQ-71's "identical journal format" is read: identical events, kinds and field values, not identical bytes.
 - Name: `<interview_id>.jsonl` in the data directory's project folder (runtime.md); archived journals move to its `archive/` folder. The pid file `<interview_id>.pid` sits beside it (REQ-52).
 
 The machine-readable form of the envelope and of every kind below is `journal.schema.json`; `check_contract.py` fails if it disagrees with this document, and the conformance suite validates every journal line against it.
@@ -69,6 +70,6 @@ The kinds `engage`, `prompt`, `hook`, `stop`, `complete` and `mismatch` carry no
 
 ## Compatibility
 
-- v1 lines (spike 3 and earlier) lack `v`, `ts` and `seq`; their `seq` is taken as the 1-based line number. Only the kinds `item`, `resolve`, `park` and `reopen` can occur in v1, with the field names of the v2 kind of the same name; a v1 `kind` outside those four fails replay naming the line.
+- v1 lines (spike 3 and earlier) lack `v`, `ts` and `seq`; their `seq` is taken as the 1-based line number. Only the kinds `item`, `resolve`, `park` and `reopen` can occur in v1, with the field names of the v2 kind of the same name; a v1 `kind` outside those four fails replay naming the line. A v1 journal has no `start` event, so its interview id is the journal file name without `.jsonl`, or the `id` argument of `resume` (the two agree).
 - A `resume` replay yields `hook_health` counts and finish-gate caps as listed above and sets `prompt_seen` false. `journal_position` in a decision log written by an allowed finish attempt equals `status.last_event` right after it. A crash while `complete` resumes as `active`. Unfinished journals are listed most recently modified first.
 - The suite reads journal files only through the data directory it supplied (runtime.md).

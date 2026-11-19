@@ -418,7 +418,7 @@ export class App {
   private finish(
     endKind: string,
     journalMode: "register" | "plain" | "not_engaged",
-    reason: string,
+    reason: string | null,
     note: string | null,
   ): string | null {
     const logMode: LogMode =
@@ -541,14 +541,12 @@ export class App {
     }
     if (this.state === "complete") {
       if (abandon === true) {
-        throw new ToolError(
-          "nothing is open: abandon applies only to open items",
-        );
+        throw new ToolError("nothing is open: abandon is not needed");
       }
       const path = this.finish(
         "ended_after_completion",
         "register",
-        "end_interview",
+        null,
         null,
       );
       return this.endResult(id, "ended_after_completion", path);
@@ -556,9 +554,7 @@ export class App {
     const open = this.openItems();
     if (abandon === true) {
       if (open.length === 0) {
-        throw new ToolError(
-          "nothing is open: abandon applies only to open items",
-        );
+        throw new ToolError("nothing is open: abandon is not needed");
       }
       const path = this.finish(
         "ended_incomplete_by_model",
@@ -574,7 +570,7 @@ export class App {
         `items are still open: ${names}; resolve or park them, or pass abandon true with a reason`,
       );
     }
-    const path = this.finish("normal", "register", "end_interview", null);
+    const path = this.finish("normal", "register", null, null);
     return this.endResult(id, "normal", path);
   }
 
@@ -1038,12 +1034,15 @@ export class App {
     });
   }
 
-  private blockReason(open: readonly Item[]): string {
+  private blockReason(
+    open: readonly Item[],
+    lead = "Items are still unresolved in the decision register. Resolve, park or ask about each before finishing:",
+  ): string {
     const lines = open
       .slice(0, 10)
       .map((i) => `- ${i.id}: ${truncate(i.text)}`);
     const rest = open.length > 10 ? `\n${open.length - 10} more` : "";
-    return `Items are still unresolved in the decision register. Resolve, park or ask about each before finishing:\n${lines.join("\n")}${rest}`;
+    return `${lead}\n${lines.join("\n")}${rest}`;
   }
 
   /** A Stop check flushes the journal queue (journal.md). */
@@ -1131,8 +1130,10 @@ export class App {
         stop("block", "question", []);
         return {
           decision: "block",
-          reason:
-            "That question is not in the decision register. Log it with log_item, then ask it again.",
+          reason: this.blockReason(
+            this.gateList(),
+            "That question is not in the decision register. Log it with log_item, then ask it again. Open items:",
+          ),
         };
       }
       stop("allow", "question", []);

@@ -79,7 +79,7 @@ Reply request (rule e6): a message whose `S` contains no `?` is a question turn,
 single labelled request and the first token (section 5 tokens) of the last non-blank line of `S` is `reply` or `respond`.
 Lines are split at each newline; a line is blank iff it is empty or only whitespace. The token must be the first on the line,
 so `**Reply:** ...` and `Respond with ...` qualify, while `1. Reply ...` (first token `1`) and a quote line (removed from `S`)
-do not; the `?` test is unchanged for every other message. A reply request is classified as in sections 5 and 7: allowed
+do not. A bullet marker does not exclude a reply request (`- Reply with A or B` qualifies, because `-` is not a token and the first token is `reply`), while a numbered marker does (`1` is a token); the asymmetry is deliberate, a consequence of the token definition [user, 2026-11-19]. The `?` test is unchanged for every other message. A reply request is classified as in sections 5 and 7: allowed
 with `presented` = the concerned items, or blocked as unlogged with `presented` [] when it concerns none. It is checked on
 messages without `?` only, so it never overrides a closing replay.
 

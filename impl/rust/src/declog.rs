@@ -28,6 +28,8 @@ pub struct LogView<'a> {
     pub note: &'a str,
     /// The reopen history in order: item id, reason, ids made stale.
     pub reopens: &'a [Reopen],
+    /// The hook-call counts (REQ-62): `note_prompt`, `skill_started`, `check_stop`.
+    pub hook_health: [(&'a str, u64); 3],
 }
 
 /// One `reopen` call, kept for the decision log (REQ-62).
@@ -171,6 +173,10 @@ fn render(v: &LogView<'_>) -> String {
         }
         s.push('\n');
     }
+    s.push_str("## Hook health\n\n");
+    for (name, count) in v.hook_health {
+        let _ = writeln!(s, "- {name}: {count}");
+    }
     s
 }
 
@@ -190,6 +196,7 @@ mod tests {
             note: "",
             items: Vec::new(),
             reopens: &[],
+            hook_health: [("note_prompt", 0), ("skill_started", 0), ("check_stop", 0)],
         });
         let head: Vec<&str> = text.lines().take(6).collect();
         assert_eq!(
@@ -222,6 +229,7 @@ mod tests {
             note: "",
             items: Vec::new(),
             reopens: r,
+            hook_health: [("note_prompt", 2), ("skill_started", 1), ("check_stop", 5)],
         };
         let text = render(&LogView {
             reopens: &reopens,
@@ -229,5 +237,10 @@ mod tests {
         });
         assert!(text.contains("- reopened q3: REO-EEE (stale: q4, q5)"));
         assert!(!render(&view(&[])).contains("Reopen history"));
+        assert!(
+            text.contains(
+                "## Hook health\n\n- note_prompt: 2\n- skill_started: 1\n- check_stop: 5\n"
+            )
+        );
     }
 }

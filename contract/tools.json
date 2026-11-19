@@ -2343,7 +2343,7 @@
   },
   {
    "tools": "resume|discard",
-   "when": "no unfinished journal exists",
+   "when": "no id given and nothing unfinished",
    "message_names": "no unfinished journal",
    "check": 6
   },
