@@ -19,6 +19,14 @@ without a valid precedence number.
 
 Log (newest first)
 
+(no bump, 2026-11-19, user decision Q9)  tools.json errors table: the first
+resume|discard row's "when" reads "no id given and nothing unfinished"
+(was "no unfinished journal exists"). Behaviour is unchanged and both builds
+already agree: an id that names no unfinished journal gives "unknown interview
+id: <id>" even when no journal exists at all. The "when" text is not served in
+tools/list (name, description and inputSchema only) and no scenario matches it;
+the matched message text is unchanged, so tool_schema stays 4.
+
 (no bump, 2026-11-18, user decision Q3)  tools.json records the rule both
 builds already implement and S-32b asserts: a volunteered `source: user`
 answer in log_item needs a user prompt counted since the previous check_stop
