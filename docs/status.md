@@ -386,3 +386,4 @@ Open items for the user:
 - Decisions [user, 2026-11-19], D1 to D11 of the I5 parity walk; this entry is extended by each commit of phase 1 (contract and requirements text). Phase 2 (code and scenario S-23h) follows on the same branch.
 - Q1 (D11): JSON key order is not significant in replies and journals, except in the pid file. Stated in `contract/journal.md` (File section). This clarifies how REQ-71 "identical journal format" is read: identical events and values, not identical bytes. REQ-71's [user] text is unchanged.
 - Q2 (D4): `contract/runtime.md` ("Pid file and claim") states the pid-file key order `pid`, `start`, `interview_id`; S-L1 is unchanged.
+- Q8 (D5): `contract/journal.md` (Compatibility) states that the interview id of a replayed v1 journal is the journal file name, or the `resume` argument.

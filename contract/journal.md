@@ -70,6 +70,6 @@ The kinds `engage`, `prompt`, `hook`, `stop`, `complete` and `mismatch` carry no
 
 ## Compatibility
 
-- v1 lines (spike 3 and earlier) lack `v`, `ts` and `seq`; their `seq` is taken as the 1-based line number. Only the kinds `item`, `resolve`, `park` and `reopen` can occur in v1, with the field names of the v2 kind of the same name; a v1 `kind` outside those four fails replay naming the line.
+- v1 lines (spike 3 and earlier) lack `v`, `ts` and `seq`; their `seq` is taken as the 1-based line number. Only the kinds `item`, `resolve`, `park` and `reopen` can occur in v1, with the field names of the v2 kind of the same name; a v1 `kind` outside those four fails replay naming the line. A v1 journal has no `start` event, so its interview id is the journal file name without `.jsonl`, or the `id` argument of `resume` (the two agree).
 - A `resume` replay yields `hook_health` counts and finish-gate caps as listed above and sets `prompt_seen` false. `journal_position` in a decision log written by an allowed finish attempt equals `status.last_event` right after it. A crash while `complete` resumes as `active`. Unfinished journals are listed most recently modified first.
 - The suite reads journal files only through the data directory it supplied (runtime.md).
