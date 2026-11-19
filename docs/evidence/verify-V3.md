@@ -4,6 +4,8 @@ Issue #25. Question: does the `session_id` the hooks send to the server stay the
 
 Source: the live run of 2026-11-19 (`docs/evidence/live-run-2026-11-19.md`), Claude Code 2.1.328, one manual `/compact` at 12:44:01 (`compact_boundary` entry), single trial.
 
+Implementation: run 1 used `REGSPIKE_IMPL=ts` (the TypeScript build) as instructed and reported by the user, started from `/home/mcooney/workspace/register-live-run` with `--plugin-dir`; the transcript and journal do not record the implementation themselves.
+
 ## Verdict: observed equal across one compaction in one session (one trial). Not claimed closed.
 
 The server journal `~/.claude/plugins/data/decision-register-inline/<hash>/archive/iv-20261119T123740Z-757024ab.jsonl` records the received `session_id` on every hook row. All 22 hook rows (`note_prompt`, `check_stop`) carry `baed6038-c0bc-464c-83a4-4022c2cddfbe`, equal to the transcript `sessionId`: 18 rows before the manual `/compact` at 12:44:01 and 4 after (first 12:45:15). Journal timestamps are UTC (`Z`) and the transcript `compact_boundary` timestamp is also UTC, so no conversion was applied. Counted by script over the 58-row file (matches `journal_position` 58). The 9 `prompt` rows and the `start` row carry the same id; no other value appears. The journal does not record which implementation served (no server_version, binary path or impl field); the TypeScript build is from `REGSPIKE_IMPL=ts` in the run command only.
