@@ -467,3 +467,9 @@ Open items for the user:
 - The live-run-3 leftover V6 journal `iv-20261119T152226Z-c31a6fde` and this run's own leftovers were removed through the register's `discard` tool only.
 - One Bash command was denied by the permission system with no reason (a compound command starting with `rm -rf` on a scratch copy); not retried as written.
 - No issue closed or ticked; closure is the user's decision.
+
+## 2026-11-19 (register-use: symlink build selector; branch issue-register-use; Refs #32)
+
+- Added `bin/register-use` (`rs`, `ts`, `status`, `--prefix`, `REGISTER_BIN_DIR`, `REGISTER_SHARE_DIR`), `smoke/check_register_use.sh` and a README section. Not one of the retirement experiment's five changes; a convenience only. The launcher needed no change (REGSPIKE_IMPL unset runs `regspike-rs` from PATH, as assumed).
+- Verified by running (temp dirs under `.scratch/`, real `plugin/bin/register-launch`, REGSPIKE_IMPL unset): `ts` gives 12 tools and a process `node .../impl/ts/dist/regspike.mjs`; `rs` gives 12 tools and process `regspike-rs`; idempotent; refuses a real file and a foreign symlink; missing-build errors name the build command; `status` warns on REGSPIKE_IMPL. The wrapper `exec`s node (same pid), stdin EOF exits 0, SIGINT gave exit 130.
+- Gate: both builds rebuilt; conformance 135/135 on both; check_fixtures 5/5 on both. shellcheck is not installed (only `sh -n`). The real `~/.local/bin`, `~/.local/share` and `~/.claude` were not touched; no Claude session, nothing paid.

@@ -1,0 +1,94 @@
+#!/bin/sh
+# Choose which register build the plugin launcher runs, with no environment variable (REQ-73).
+# plugin/bin/register-launch runs `regspike-rs` found on PATH when REGSPIKE_IMPL is unset; this script points
+# REGISTER_BIN_DIR/regspike-rs at the Rust build or at a node wrapper for the TypeScript build.
+#   register-use [--prefix DIR] rs|ts|status
+# REGISTER_BIN_DIR (default ~/.local/bin; --prefix DIR sets it) and REGISTER_SHARE_DIR (default
+# ~/.local/share/register) hold the link and the two choices. Takes effect when the next session starts.
+set -eu
+
+root=$(cd "$(dirname "$0")/.." && pwd -P) || exit 1
+bin_dir=${REGISTER_BIN_DIR:-$HOME/.local/bin}
+share_dir=${REGISTER_SHARE_DIR:-$HOME/.local/share/register}
+
+die() { echo "register-use: $*" >&2; exit 1; }
+usage() { echo "usage: register-use [--prefix DIR] rs|ts|status" >&2; exit 2; }
+
+cmd=
+while [ $# -gt 0 ]; do
+    case $1 in
+    --prefix) [ $# -ge 2 ] || usage; bin_dir=$2; shift 2 ;;
+    --prefix=*) bin_dir=${1#--prefix=}; shift ;;
+    rs | ts | status) [ -z "$cmd" ] || usage; cmd=$1; shift ;;
+    *) usage ;;
+    esac
+done
+[ -n "$cmd" ] || usage
+
+link=$bin_dir/regspike-rs
+
+on_path() {
+    case ":$PATH:" in *":$bin_dir:"*) return 0 ;; esac
+    return 1
+}
+
+# A symlink is ours only if it points at one of the two choices in the share directory.
+ours() {
+    [ -L "$link" ] || return 1
+    case $(readlink "$link") in "$share_dir/rs" | "$share_dir/ts") return 0 ;; esac
+    return 1
+}
+
+active() {
+    if ours; then basename "$(readlink "$link")"; else echo none; fi
+}
+
+status() {
+    if [ -L "$link" ]; then
+        a=$(active)
+        if [ "$a" = none ]; then
+            echo "active: none (link $link points elsewhere: $(readlink "$link"); not managed by register-use)"
+        else
+            echo "active: $a"
+            echo "link: $link -> $(readlink "$link")"
+            echo "resolved: $(readlink -f "$link")"
+            [ "$a" = ts ] && [ -x "$share_dir/ts" ] && echo "wrapper runs: $(sed -n 's/^exec node //p' "$share_dir/ts")"
+        fi
+    elif [ -e "$link" ]; then
+        echo "active: none ($link is a regular file, not managed by register-use)"
+    else
+        echo "active: none ($link does not exist)"
+    fi
+    if on_path; then echo "on PATH: yes ($bin_dir)"; else echo "on PATH: no ($bin_dir is not on PATH; the launcher will not find regspike-rs)"; fi
+    if [ -n "${REGSPIKE_IMPL:-}" ]; then
+        echo "warning: REGSPIKE_IMPL=$REGSPIKE_IMPL is set and overrides the link (unset it to use the link)"
+    fi
+}
+
+make_rs() {
+    src=$root/impl/rust/target/release/regspike-rs
+    [ -x "$src" ] || die "Rust build missing: $src; build it with: cd $root/impl/rust && ~/.cargo/bin/cargo build --release"
+    ln -sfn "$src" "$share_dir/rs"
+}
+
+make_ts() {
+    dist=$root/impl/ts/dist/regspike.mjs
+    command -v node >/dev/null 2>&1 || die "node not found on PATH (the TypeScript build needs Node 26)"
+    [ -f "$dist" ] || die "TypeScript build missing: $dist; build it with: cd $root/impl/ts && npm ci && npm run build"
+    tmp=$share_dir/.ts.$$
+    printf '#!/bin/sh\nexec node %s "$@"\n' "$dist" >"$tmp"
+    chmod +x "$tmp"
+    mv -f "$tmp" "$share_dir/ts"
+}
+
+if [ "$cmd" = status ]; then status; exit 0; fi
+
+if [ -e "$link" ] || [ -L "$link" ]; then
+    ours || die "refusing to replace $link: it is not a symlink created by register-use"
+fi
+mkdir -p "$bin_dir" "$share_dir"
+"make_$cmd"
+ln -sfn "$share_dir/$cmd" "$link"
+echo "register-use: regspike-rs -> $cmd ($(readlink -f "$link")); takes effect next session"
+on_path || echo "register-use: warning: $bin_dir is not on PATH" >&2
+[ -z "${REGSPIKE_IMPL:-}" ] || echo "register-use: warning: REGSPIKE_IMPL=$REGSPIKE_IMPL is set and overrides the link" >&2
