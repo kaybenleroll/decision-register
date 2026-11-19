@@ -415,3 +415,18 @@ Open items for the user:
 - S-73a and S-73b pass, since the P1 launcher (`plugin/bin/register-launch`) landed.
 - V3 (#25) is NOT passed: it needs a live run, and the evidence file `docs/evidence/verify-V3.md` is absent. Its checkbox in #34 stays unticked.
 - Worktree facts and helper files that existed only in agent worktree `.scratch` directories are rescued to `.scratch/rescued-worktree-facts/` (per-worktree subdirectories; private, not committed).
+
+## 2026-11-19 (first live interactive run; Refs #25; branch issue-25-live-run-evidence)
+
+- Run: `REGSPIKE_IMPL=ts claude --plugin-dir plugin/` from a separate run directory, Claude Code 2.1.328, auto permission mode, one manual `/compact`, one grill-me register interview (five items, ended normally, decision log written). Evidence: `docs/evidence/live-run-2026-11-19.md` and `docs/evidence/verify-V3.md`. Single trial; the transcript copy is private (`.scratch/`).
+- Observed: tool prefix `mcp__plugin_decision-register_register__` confirmed; interview and hook counters survived the compaction; the Stop gate blocked three times and the two passes with an item open are consistent with `contract/classifier.md` sections 4 and 7 and the REQ-42 per-prompt cap of 2 (judgement in the evidence file, section 3); no hook-injected register context after compaction; the only hook error besides the intended blocks is the user's own `capture-learnings` Stop hook; register `write_error` null. Journal file not located.
+- Permission prompts: INCONCLUSIVE. The session ran in auto permission mode, so D3 and the tool-count acceptance criterion are not tested.
+- What the run settles, by issue (each against its acceptance criterion):
+  - V1 (#23, "outcome recorded (visible, hidden, blocking)" for a failing hook): not settled. The server was connected throughout; no failing-hook case was run.
+  - V2 (#24, "server starts with the chosen binary in both cases"): not settled. Only the `ts` case ran, and the transcript does not record which binary served; the unset (default) case was not run.
+  - V3 (#25, "recorded equal or different"): PARTIAL, inferred-stable, not directly observed. The transcript `sessionId` was one value across all 360 entries including the compaction; the `session_id` the hooks send is not recorded. Unchanged `interview_id` and accumulating counters (`note_prompt` 1 to 9, `check_stop` 0 to 11) are indirect. V3 is not passed and its checkbox stays unticked; a direct observation needs the server to log the received id.
+  - V4 (#26, "server state survives; new session_id after /clear"): not settled. Only the `/compact` half (state survived) was seen; `/clear` was not run.
+  - V6 (#28, "recorded yes or no" for a SessionEnd hook calling `end_interview`): not settled. The plugin configures no SessionEnd hook and the session was not ended by closing it.
+  - V7 (#36, two questions each yes, no or not testable): question 1 (a compaction hook injecting the tree) is not tested: the plugin has no PostCompact or SessionStart hook, so the "no injected context, `additionalContext` 0" result shows only that nothing was injected. Question 2 (skill text retained) is only indicated: the transcript lists `grill-me` among the invoked skills after compaction and the model continued the interview; this is harness re-injection in one trial, no `verify-V7.md` written.
+  - P4 (#31, scripted `claude -p` smoke checks with PASS/FAIL and a budget guard): not settled. This was a manual interactive run, not the script, and the cost was not measured.
+- No issue closed or ticked; no issue comment made.
