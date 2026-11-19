@@ -408,3 +408,10 @@ Open items for the user:
 - The race test now captures one `expected` before the barrier and gives it to both claimants (stale content in even rounds, `None` in odd rounds). Test and fix are one commit: the test needs the new signature, so it cannot be written against the old code. The pre-fix evidence is the root-cause table in #73 (21% alone, 96% under 32 busy loops).
 - Results after the fix: the race test alone, 500 runs (`cargo test <name> -- --exact`): 0 failures (pre-fix 21%). Under 32 busy-loop processes, 100 runs: 0 failures (pre-fix 96%). Whole `cargo test`, 20 runs: 0 failures (pre-fix 5/20). Conformance 135/135, selftest and the contract checks exit 0.
 - The "flaky" note in the 2026-11-19 contract-decisions entry (phase 2) is resolved: it was this defect, not test flakiness.
+
+## 2026-11-19 (cleanup pass; Refs #22, #34)
+
+- Cleanup pass done: tracking issue #34 updated (checkboxes for #67 and #68 ticked; the stale "S-73a and S-73b are SKIP pending P1" sentence reworded) and the stale wording corrected in `conformance/README.md` and `docs/build-plan.md` on branch `issue-22-s73-wording`.
+- S-73a and S-73b pass, since the P1 launcher (`plugin/bin/register-launch`) landed.
+- V3 (#25) is NOT passed: it needs a live run, and the evidence file `docs/evidence/verify-V3.md` is absent. Its checkbox in #34 stays unticked.
+- Worktree facts and helper files that existed only in agent worktree `.scratch` directories are rescued to `.scratch/rescued-worktree-facts/` (per-worktree subdirectories; private, not committed).
