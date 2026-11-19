@@ -431,3 +431,9 @@ Open items for the user:
   - P4 (#31, scripted `claude -p` smoke checks with PASS/FAIL and a budget guard): not settled. This was a manual interactive run, not the script, and the cost was not measured.
 - No issue closed or ticked; no issue comment made.
 - Annotations (Refs #25, no rule or decision changed): REQ-26 and the open-items line in `docs/requirements.md`, the unverified-premises line in ADR 0002 (dated note), and the two evidence files now state the compaction and session_id observation and that run 1 used the TypeScript build (`REGSPIKE_IMPL=ts`) per the user. Earlier dated status entries (lines 36, 63) and the requirements self-review line 31 are left as written (history).
+
+## 2026-11-19 (P4 offline part with P3 folded in; branch issue-31-smoke-suite; Refs #31, Refs #30)
+
+- Added `smoke/fixtures/` (stub `grill-me` SKILL.md outside `plugin/`, `fixtures.json` with scripted prompts and assistant messages) and `smoke/check_fixtures.py`: a static check (stub name and location, hook input keys, matcher, `tool_schema`) and an offline replay of `note_prompt`, `skill_started` and `check_stop` through `conformance/run.py` on both builds, one scenario per live check (2) to (6). Spends nothing; no `claude` session.
+- Results: check_fixtures 7 static plus 5/5 on regspike-rs and 5/5 on regspike-ts; conformance 135/135 on both (both rebuilt first).
+- Not done: `smoke/run.sh` (the live, paid `claude -p` run: checks 1, 7, 8 and the live halves of 2 to 6) is not written or run. #31 stays open (Refs). #30: its only AC, "fixtures run offline against the fake server", is verified by running (the fake server is the two builds, per its 2026-11-19 decision), so it is closed by the PR.
