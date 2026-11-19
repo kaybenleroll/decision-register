@@ -445,3 +445,12 @@ Open items for the user:
 - Verified: `bash -n`; dry-run exits 0 and prints six commands; `--spend` without the env var stays dry-run; the PASS/FAIL, budget and total logic was exercised against a fake `claude` stub in `.scratch/` (no real `claude`, no spend). shellcheck is not installed.
 - Not verified (no paid run made): all eight checks live. #31 stays open.
 - Gate: both builds rebuilt; conformance 135/135 on both; check_fixtures 5/5 on both.
+
+## 2026-11-19 (live run 3: agent-driven interactive checks; branch issue-78-live-run-3; Refs #78)
+
+- Ran the live checklist through `tmux` (private socket) with `claude` 2.1.328 on haiku, default permission mode, plugin via `--plugin-dir`, from `/home/mcooney/workspace/register-live-run`. Evidence: `docs/evidence/live-run-3.md` (raw captures in the gitignored `.scratch/live-run-3/`). Single trials; roughly USD 0.10 to 0.15.
+- Results: tool count 12 (9 model plus 3 hook) from the launcher on both builds and in `/mcp` (#22); V2 ts and rs both start the chosen binary (#24); V3 second trial one id equal to the transcript name (#25); V4 `/compact` keeps the interview, `/clear` gives a new `session_id`, the server survives and the old interview ends `abandoned` / `session change`, but the new-session `status` leg was not shown because haiku did not engage the register in the second `/grill-me` (#26); V7 Q1 yes (command hook only) and Q2 yes (harness re-injection) (#36); V1 failing server is visible and not blocking, and Claude Code caches a failed start for 15 minutes (#23); V6 no, as configured with a throwaway `--settings` hook, cause not separated (#28).
+- Permission prompts (default mode): model-facing tools prompt every call; hook-facing never; `ToolSearch` did not prompt.
+- Not run: the Stop-gate repeat (check 11; the model tried `end_interview` abandon and I declined, so no Stop fired) and the end-of-session `end_interview` step (check 13).
+- Two classifier denials during the run (a command with `tmux kill-server`; an auto-answering prompt loop); neither was worked around. A live interview journal (`iv-20261119T152226Z-c31a6fde`) from the V6 probe remains in the plugin data directory (not edited, read-only rule).
+- No issue closed or ticked; closure is the user's decision (list at the end of the evidence file).
