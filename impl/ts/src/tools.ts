@@ -541,9 +541,7 @@ export class App {
     }
     if (this.state === "complete") {
       if (abandon === true) {
-        throw new ToolError(
-          "nothing is open: abandon applies only to open items",
-        );
+        throw new ToolError("nothing is open: abandon is not needed");
       }
       const path = this.finish(
         "ended_after_completion",
@@ -556,9 +554,7 @@ export class App {
     const open = this.openItems();
     if (abandon === true) {
       if (open.length === 0) {
-        throw new ToolError(
-          "nothing is open: abandon applies only to open items",
-        );
+        throw new ToolError("nothing is open: abandon is not needed");
       }
       const path = this.finish(
         "ended_incomplete_by_model",
