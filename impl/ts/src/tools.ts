@@ -418,7 +418,7 @@ export class App {
   private finish(
     endKind: string,
     journalMode: "register" | "plain" | "not_engaged",
-    reason: string,
+    reason: string | null,
     note: string | null,
   ): string | null {
     const logMode: LogMode =
@@ -546,7 +546,7 @@ export class App {
       const path = this.finish(
         "ended_after_completion",
         "register",
-        "end_interview",
+        null,
         null,
       );
       return this.endResult(id, "ended_after_completion", path);
@@ -570,7 +570,7 @@ export class App {
         `items are still open: ${names}; resolve or park them, or pass abandon true with a reason`,
       );
     }
-    const path = this.finish("normal", "register", "end_interview", null);
+    const path = this.finish("normal", "register", null, null);
     return this.endResult(id, "normal", path);
   }
 
