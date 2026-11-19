@@ -297,6 +297,7 @@ V3, V5, V8 and V10 are needed before I3 merges (V8 also before I2); V9 before P4
 - Depends on: P1, V9, fixtures P3 (a stub skill; P5 is exercised by its own two live runs), one passing implementation. Drop rule: cases (4) or (5) dropped if V1 or V4 show the route is unavailable in the pinned Claude Code version, recorded in REQ-92.
 
 ### R1 Release and CI
+- Design and workflow notes (CI, release assets, launcher lookup, what is untested): `docs/release-plan.md`.
 - Goal: GitHub Actions: on pull request run the suite and unit tests for both languages; on tag build `regspike-rs` (Linux x86_64 only, REQ-74) and `regspike.mjs` and attach to a GitHub release; the plugin version and `tool_schema` are asserted equal across plugin and binary before release (REQ-77).
 - REQ: REQ-73, REQ-74, REQ-75, REQ-77, REQ-12, REQ-71.
 - Acceptance: a draft release contains both assets and checksums; installing from the private marketplace on a second clone (`/plugin marketplace add` with the user's git credentials) lists the plugin; unit and suite jobs fail on a seeded failure. Smoke suite is on demand only, not in CI (spend). Depends on: I5 both, P1. Checklist item [user: gate walk 2026-11-16]: rename the working names (`regspike-rs`, `regspike-ts`, REQ-73) or confirm them before the first release tag; G6 is decided here. Drop rule: macOS and Windows never (REQ-6); Rust cross-build dropped (REQ-74). Needs a decision if the private install fails under background credentials [user-decision].

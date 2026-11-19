@@ -1,0 +1,135 @@
+# Release (slice R1, #32; design in docs/release-plan.md).
+# On a pushed tag v*: build the Linux x86_64 Rust binary and the single-file TypeScript bundle, run the conformance
+# suite against the exact files that would be uploaded, write SHA256SUMS, and create a DRAFT GitHub release holding the
+# three files. The draft is published by hand after review.
+# On a pull request touching this workflow or its check script: the same build and checks run (the `build` job only), and
+# the artefacts are kept as a workflow artefact; nothing is released (the `publish` job needs a tag).
+# No secrets are used: the publish job's only credential is the run's own GITHUB_TOKEN with contents: write.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - .github/scripts/check_release.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  build:
+    name: Build, check and checksum the release assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # The tag name on a tag run, empty on a pull request run (then the version check uses the plugin version).
+      TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: A release tag must point at a commit on main
+        if: env.TAG != ''
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || { echo "::error::tag $TAG is not on main"; exit 1; }
+
+      - name: Versions and tool_schema agree across plugin, crate and package (and the tag)
+        run: |
+          if [ -n "$TAG" ]; then python3 -I .github/scripts/check_release.py --tag "$TAG"; else python3 -I .github/scripts/check_release.py; fi
+
+      - name: Install the Rust toolchain pinned in impl/rust/rust-toolchain.toml
+        run: |
+          channel=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' impl/rust/rust-toolchain.toml)
+          test -n "$channel"
+          rustup toolchain install "$channel" --profile minimal
+
+      - name: Build the Rust binary (locked, release profile)
+        working-directory: impl/rust
+        run: cargo build --release --locked
+
+      - name: Set up Node (version from impl/ts/.nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: impl/ts/.nvmrc
+
+      - name: Build the TypeScript bundle
+        working-directory: impl/ts
+        run: |
+          npm ci
+          npm run build
+
+      - name: Stage the assets and write SHA256SUMS
+        run: |
+          mkdir release-assets
+          install -m 755 impl/rust/target/release/regspike-rs release-assets/regspike-rs-linux-x86_64
+          install -m 644 impl/ts/dist/regspike.mjs release-assets/regspike.mjs
+          cd release-assets
+          sha256sum regspike-rs-linux-x86_64 regspike.mjs > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Record what the binary needs (information only)
+        run: |
+          file release-assets/regspike-rs-linux-x86_64
+          ldd release-assets/regspike-rs-linux-x86_64
+          objdump -T release-assets/regspike-rs-linux-x86_64 | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+
+      - name: Conformance suite against the staged Rust asset
+        run: python3 -I conformance/run.py -- release-assets/regspike-rs-linux-x86_64
+
+      - name: Conformance suite against the staged TypeScript asset
+        run: python3 -I conformance/run.py -- node release-assets/regspike.mjs
+
+      - name: The staged assets report the expected version and tool_schema
+        run: |
+          if [ -n "$TAG" ]; then
+            python3 -I .github/scripts/check_release.py --tag "$TAG" --rs release-assets/regspike-rs-linux-x86_64 --ts release-assets/regspike.mjs
+          else
+            python3 -I .github/scripts/check_release.py --rs release-assets/regspike-rs-linux-x86_64 --ts release-assets/regspike.mjs
+          fi
+
+      - name: Keep the assets for the publish job (and for inspection on pull request runs)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Create the draft release
+    # Tag runs only; never on a pull request.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Fetch the assets built and checked by the build job
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: release-assets
+
+      - name: Verify the checksums again, then create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          (cd release-assets && sha256sum -c SHA256SUMS)
+          gh release create "$TAG" --repo "$REPO" --draft --verify-tag --title "$TAG" --generate-notes \
+            release-assets/regspike-rs-linux-x86_64 release-assets/regspike.mjs release-assets/SHA256SUMS
