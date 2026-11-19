@@ -118,22 +118,42 @@ fn random_hex() -> String {
     format!("{:08x}", h.finish() & 0xffff_ffff)
 }
 
+/// The current content of `<id>.pid`, or `None` if it cannot be read. The caller decides
+/// liveness on this text and passes the same text to [`claim`] as `expected`.
+pub fn read_pid(dir: &Path, id: &str) -> Option<String> {
+    fs::read_to_string(pid_path(dir, id)).ok()
+}
+
+/// Whether pid-file text names a live owner (unparseable or absent text means none).
+pub fn text_alive(text: Option<&str>, id: &str, own_claim: Option<&str>) -> bool {
+    text.and_then(parse)
+        .is_some_and(|info| is_alive(&info, id, own_claim))
+}
+
 /// Claims a journal that is not live-owned: the stale-replace sequence of runtime.md
-/// (rename aside, verify, create exclusively, delete the aside). Errors name the failure
-/// as `journal already claimed`.
-pub fn claim(dir: &Path, id: &str) -> Result<(), String> {
-    claim_as(dir, id, std::process::id(), &own_content(id))
+/// (rename aside, verify, create exclusively, delete the aside). `expected` is the stale
+/// content the caller judged dead (`None` if it saw no file); the aside must equal it, or
+/// it was another claimer's live file. Errors name the failure as `journal already
+/// claimed`.
+pub fn claim(dir: &Path, id: &str, expected: Option<&str>) -> Result<(), String> {
+    claim_as(dir, id, std::process::id(), &own_content(id), expected)
 }
 
 /// [`claim`] for a claimant with the given pid and pid-file content (a test can then run
 /// two claimants in one process, as two real servers would differ in both).
-fn claim_as(dir: &Path, id: &str, pid: u32, content: &str) -> Result<(), String> {
+fn claim_as(
+    dir: &Path,
+    id: &str,
+    pid: u32,
+    content: &str,
+    expected: Option<&str>,
+) -> Result<(), String> {
     let lost = || format!("journal already claimed: {id}");
     let pid_file = pid_path(dir, id);
-    if let Ok(seen) = fs::read_to_string(&pid_file) {
+    if let Some(expected) = expected {
         let aside = dir.join(format!("{id}.pid.stale-{pid}-{}", random_hex()));
         if fs::rename(&pid_file, &aside).is_ok() {
-            if fs::read_to_string(&aside).ok().as_deref() != Some(seen.as_str()) {
+            if fs::read_to_string(&aside).ok().as_deref() != Some(expected) {
                 // Another claimer's live file: put it back unless a newer one exists.
                 if !pid_file.exists() {
                     let _ = fs::rename(&aside, &pid_file);
@@ -371,7 +391,8 @@ mod tests {
             "{\"pid\":999999999,\"start\":1,\"interview_id\":\"iv-b\"}\n",
         )
         .unwrap();
-        claim(&dir, "iv-b").unwrap();
+        let stale = fs::read_to_string(pid_path(&dir, "iv-b")).unwrap();
+        claim(&dir, "iv-b", Some(&stale)).unwrap();
         let info = parse(&fs::read_to_string(pid_path(&dir, "iv-b")).unwrap()).unwrap();
         assert_eq!(info.pid, u64::from(std::process::id()));
         let leftovers = fs::read_dir(&dir).unwrap().flatten().count();
@@ -384,7 +405,7 @@ mod tests {
     #[test]
     fn claim_without_a_pid_file_creates_one_and_exclusive_create_loses_to_a_racer() {
         let dir = scratch("fresh");
-        claim(&dir, "iv-c").unwrap();
+        claim(&dir, "iv-c", None).unwrap();
         assert!(pid_path(&dir, "iv-c").exists());
         let err = create_new_for_claim(&dir, "iv-c").unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
@@ -401,21 +422,24 @@ mod tests {
             let dir = root.join(format!("r{round}"));
             fs::create_dir_all(&dir).unwrap();
             // Rounds alternate between a stale file to replace and no file at all.
-            if round % 2 == 0 {
+            // Both claimants share the one `expected` captured before the barrier, as the
+            // content a caller judged stale (`None`: it saw no file).
+            let expected: Option<String> = (round % 2 == 0).then(|| {
                 let stale = "{\"pid\":999999999,\"start\":1,\"interview_id\":\"iv-r\"}\n";
                 fs::write(pid_path(&dir, "iv-r"), stale).unwrap();
-            }
+                stale.to_string()
+            });
             let gate = Arc::new(Barrier::new(2));
             let handles: Vec<_> = (0..2)
                 .map(|who| {
-                    let (dir, gate) = (dir.clone(), Arc::clone(&gate));
+                    let (dir, gate, expected) = (dir.clone(), Arc::clone(&gate), expected.clone());
                     std::thread::spawn(move || {
                         let content = format!(
                             "{{\"pid\":{},\"start\":null,\"interview_id\":\"iv-r\"}}\n",
                             1000 + who
                         );
                         gate.wait();
-                        claim_as(&dir, "iv-r", 1000 + who, &content)
+                        claim_as(&dir, "iv-r", 1000 + who, &content, expected.as_deref())
                     })
                 })
                 .collect();
