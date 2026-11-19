@@ -5,6 +5,7 @@ Authority: REQ-60, REQ-61, REQ-27 rule 5, REQ-52. Changing anything here bumps `
 ## File
 
 - One JSON object per line (JSONL), UTF-8, appended; written write-behind. The queue is flushed (written and fsync not required) at every `check_stop` call, at the end of an interview, and on stdin EOF before the server exits (REQ-60 says "at least"; EOF is the user decision of 2026-11-16 so a graceful exit loses nothing). A hard crash can still lose the events since the last flush; `status.last_event` and `resume.last_event` make the loss visible.
+- Key order: the order of keys inside a journal line, a tool reply or any other JSON object is not significant; readers and the suite compare parsed JSON, never text. The one exception is the pid file, whose key order is fixed (runtime.md, "Pid file and claim"). This is how REQ-71's "identical journal format" is read: identical events, kinds and field values, not identical bytes.
 - Name: `<interview_id>.jsonl` in the data directory's project folder (runtime.md); archived journals move to its `archive/` folder. The pid file `<interview_id>.pid` sits beside it (REQ-52).
 
 The machine-readable form of the envelope and of every kind below is `journal.schema.json`; `check_contract.py` fails if it disagrees with this document, and the conformance suite validates every journal line against it.

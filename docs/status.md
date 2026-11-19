@@ -380,3 +380,8 @@ Open items for the user:
 
 - Done: the shared S-90a harness commit from `issue-67-i5-rs` is already on main (#70), so nothing was cherry-picked. S-90a passes on the TypeScript build with no TypeScript change: start median 39 to 43 ms (limit 1000 ms), idle RSS median 53.3 MiB (limit 200 MiB), over three full runs. Measured values recorded in `docs/evidence/language-experiment.md` (I5 TypeScript row).
 - Verified: after `npm ci` and `npm run build`, `python3 conformance/run.py -- node impl/ts/dist/regspike.mjs` reports 135/135 passed in three consecutive runs. The REQ-71 parity check (AC3) was run in #67 and is recorded in `docs/evidence/i5-parity.md` on main. Not merged.
+
+## 2026-11-19 (contract decisions from the I5 parity walk; #71; branch issue-71-contract-decisions)
+
+- Decisions [user, 2026-11-19], D1 to D11 of the I5 parity walk; this entry is extended by each commit of phase 1 (contract and requirements text). Phase 2 (code and scenario S-23h) follows on the same branch.
+- Q1 (D11): JSON key order is not significant in replies and journals, except in the pid file. Stated in `contract/journal.md` (File section). This clarifies how REQ-71 "identical journal format" is read: identical events and values, not identical bytes. REQ-71's [user] text is unchanged.
