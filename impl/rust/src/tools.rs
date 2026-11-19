@@ -815,7 +815,13 @@ impl App {
     /// nothing else.
     fn resume(&mut self, id: &str) -> Result<Value, String> {
         let dir = self.dir();
-        claim::claim(&dir, id)?;
+        // One read of the pid file: the liveness decision and the claim's `expected` use
+        // the same text, so a change in between is caught by the claim's verify step.
+        let seen = claim::read_pid(&dir, id);
+        if claim::text_alive(seen.as_deref(), id, self.interview_id.as_deref()) {
+            return Err(format!("journal is live-owned: {id}"));
+        }
+        claim::claim(&dir, id, seen.as_deref())?;
         let replayed = std::fs::read_to_string(dir.join(format!("{id}.jsonl")))
             .map_err(|e| format!("cannot read journal: {e}"))
             .and_then(|text| replay(&text));
