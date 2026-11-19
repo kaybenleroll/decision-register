@@ -719,6 +719,11 @@ impl App {
             implicit: self.implicit,
             items: self.register.ordered(),
             reopens: &self.reopens,
+            hook_health: [
+                ("note_prompt", self.hook_note_prompt),
+                ("skill_started", self.hook_skill_started),
+                ("check_stop", self.hook_check_stop),
+            ],
         };
         Some(self.declog.write(&view).to_string_lossy().into_owned())
     }
