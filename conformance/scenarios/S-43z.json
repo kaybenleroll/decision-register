@@ -54,6 +54,10 @@
    "assert": [
     {
      "decision_block": true
+    },
+    {
+     "path": "reason",
+     "contains": "Q1"
     }
    ]
   },

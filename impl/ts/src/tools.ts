@@ -1034,12 +1034,15 @@ export class App {
     });
   }
 
-  private blockReason(open: readonly Item[]): string {
+  private blockReason(
+    open: readonly Item[],
+    lead = "Items are still unresolved in the decision register. Resolve, park or ask about each before finishing:",
+  ): string {
     const lines = open
       .slice(0, 10)
       .map((i) => `- ${i.id}: ${truncate(i.text)}`);
     const rest = open.length > 10 ? `\n${open.length - 10} more` : "";
-    return `Items are still unresolved in the decision register. Resolve, park or ask about each before finishing:\n${lines.join("\n")}${rest}`;
+    return `${lead}\n${lines.join("\n")}${rest}`;
   }
 
   /** A Stop check flushes the journal queue (journal.md). */
@@ -1127,8 +1130,10 @@ export class App {
         stop("block", "question", []);
         return {
           decision: "block",
-          reason:
-            "That question is not in the decision register. Log it with log_item, then ask it again.",
+          reason: this.blockReason(
+            this.gateList(),
+            "That question is not in the decision register. Log it with log_item, then ask it again. Open items:",
+          ),
         };
       }
       stop("allow", "question", []);
