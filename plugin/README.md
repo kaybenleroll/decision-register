@@ -24,6 +24,17 @@ implementation is missing the launcher prints `register unavailable: binary not 
 the stub, so hooks never block; this is a degraded state, not success. `status` then answers
 `{"unavailable":"binary not found"}`.
 
+## Choose a build without an environment variable
+
+`bin/register-use rs|ts|status` (repository root, not in the plugin) points `regspike-rs` in `~/.local/bin` at
+the Rust build or at a small `exec node .../impl/ts/dist/regspike.mjs` wrapper for the TypeScript build, so the
+launcher's default (`regspike-rs` on `PATH`) picks the build. Build the one you want first (the script prints the
+command if it is missing). `status` shows the active build, the resolved target, whether `~/.local/bin` is on
+`PATH`, and warns if `REGSPIKE_IMPL` is set (it overrides the link). Overrides: `--prefix DIR` or
+`REGISTER_BIN_DIR` for the link directory, `REGISTER_SHARE_DIR` (default `~/.local/share/register`) for the
+choices. It refuses to replace a real file or a foreign symlink named `regspike-rs`. A switch takes effect at the
+next session start (the server is started once per session). Offline check: `smoke/check_register_use.sh`.
+
 ## INSTALL
 
 Local, from a clone (no marketplace needed):
