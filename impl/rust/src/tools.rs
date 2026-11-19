@@ -927,12 +927,12 @@ impl App {
         let open = self.unresolved();
         if self.complete {
             if abandon {
-                return Err("nothing is open: abandon does not apply".to_string());
+                return Err("nothing is open: abandon is not needed".to_string());
             }
             return Ok(self.ended("ended_after_completion", "register", None));
         }
         match (open.is_empty(), abandon) {
-            (true, true) => Err("nothing is open: abandon does not apply".to_string()),
+            (true, true) => Err("nothing is open: abandon is not needed".to_string()),
             (true, false) => Ok(self.ended("normal", "register", None)),
             (false, false) => {
                 let ids: Vec<&str> = open.iter().filter_map(|l| l.split(' ').next()).collect();
