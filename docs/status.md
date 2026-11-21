@@ -553,3 +553,9 @@ Open items for the user:
 - Done: product version 0.1.0 to 0.1.1 in `plugin/.claude-plugin/plugin.json`, `impl/rust/Cargo.toml` and `Cargo.lock`, `impl/ts/package.json` and `package-lock.json` (lockfiles regenerated with `cargo update -p register-rs --offline` and `npm install --package-lock-only`; version lines only). 0.1.1 adds `query-walkthrough` as a register skill (#109, PR #110). `tool_schema` stays 4; `contract/tools.json` is untouched (its example `server_version` strings are not compared to the product version).
 - Verified: `python3 -I .github/scripts/check_release.py --tag v0.1.1` passes, also with `--rs` and `--ts` against the local release build and bundle (both report `server_version` 0.1.1, `tool_schema` 4); `cargo build --locked`, `npm ci && npm run build`, `contract/check_contract.py` and `smoke/check_fixtures.py` pass.
 - Not in this PR: the tag `v0.1.1` (after merge, on a `main` commit), the release assets and `SHA256SUMS` (built by `release.yml`), and publishing the draft.
+
+## 2026-11-21 (REQ-15 guest-mode ownership; branch docs/req15-guest-ownership; Refs #92)
+
+- Done (docs only): ownership clause appended to REQ-15 (tag `[user: amended 2026-11-21]`; existing text and tags untouched); pointers added in REQ-15, REQ-23 and REQ-27 rule 4; build-plan P5 goal and acceptance (guest-mode live check added) and draft D4; ADR 0002 section 5.1 dated amendment. D5 has no end_interview wording, so no edit. No code, contract or test change; tool_schema stays 4.
+- Flag: one more [user]-tagged item in REQ-15. The script that computes the [user]/[assistant] list at requirements.md:153 was not found in the repo, so the count was not re-run.
+- Handed off: matching skill text in dotfiles (grill-me; query-walkthrough is dotfiles#639).
