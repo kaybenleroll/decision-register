@@ -1,0 +1,103 @@
+{
+ "id": "S-27l",
+ "title": "a server started with SIGHUP and SIGINT ignored by its parent still handles SIGHUP: the shutdown runs as on stdin EOF (unfinished journal with every event, no pid file, log flagged interrupted) and the exit code is 129",
+ "req": [
+  "REQ-27",
+  "REQ-23",
+  "REQ-52",
+  "REQ-60"
+ ],
+ "ignore_signals": [
+  "SIGHUP",
+  "SIGINT"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-27l",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second"
+   }
+  },
+  {
+   "op": "signal",
+   "signal": "SIGHUP",
+   "exit": 129
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid}.jsonl"
+    },
+    {
+     "path": "$key/${iid}.pid",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: [^\\n]+\nstate: [^\\n]+\nmode: register\nend_kind: interrupted\nimplicit_start: [^\\n]+\n",
+     "mode": "600"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "item": 2,
+    "end": 0
+   },
+   "last": {
+    "kind": "item",
+    "id": "q2"
+   }
+  }
+ ]
+}

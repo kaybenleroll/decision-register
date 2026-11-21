@@ -1,0 +1,57 @@
+{
+ "id": "S-27k",
+ "title": "graceful exit on SIGTERM with no interview: exit code 143, and no journal, pid file, decision log or other file is left",
+ "req": [
+  "REQ-27",
+  "REQ-23",
+  "REQ-52"
+ ],
+ "steps": [
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    }
+   ]
+  },
+  {
+   "op": "signal",
+   "signal": "SIGTERM",
+   "exit": 143
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key",
+     "exists": false
+    },
+    {
+     "path": "decision-logs",
+     "root": "project",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  }
+ ]
+}
