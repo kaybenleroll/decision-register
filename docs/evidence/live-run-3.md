@@ -2,7 +2,7 @@
 
 Second live pass over the plugin, driven by an agent through `tmux` rather than typed by the user. Every result below is a single trial. Raw pane captures, journals and `claude -p` output are in `.scratch/live-run-3/` (private, gitignored, not committed); this file quotes only what the checks need.
 
-- Claude Code 2.1.328, model `claude-haiku-5-5` (`--model haiku`), `--permission-mode default` (the pane footer read "manual mode on"), plugin via `--plugin-dir /home/mcooney/workspace/decision-register/plugin`, run directory `/home/mcooney/workspace/register-live-run` (outside the plugin). The run used the `grill-me` personal skill as installed.
+- Claude Code 2.1.328, model `claude-haiku-5-5` (`--model haiku`), `--permission-mode default` (the pane footer read "manual mode on"), plugin via `--plugin-dir $HOME/workspace/decision-register/plugin`, run directory `$HOME/workspace/register-live-run` (outside the plugin). The run used the `grill-me` personal skill as installed.
 - Builds: `npm run build` in `impl/ts` (rebuilt, 136.5 kB bundle) and `cargo build --release` in `impl/rust` (already up to date, `regspike-rs` dated 11:48) before any session.
 - Driver: `tmux -L regrun` (a private socket, so no existing tmux session was touched), 200x50 pane, `send-keys` for input, `capture-pane -p` after each step. A pane capture holds the visible screen only (about 50 lines), so long answers were also read from the session transcript, read-only.
 - Spend: roughly USD 0.10 to 0.15 in total on haiku (estimate; `/cost` in the last Session A segment, after `/clear`, read USD 0.0118; the two `claude -p` calls cost USD 0.0047 and USD 0.0029; the rest was not metered separately and the status line shows no USD figure).
@@ -45,7 +45,7 @@ Second live pass over the plugin, driven by an agent through `tmux` rather than 
 
 ### 6. V2 (#24), TypeScript
 
-Session A (`REGSPIKE_IMPL=ts`), `pgrep -af regspike`: `3613676 node /home/mcooney/workspace/decision-register/plugin/bin/../../impl/ts/dist/regspike.mjs`. No `register-stub.py`. As the checklist notes, `.mcp.json` has no `${REGSPIKE_IMPL:-rs}` expansion; selection is in the launcher, so this checks the outcome, not the variable expansion.
+Session A (`REGSPIKE_IMPL=ts`), `pgrep -af regspike`: `3613676 node $HOME/workspace/decision-register/plugin/bin/../../impl/ts/dist/regspike.mjs`. No `register-stub.py`. As the checklist notes, `.mcp.json` has no `${REGSPIKE_IMPL:-rs}` expansion; selection is in the launcher, so this checks the outcome, not the variable expansion.
 
 ### 14. V2 (#24), Rust
 
@@ -64,7 +64,7 @@ The prompt names the tool and server. Verbatim, for `status`:
  │ Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; ...
  Do you want to proceed?
  ❯ 1. Yes
-   2. Yes, and don't ask again for plugin:decision-register:register — Status commands in /home/mcooney/workspace/register-live-run
+   2. Yes, and don't ask again for plugin:decision-register:register — Status commands in $HOME/workspace/register-live-run
    3. No
 ```
 

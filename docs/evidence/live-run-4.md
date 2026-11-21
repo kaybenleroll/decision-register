@@ -2,7 +2,7 @@
 
 Third live pass, agent-driven through `tmux` on a private socket (`-L regrun2`, no existing session touched). Every result is a single trial. Raw pane captures, debug logs (`--debug-file`), throwaway settings, a throwaway plugin copy and probe scripts are in `.scratch/live-run-4/` (private, gitignored, not committed); this file quotes only what the checks need. Documentation pages quoted below were fetched on 2026-11-19 from `code.claude.com/docs/en/` (`hooks`, `mcp`, `cli-reference`, `env-vars`).
 
-- Claude Code 2.1.328. Plugin via `--plugin-dir`, default permission mode (pane footer "manual mode on"), run directory `/home/mcooney/workspace/register-live-run` (outside the plugin) except the V7 session, which ran in a scratch directory with no plugin.
+- Claude Code 2.1.328. Plugin via `--plugin-dir`, default permission mode (pane footer "manual mode on"), run directory `$HOME/workspace/register-live-run` (outside the plugin) except the V7 session, which ran in a scratch directory with no plugin.
 - Models: haiku for the V6 and V7 sessions, sonnet (`claude-sonnet-5-5`) for the V4 leg and checks 11 and 13.
 - Builds: `npm run build` in `impl/ts` (136.5 kB bundle; run before the V4 session and before V6) and `cargo build --release` in `impl/rust` (up to date) before any session. All live sessions used the TypeScript build (`REGSPIKE_IMPL=ts`). The Rust build was not driven live in this run.
 - Every permission prompt was read and answered by hand, one at a time. No "don't ask again" option was chosen, so no rule was written. No auto-answer loop was used.
