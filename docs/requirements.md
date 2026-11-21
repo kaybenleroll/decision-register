@@ -42,7 +42,7 @@ Tags: [user] decided by the user; [verified] observed by a run, source named; [a
 - REQ-2 Enforcement moves out of grill-me prose into the tool. A much more complex grill-me than the original is acceptable. [user] Enforcement is in the tool (server and hooks), not in prose, because that is what makes the purpose of REQ-1 hold; the 'for free' plan, documentation and decision record of REQ-1 come from the same structured data. [user: gate walk 2026-11-16]
 - REQ-3 [user] Causal and statistical purity are waived. There is no budget ceiling; the assistant asks before spending more than about USD 1.
 - REQ-4 [user] The register is built from scratch. `reference/armG/` is a behavioural specification and a source of test ideas only; no code is copied from it or from the stock sequential-thinking server.
-- REQ-5 [user] Only the grill-me chain uses the register (grill-me, wayfinder, write-a-prd via grill-me). Other skills stay on the stock sequential-thinking tool.
+- REQ-5 [user] Only the grill-me chain uses the register (grill-me, wayfinder, write-a-prd via grill-me). The stock sequential-thinking tool was removed from the user's setup on 2026-11-20 (dotfiles#599), so other skills use no structured-thinking tool (amended 2026-11-21 by the user).
 - REQ-6 Out of scope: the paid effectiveness evaluation, the evaluation harness and the harness cost-counter fix (owned by the research session in the research repository); changes to `~/.claude`, skills, hooks and `settings.json` (filed in the dotfiles repository under the user's rule); ADR draft generation by the register [user, deferred]; Windows and macOS binaries [user, "for now"].
 
 ## 2. Architecture
