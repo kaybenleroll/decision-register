@@ -1,7 +1,7 @@
 #!/bin/sh
 # Choose which register build the plugin launcher runs, with no environment variable (REQ-73).
-# plugin/bin/register-launch runs `regspike-rs` found on PATH when REGSPIKE_IMPL is unset; this script points
-# REGISTER_BIN_DIR/regspike-rs at the Rust build or at a node wrapper for the TypeScript build.
+# plugin/bin/register-launch runs `register-rs` found on PATH when REGISTER_IMPL is unset; this script points
+# REGISTER_BIN_DIR/register-rs at the Rust build or at a node wrapper for the TypeScript build.
 #   register-use [--prefix DIR] rs|ts|status
 # REGISTER_BIN_DIR (default ~/.local/bin; --prefix DIR sets it) and REGISTER_SHARE_DIR (default
 # ~/.local/share/register) hold the link and the two choices. Takes effect when the next session starts.
@@ -25,7 +25,7 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$cmd" ] || usage
 
-link=$bin_dir/regspike-rs
+link=$bin_dir/register-rs
 
 on_path() {
     case ":$PATH:" in *":$bin_dir:"*) return 0 ;; esac
@@ -59,20 +59,20 @@ status() {
     else
         echo "active: none ($link does not exist)"
     fi
-    if on_path; then echo "on PATH: yes ($bin_dir)"; else echo "on PATH: no ($bin_dir is not on PATH; the launcher will not find regspike-rs)"; fi
-    if [ -n "${REGSPIKE_IMPL:-}" ]; then
-        echo "warning: REGSPIKE_IMPL=$REGSPIKE_IMPL is set and overrides the link (unset it to use the link)"
+    if on_path; then echo "on PATH: yes ($bin_dir)"; else echo "on PATH: no ($bin_dir is not on PATH; the launcher will not find register-rs)"; fi
+    if [ -n "${REGISTER_IMPL:-}" ]; then
+        echo "warning: REGISTER_IMPL=$REGISTER_IMPL is set and overrides the link (unset it to use the link)"
     fi
 }
 
 make_rs() {
-    src=$root/impl/rust/target/release/regspike-rs
+    src=$root/impl/rust/target/release/register-rs
     [ -x "$src" ] || die "Rust build missing: $src; build it with: cd $root/impl/rust && ~/.cargo/bin/cargo build --release"
     ln -sfn "$src" "$share_dir/rs"
 }
 
 make_ts() {
-    dist=$root/impl/ts/dist/regspike.mjs
+    dist=$root/impl/ts/dist/register.mjs
     command -v node >/dev/null 2>&1 || die "node not found on PATH (the TypeScript build needs Node 26)"
     [ -f "$dist" ] || die "TypeScript build missing: $dist; build it with: cd $root/impl/ts && npm ci && npm run build"
     tmp=$share_dir/.ts.$$
@@ -89,6 +89,6 @@ fi
 mkdir -p "$bin_dir" "$share_dir"
 "make_$cmd"
 ln -sfn "$share_dir/$cmd" "$link"
-echo "register-use: regspike-rs -> $cmd ($(readlink -f "$link")); takes effect next session"
+echo "register-use: register-rs -> $cmd ($(readlink -f "$link")); takes effect next session"
 on_path || echo "register-use: warning: $bin_dir is not on PATH" >&2
-[ -z "${REGSPIKE_IMPL:-}" ] || echo "register-use: warning: REGSPIKE_IMPL=$REGSPIKE_IMPL is set and overrides the link" >&2
+[ -z "${REGISTER_IMPL:-}" ] || echo "register-use: warning: REGISTER_IMPL=$REGISTER_IMPL is set and overrides the link" >&2

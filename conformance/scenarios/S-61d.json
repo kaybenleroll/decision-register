@@ -6,7 +6,7 @@
   "REQ-27"
  ],
  "env": {
-  "REGSPIKE_CLOCK_OFFSET_SECONDS": "1728000"
+  "REGISTER_CLOCK_OFFSET_SECONDS": "1728000"
  },
  "steps": [
   {

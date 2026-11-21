@@ -13,7 +13,7 @@ renders the JSON as markdown tables.
 Defaults: N=50 cold starts per configuration, N=30 RSS runs per build, 3 server instances x 200 timed calls per
 tool, 30 replays per journal size. All data lives under <out>/work (default .scratch/bench/out); nothing is
 written outside the repository's .scratch/. The launcher is run exactly as the plugin runs it (plugin/bin/register-
-launch, REGSPIKE_IMPL=rs|ts); `regspike-rs` is put on PATH through a symlink in <out>/bin, as an installed
+launch, REGISTER_IMPL=rs|ts); `register-rs` is put on PATH through a symlink in <out>/bin, as an installed
 binary would be. Fixed corpus, fixed order, no randomness: re-running on an idle machine gives comparable numbers
 (not identical ones: the machine adds noise, see the load average recorded in meta.json).
 """
@@ -35,8 +35,8 @@ sys.path.insert(0, os.path.join(ROOT, "conformance"))
 import run as conf  # noqa: E402  (group_rss_kib: the same RSS reader S-90a uses)
 
 LAUNCHER = os.path.join(ROOT, "plugin", "bin", "register-launch")
-RS_BIN = os.path.join(ROOT, "impl", "rust", "target", "release", "regspike-rs")
-TS_BUNDLE = os.path.join(ROOT, "impl", "ts", "dist", "regspike.mjs")
+RS_BIN = os.path.join(ROOT, "impl", "rust", "target", "release", "register-rs")
+TS_BUNDLE = os.path.join(ROOT, "impl", "ts", "dist", "register.mjs")
 CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 IMPLS = ("rs", "ts")
 META = {"claudecode/toolUseId": "bench"}
@@ -76,7 +76,7 @@ def _alarm(signum, frame):
 def command(impl, via):
     """(argv, extra env) for an implementation: through the launcher, or the binary/bundle directly."""
     if via == "launcher":
-        return [LAUNCHER], {"REGSPIKE_IMPL": impl, "PATH": os.path.join(OUT, "bin") + os.pathsep + os.environ["PATH"]}
+        return [LAUNCHER], {"REGISTER_IMPL": impl, "PATH": os.path.join(OUT, "bin") + os.pathsep + os.environ["PATH"]}
     return ([RS_BIN] if impl == "rs" else ["node", TS_BUNDLE]), {}
 
 
@@ -89,7 +89,7 @@ class Client:
         argv, extra = command(impl, via)
         env = dict(os.environ, CLAUDE_PLUGIN_DATA=journal_data or self.dirs["data"], CLAUDE_PROJECT_DIR=self.dirs["project"],
                    **extra)
-        for k in ("CLAUDE_CODE_SESSION_ID", "REGSPIKE_CLOCK_OFFSET_SECONDS"):
+        for k in ("CLAUDE_CODE_SESSION_ID", "REGISTER_CLOCK_OFFSET_SECONDS"):
             env.pop(k, None)
         self.err_path = os.path.join(base, "stderr.log")
         self.err = open(self.err_path, "wb")
@@ -618,8 +618,8 @@ def artefacts(args):
         assert rc == 0, "cargo build failed"
         times.append(dt)
     out["rust_clean_build_s"] = times
-    out["rust_binary_bytes"] = os.path.getsize(os.path.join(rs, "target", "release", "regspike-rs"))
-    ldd = subprocess.run(["ldd", os.path.join(rs, "target", "release", "regspike-rs")], stdout=subprocess.PIPE, text=True).stdout
+    out["rust_binary_bytes"] = os.path.getsize(os.path.join(rs, "target", "release", "register-rs"))
+    ldd = subprocess.run(["ldd", os.path.join(rs, "target", "release", "register-rs")], stdout=subprocess.PIPE, text=True).stdout
     out["rust_ldd"] = [l.split()[0] for l in ldd.strip().splitlines()]
     tree = subprocess.run([CARGO, "tree", "--offline", "--prefix", "none", "-e", "normal"], cwd=rs, stdout=subprocess.PIPE,
                           text=True).stdout
@@ -639,10 +639,10 @@ def artefacts(args):
         assert rc == 0, "npm run build failed"
         times.append(dt)
     out["ts_clean_bundle_build_s"] = times
-    out["ts_bundle_bytes"] = os.path.getsize(os.path.join(ts, "dist", "regspike.mjs"))
-    gz = subprocess.run(["gzip", "-9", "-c", os.path.join(ts, "dist", "regspike.mjs")], stdout=subprocess.PIPE).stdout
+    out["ts_bundle_bytes"] = os.path.getsize(os.path.join(ts, "dist", "register.mjs"))
+    gz = subprocess.run(["gzip", "-9", "-c", os.path.join(ts, "dist", "register.mjs")], stdout=subprocess.PIPE).stdout
     out["ts_bundle_gzip_bytes"] = len(gz)
-    gz = subprocess.run(["gzip", "-9", "-c", os.path.join(rs, "target", "release", "regspike-rs")], stdout=subprocess.PIPE).stdout
+    gz = subprocess.run(["gzip", "-9", "-c", os.path.join(rs, "target", "release", "register-rs")], stdout=subprocess.PIPE).stdout
     out["rust_binary_gzip_bytes"] = len(gz)
     du = subprocess.run(["du", "-sb", os.path.join(ts, "node_modules")], stdout=subprocess.PIPE, text=True).stdout.split()[0]
     out["ts_node_modules_bytes_dev_only"] = int(du)
@@ -783,7 +783,7 @@ def main(argv):
     signal.signal(signal.SIGALRM, _alarm)
     OUT = os.path.abspath(args.out)
     mkdirs(OUT, os.path.join(OUT, "bin"))
-    link = os.path.join(OUT, "bin", "regspike-rs")
+    link = os.path.join(OUT, "bin", "register-rs")
     if os.path.lexists(link):
         os.remove(link)
     os.symlink(RS_BIN, link)

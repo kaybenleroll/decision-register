@@ -65,7 +65,7 @@ result() { # $1 id, $2 PASS|FAIL, $3 detail
 }
 
 # Environment for every claude call; exported only for the call (env), never to this shell's config.
-claude_env=(CLAUDE_CONFIG_DIR="$cfg" REGSPIKE_IMPL="$impl")
+claude_env=(CLAUDE_CONFIG_DIR="$cfg" REGISTER_IMPL="$impl")
 case $impl in
 rs) claude_env+=(PATH="$root/impl/rust/target/release:$PATH") ;;
 ts) ;;
@@ -81,7 +81,7 @@ call() {
     cap=$(awk -v c="$call_cap" -v r="$remaining" 'BEGIN{printf "%.4f", (r<c)?r:c}')
     cmd=(env "${claude_env[@]}")
     # call f: force the ts launcher path with a missing bundle, so the launcher serves the stub whichever SMOKE_IMPL is set.
-    [ "$id" = f ] && cmd+=(REGSPIKE_IMPL=ts "REGSPIKE_TS_BUNDLE=$scratch/absent.mjs")
+    [ "$id" = f ] && cmd+=(REGISTER_IMPL=ts "REGISTER_TS_BUNDLE=$scratch/absent.mjs")
     cmd+=(timeout "$call_timeout" claude -p --model "$model" --max-budget-usd "$cap" --max-turns 8
         --plugin-dir "$root/plugin" --allowedTools "${prefix}*,Skill" --no-session-persistence
         --output-format stream-json --verbose --include-hook-events -- "$prompt")
@@ -124,8 +124,8 @@ if [ "$spend" = 1 ]; then
         exit 2
     fi
     case $impl in
-    ts) [ -f "$root/impl/ts/dist/regspike.mjs" ] || { echo "TS build missing: cd impl/ts && npm run build" >&2; exit 2; } ;;
-    rs) [ -x "$root/impl/rust/target/release/regspike-rs" ] || { echo "Rust build missing: cd impl/rust && cargo build --release" >&2; exit 2; } ;;
+    ts) [ -f "$root/impl/ts/dist/register.mjs" ] || { echo "TS build missing: cd impl/ts && npm run build" >&2; exit 2; } ;;
+    rs) [ -x "$root/impl/rust/target/release/register-rs" ] || { echo "Rust build missing: cd impl/rust && cargo build --release" >&2; exit 2; } ;;
     esac
     rm -rf "$scratch"
     mkdir -p "$cfg/skills" "$work" || exit 1

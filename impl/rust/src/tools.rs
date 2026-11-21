@@ -1270,7 +1270,7 @@ pub(crate) mod tests {
         use std::sync::atomic::{AtomicU64, Ordering};
         static N: AtomicU64 = AtomicU64::new(0);
         std::env::temp_dir().join(format!(
-            "regspike-app-{}-{}",
+            "register-app-{}-{}",
             std::process::id(),
             N.fetch_add(1, Ordering::Relaxed)
         ))
@@ -1306,7 +1306,7 @@ pub(crate) mod tests {
 
     #[test]
     fn flush_journal_writes_events_queued_after_the_last_flush() {
-        let dir = std::env::temp_dir().join(format!("regspike-eof-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("register-eof-{}", std::process::id()));
         // SAFETY: only this test sets CLAUDE_PLUGIN_DATA in this crate's unit tests.
         unsafe { std::env::set_var("CLAUDE_PLUGIN_DATA", &dir) };
         let mut app = started();
@@ -1687,7 +1687,7 @@ pub(crate) mod tests {
 
     #[test]
     fn session_change_and_second_stop_end_interviews() {
-        let project = std::env::temp_dir().join(format!("regspike-s-{}", std::process::id()));
+        let project = std::env::temp_dir().join(format!("register-s-{}", std::process::id()));
         // SAFETY: no other test reads CLAUDE_PROJECT_DIR for anything but a journal key.
         unsafe { std::env::set_var("CLAUDE_PROJECT_DIR", &project) };
         let mut app = fresh();
@@ -1713,7 +1713,7 @@ pub(crate) mod tests {
     #[test]
     fn end_interview_follows_the_state_matrix() {
         // Decision logs go under the project path; keep them out of the source tree.
-        let project = std::env::temp_dir().join(format!("regspike-p-{}", std::process::id()));
+        let project = std::env::temp_dir().join(format!("register-p-{}", std::process::id()));
         // SAFETY: no other test reads CLAUDE_PROJECT_DIR for anything but a journal key.
         unsafe { std::env::set_var("CLAUDE_PROJECT_DIR", &project) };
         let mut app = fresh();

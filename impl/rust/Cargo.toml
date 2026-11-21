@@ -1,17 +1,17 @@
 [package]
-name = "regspike-rs"
+name = "register-rs"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.93"
-description = "Structured decision register MCP server (working name)"
+description = "Structured decision register MCP server"
 publish = false
 
 [lib]
-name = "regspike_rs"
+name = "register_rs"
 path = "src/lib.rs"
 
 [[bin]]
-name = "regspike-rs"
+name = "register-rs"
 path = "src/main.rs"
 
 [dependencies]

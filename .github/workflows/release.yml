@@ -73,31 +73,31 @@ jobs:
       - name: Stage the assets and write SHA256SUMS
         run: |
           mkdir release-assets
-          install -m 755 impl/rust/target/release/regspike-rs release-assets/regspike-rs-linux-x86_64
-          install -m 644 impl/ts/dist/regspike.mjs release-assets/regspike.mjs
+          install -m 755 impl/rust/target/release/register-rs release-assets/register-rs-linux-x86_64
+          install -m 644 impl/ts/dist/register.mjs release-assets/register.mjs
           cd release-assets
-          sha256sum regspike-rs-linux-x86_64 regspike.mjs > SHA256SUMS
+          sha256sum register-rs-linux-x86_64 register.mjs > SHA256SUMS
           sha256sum -c SHA256SUMS
           cat SHA256SUMS
 
       - name: Record what the binary needs (information only)
         run: |
-          file release-assets/regspike-rs-linux-x86_64
-          ldd release-assets/regspike-rs-linux-x86_64
-          objdump -T release-assets/regspike-rs-linux-x86_64 | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+          file release-assets/register-rs-linux-x86_64
+          ldd release-assets/register-rs-linux-x86_64
+          objdump -T release-assets/register-rs-linux-x86_64 | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
 
       - name: Conformance suite against the staged Rust asset
-        run: python3 -I conformance/run.py -- release-assets/regspike-rs-linux-x86_64
+        run: python3 -I conformance/run.py -- release-assets/register-rs-linux-x86_64
 
       - name: Conformance suite against the staged TypeScript asset
-        run: python3 -I conformance/run.py -- node release-assets/regspike.mjs
+        run: python3 -I conformance/run.py -- node release-assets/register.mjs
 
       - name: The staged assets report the expected version and tool_schema
         run: |
           if [ -n "$TAG" ]; then
-            python3 -I .github/scripts/check_release.py --tag "$TAG" --rs release-assets/regspike-rs-linux-x86_64 --ts release-assets/regspike.mjs
+            python3 -I .github/scripts/check_release.py --tag "$TAG" --rs release-assets/register-rs-linux-x86_64 --ts release-assets/register.mjs
           else
-            python3 -I .github/scripts/check_release.py --rs release-assets/regspike-rs-linux-x86_64 --ts release-assets/regspike.mjs
+            python3 -I .github/scripts/check_release.py --rs release-assets/register-rs-linux-x86_64 --ts release-assets/register.mjs
           fi
 
       - name: Keep the assets for the publish job (and for inspection on pull request runs)
@@ -132,4 +132,4 @@ jobs:
         run: |
           (cd release-assets && sha256sum -c SHA256SUMS)
           gh release create "$TAG" --repo "$REPO" --draft --verify-tag --title "$TAG" --generate-notes \
-            release-assets/regspike-rs-linux-x86_64 release-assets/regspike.mjs release-assets/SHA256SUMS
+            release-assets/register-rs-linux-x86_64 release-assets/register.mjs release-assets/SHA256SUMS

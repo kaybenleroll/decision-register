@@ -97,8 +97,8 @@ def replay(name, cmd):
 
 
 def main(a):
-    cmds = {"rs": [os.path.join(ROOT, "impl/rust/target/release/regspike-rs")],
-            "ts": ["node", os.path.join(ROOT, "impl/ts/dist/regspike.mjs")]}
+    cmds = {"rs": [os.path.join(ROOT, "impl/rust/target/release/register-rs")],
+            "ts": ["node", os.path.join(ROOT, "impl/ts/dist/register.mjs")]}
     while a:
         x = a.pop(0)
         if x in ("--rs", "--ts") and a:

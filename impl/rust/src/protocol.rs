@@ -80,7 +80,7 @@ impl Server {
                 json!({
                     "protocolVersion": PROTOCOL_VERSION,
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "regspike-rs", "version": env!("CARGO_PKG_VERSION")},
+                    "serverInfo": {"name": "register-rs", "version": env!("CARGO_PKG_VERSION")},
                 }),
             ),
             "ping" => reply_ok(id, json!({})),
