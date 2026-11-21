@@ -21,7 +21,7 @@ From the research repo's grill-me walk (Q1-Q8), wording from docs/plan.md sectio
 - Q2 [user] Finish-rejection behaviour is kept (caps, fail-open). A new field records who parked; "a park counts as done only if the user asked for it" (today any park is non-blocking).
 - Q3 [user] Server absent: grill-me falls back to a plain interview; "required" becomes "preferred"; visible notice at start. A second notice at the end saying no record was kept: [assistant] (user did not object).
 - Q4 [user] The register generates a markdown decision log from its store at the end of the interview into the project's .scratch/; grill-me step 8 replay reads it. ADR draft generation is deferred.
-- Q6 [user] Only the grill-me chain moves (grill-me, wayfinder, write-a-prd via grill-me). Other skills stay on stock sequential-thinking.
+- Q6 [user] Only the grill-me chain moves (grill-me, wayfinder, write-a-prd via grill-me). Other skills stay on stock sequential-thinking. Superseded 2026-11-21 (#99, ADR 0001 section 2.6 amendment): the stock sequential-thinking tool was removed from the user's setup on 2026-11-20 (dotfiles#599), so other skills use no structured-thinking tool.
 - Q7/Q8 [user] Test plan: 8 scenarios x 2 arms, 5 repeats per cell then batches of 5 up to 15, closed-form credible intervals (no Stan).
 - Repo [user]: decision-register, private, MIT (MIT merged in PR #1).
 - Tracking [user]: skill, hook and settings work goes in kaybenleroll/dotfiles under their HARD RULE; kaybenleroll/random_llm_projects#203 stays the umbrella.
