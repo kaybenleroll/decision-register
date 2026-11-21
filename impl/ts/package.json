@@ -1,6 +1,6 @@
 {
   "name": "register-ts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Decision register MCP server, TypeScript build",
   "type": "module",
