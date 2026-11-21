@@ -19,6 +19,11 @@ without a valid precedence number.
 
 Log (newest first)
 
+(no bump, 2026-11-21, issue #109)  the configured skill-name list (REQ-24) gains
+query-walkthrough in both builds, and the UserPromptExpansion hook matcher becomes
+`^(grill-me|query-walkthrough)$`; no tool name, parameter, result shape or journal event
+shape changes, so tool_schema stays 4.
+
 (no bump, 2026-11-21, issue #102)  runtime.md "Signals and shutdown limits": states that
 a stdin EOF shutdown completes pending replies before exit 0 and that a signal shutdown
 may cut a reply the client has not read (both builds); removes the claim that a stalled

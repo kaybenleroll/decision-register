@@ -56,7 +56,7 @@ pub const CONTRACT_TOOLS: [&str; 12] = [
 const HOOK_FACING: [&str; 3] = ["note_prompt", "skill_started", "check_stop"];
 
 /// The configured skill-name list (REQ-24), matched exactly as received.
-const SKILL_LIST: [&str; 1] = ["grill-me"];
+const SKILL_LIST: [&str; 2] = ["grill-me", "query-walkthrough"];
 
 /// Budget when the classifier returned `unknown` (REQ-32), and the volunteered-answer cap.
 const FLAT_BUDGET: usize = 4;
@@ -1491,6 +1491,28 @@ pub(crate) mod tests {
             call(&mut app, "status", json!({})).unwrap()["state"],
             "active"
         );
+    }
+
+    #[test]
+    fn skill_started_lists_query_walkthrough_exactly() {
+        let sk = |skill: &str| json!({"tool_schema": 4, "session_id": "s", "skill": skill});
+        for name in [
+            "query-walkthrough-copy",
+            "Query-Walkthrough",
+            "query-walkthrough ",
+            " query-walkthrough",
+            "query_walkthrough",
+            "query",
+        ] {
+            let mut app = fresh();
+            call(&mut app, "skill_started", sk(name)).unwrap();
+            let s = call(&mut app, "status", json!({})).unwrap();
+            assert_eq!(s["state"], "none", "{name}");
+        }
+        let mut app = fresh();
+        call(&mut app, "skill_started", sk("query-walkthrough")).unwrap();
+        let s = call(&mut app, "status", json!({})).unwrap();
+        assert_eq!(s["state"], "pending");
     }
 
     #[test]

@@ -21,7 +21,7 @@ Tags: [user-decision] marks a step that cannot start until the user decides.
 | G1 | ADR 0002 5.2 per-prompt authorisation budget | Decided [user: gate walk 2026-11-16]: one `source: user` answer per distinct item presented since the previous prompt, minimum 1; mechanics [assistant]: budget max(1, p), flat 4 only when the classifier returns `unknown`, volunteered `log_item` answers outside the budget (4 per prompt) | was S-32b..d; slice I2 |
 | G2 | REQ-15 skill home | Decided [user: gate walk 2026-11-16]: skill stays in dotfiles with a register mode and plain fallback; plugin has no skill text | was P1 skill content, D4; now slice P5 |
 | G3 | REQ-72 and ADR 0003 values | Decided [user: gate walk 2026-11-16]: 20% margin, Rust tie-break within 20%, four measures confirmed as starting values; the user decides either way | was start of I1 |
-| G4 | REQ-24 list contents | Decided [user: gate walk 2026-11-16]: exactly `grill-me`; revisit in P5 | was S-20c; P1 |
+| G4 | REQ-24 list contents | Decided [user: gate walk 2026-11-16]: exactly `grill-me`; revisit in P5. Extended to exactly `grill-me` and `query-walkthrough` [user: extended 2026-11-21 (#109)] | was S-20c; P1 |
 | G5 | N = 2 (REQ-35), `decision` kind (REQ-34), finish classifier (REQ-43) | Decided [user: gate walk 2026-11-16]: confirmed as starting values; classifier also names presented items; replay test REQ-46 before it ships | was C2 batch |
 | G6 | Product and binary names (formerly working names `regspike-rs`, `regspike-ts`, REQ-73) | Decided 2026-11-21, set A, #96: `register-rs`, `register-ts`, `register.mjs`, `REGISTER_IMPL`, `REGISTER_TS_BUNDLE` (supersedes the 2026-11-16 [user: gate walk] parking) | R1 release naming |
 
@@ -78,7 +78,8 @@ Ids are stable; one row = one suite scenario. The seven spike-3 scenarios (A1 to
 | S-13a while no interview is active, `note_prompt`, `check_stop` and `skill_started` (unlisted name) record `last_seen_session_id` and set `prompt_seen` only: no journal, no counters, empty text or `{}` returned | REQ-13, REQ-27, REQ-41 |
 | S-13b `check_stop` in state `none` allows and clears `prompt_seen`: a `note_prompt` followed by a `check_stop` and then `skill_started` starts with prompt count 0 (only a prompt since the previous Stop counts as the invoking prompt) | REQ-27 (none row, rule 2), REQ-13 |
 | S-20a typed-start route: `skill_started` with an exact listed name starts an interview | REQ-20, REQ-24 |
-| S-20b unlisted or near-miss name (`grill-me-copy`, case change, `wayfinder`, `write-a-prd`) does not start; exactly `grill-me` does | REQ-20, REQ-24 |
+| S-20b unlisted or near-miss name (`grill-me-copy`, case change, `wayfinder`, `write-a-prd`, `query-walkthrough-copy`, `Query-Walkthrough`, `query_walkthrough`, `query`, surrounding space) does not start; exactly `grill-me` does | REQ-20, REQ-24 |
+| S-20e `skill_started` with exactly `query-walkthrough` starts a pending interview (hook route, skill recorded, only the start event written) (#109) | REQ-20, REQ-24 |
 | S-20d `skill_started` outcomes: a listed name leaves the server `pending`; an unlisted name leaves it `none`; a `tool_schema` mismatch still returns `{}` or empty text, records `status.version_mismatch` (set by the mismatch, cleared by a later match) and writes no `mismatch` event when no interview exists; a second listed `skill_started` while pending, active or complete is a no-op | REQ-20, REQ-24, REQ-41, REQ-77 |
 | S-20c model-invoked route yields same interview id | REQ-20 |
 | S-21a `begin_interview` with `mode: register` and no `session_id` starts and binds to `last_seen_session_id`; second call returns existing id | REQ-21, REQ-22, REQ-27 |

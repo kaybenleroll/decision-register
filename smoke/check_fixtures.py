@@ -39,6 +39,8 @@ def static():
           "skill_started hook input keys and tool_schema %s match" % TS)
     matchers = [x["matcher"] for g in hooks.values() for x in g if "matcher" in x]
     check(any(re.search(x, SK) for x in matchers if x != "Skill") and "Skill" in matchers, "hook matchers cover the skill name " + SK)
+    check(any(re.search(x, "query-walkthrough") and not re.search(x, "query-walkthrough-copy") for x in matchers if x != "Skill"),
+          "a hook matcher matches query-walkthrough exactly and not query-walkthrough-copy")
     check(P["typed"].startswith("/" + SK) and SK in P["model"] and "?" not in A["finish"] and "?" in A["question"] and "?" in P["unrelated"],
           "scripted prompts have the shapes the live checks need")
 

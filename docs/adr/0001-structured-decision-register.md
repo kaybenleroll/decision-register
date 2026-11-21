@@ -45,6 +45,7 @@ Where the source material is silent: "not established".
 
 ### 2.6 Consumers and tracking (Q6)
 - [user] Only the grill-me chain moves (grill-me, wayfinder, write-a-prd via grill-me). Other skills (diagnose, ai-systems, improve-codebase-architecture, triage-phase2) use no structured-thinking tool: the stock sequential-thinking tool was removed from the user's setup on 2026-11-20 (dotfiles#599). Amended 2026-11-21 by the user. Superseded: they stayed on stock sequential-thinking (free-form reasoning, poor fit). Survey: .scratch/seqthink-consumers-survey.md.
+- [user] Amendment 2026-11-21 (#109), appended; the decided text above is unchanged: query-walkthrough is also listed (REQ-24) and uses the register. [user: extended 2026-11-21 (#109)]
 - [user] The settings.json allow entry `mcp__sequential-thinking` no longer exists (removed 2026-11-20, dotfiles#599; removal is done, not a later option); only the plugin tool names are added. Amended 2026-11-21 by the user. Superseded: keep the allow entry; removing the stock tool from free-form skills was a later option, benefit unmeasured.
 - Unconfirmed: the claim that wayfinder cites grill-me steps. The survey found it cites grill-me by name only.
 - [user] Tracking in kaybenleroll/dotfiles (HARD RULE: skill/hook/settings work). #203, dotfiles#542, #543, #544 relate.
