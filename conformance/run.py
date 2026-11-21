@@ -78,12 +78,27 @@ def parse_line(line):
     return m
 
 
+SIGNALS = {"SIGINT": signal.SIGINT, "SIGTERM": signal.SIGTERM, "SIGHUP": signal.SIGHUP}
+
+
+def child_dispositions(ignored):
+    """A preexec_fn for the server child: SIGINT, SIGHUP and SIGTERM are SIG_DFL, except the named ones, which are
+    SIG_IGN. Forcing SIG_DFL means a suite started from a backgrounded or non-interactive shell (which may have
+    ignored SIGINT or SIGHUP) cannot pass that ignore to the server."""
+    def f():
+        for name, no in SIGNALS.items():
+            signal.signal(no, signal.SIG_IGN if name in ignored else signal.SIG_DFL)
+    return f
+
+
 class Server:
-    def __init__(self, cmd, env, errpath, cwd):
+    def __init__(self, cmd, env, errpath, cwd, ignore_signals=()):
         self.env = env
         self.errf = open(errpath, "ab")
+        self.returncode = None
         self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errf,
-                                  env=env, cwd=cwd, encoding="utf-8", bufsize=1, start_new_session=True)
+                                  env=env, cwd=cwd, encoding="utf-8", bufsize=1, start_new_session=True,
+                                  preexec_fn=child_dispositions(set(ignore_signals)))
         self.q = queue.Queue()
         threading.Thread(target=self._rd, daemon=True).start()
         self.n = 0
@@ -143,19 +158,37 @@ class Server:
         text = "".join(c.get("text", "") for c in r.get("content", []) if isinstance(c, dict))
         return ("tool_error" if r.get("isError") else "ok"), text
 
-    def close(self):
-        """Close stdin and wait up to EXIT_WAIT seconds for the server to exit by itself (runtime.md: exits on
-        stdin EOF). Always leaves no process behind. Returns True when the exit was graceful."""
-        try:
-            self.p.stdin.close()
-        except Exception:
-            pass
+    def send_partial(self, text):
+        """Write raw text to the server's stdin as it is (no newline added) and do not wait for a reply."""
+        self.p.stdin.write(text)
+        self.p.stdin.flush()
+
+    def close(self, signo=None):
+        """Close stdin (or, with signo, send that signal to the server process only, leaving stdin open) and wait up
+        to EXIT_WAIT seconds for the server to exit by itself (runtime.md: exits on stdin EOF or a signal). Always
+        leaves no process behind. Returns True when the exit was graceful; self.returncode holds the exit code."""
+        if signo is None:
+            try:
+                self.p.stdin.close()
+            except Exception:
+                pass
+        else:
+            try:
+                os.kill(self.p.pid, signo)
+            except ProcessLookupError:
+                pass
         graceful = True
         try:
             self.p.wait(timeout=EXIT_WAIT)
         except Exception:
             graceful = False
+        self.returncode = self.p.returncode
         self.kill()
+        if signo is not None:
+            try:
+                self.p.stdin.close()
+            except Exception:
+                pass
         self.errf.close()
         time.sleep(0.05)  # let the reader thread drain the pipe
         while True:
@@ -383,7 +416,8 @@ class Run:
         # contract/runtime.md: project path = CLAUDE_PROJECT_DIR if set and non-empty, else the working directory
         # as the operating system reports it
         self.vars["key"] = project_key(env.get("CLAUDE_PROJECT_DIR") or os.path.realpath(self.cwd))
-        srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"), self.cwd)  # all servers share the log
+        srv = Server(self.cmd, env, os.path.join(self.dir, "server.stderr.log"), self.cwd,  # all servers share the log
+                     self.scen.get("ignore_signals", []))
         self.servers[name] = srv
         srv.initialize()
         suffix = "" if name == "main" else "_" + name
@@ -397,6 +431,23 @@ class Run:
         if not srv.close():
             raise AssertionError("server %s did not exit within %d s of stdin EOF (runtime.md: exits on stdin EOF)"
                                  % (name, EXIT_WAIT))
+
+    def signal_server(self, st):
+        """Send a named signal to the server process and require a graceful exit with the given exit code."""
+        name, sig = st.get("server", "main"), st["signal"]
+        srv = self.server(name)
+        del self.servers[name]
+        graceful = srv.close(SIGNALS[sig])
+        if not graceful:
+            raise AssertionError("server %s did not exit within %d s of %s (runtime.md: a signal runs the same "
+                                 "shutdown as stdin EOF)" % (name, EXIT_WAIT, sig))
+        if srv.returncode != st["exit"]:
+            raise AssertionError("server %s exited with code %s after %s, expected %d" % (name, srv.returncode, sig, st["exit"]))
+        self.obs.append("%s exit %d" % (sig, srv.returncode))
+
+    def send_partial(self, st):
+        """Write raw text to the server's stdin without a trailing newline and without waiting for a reply."""
+        self.server(st.get("server", "main")).send_partial(st["text"])
 
     def kill_server(self, name="main"):
         """SIGKILL the named server's process group: no flush, no clean-up, pid file and journal as they were."""
@@ -602,6 +653,10 @@ class Run:
             self.start(name)
         elif op == "kill":
             self.kill_server(name)
+        elif op == "signal":
+            self.signal_server(st)
+        elif op == "send-partial":
+            self.send_partial(st)
         elif op == "journal":
             self.do_journal(st)
         elif op == "fs":
@@ -880,6 +935,7 @@ def fill_variables(args, schema, defs):
 STEP_KEYS = {
     "call": {"op", "server", "call", "args", "meta", "expect", "mention", "not_mention", "matches", "save", "assert", "stub"},
     "restart": {"op", "server"}, "stop": {"op", "server"}, "start": {"op", "server"}, "kill": {"op", "server"},
+    "signal": {"op", "server", "signal", "exit"}, "send-partial": {"op", "server", "text"},
     "journal": {"op", "action", "form", "where", "into", "from", "ended", "events", "last", "count", "absent", "total", "prefix", "at", "each"},
     "fs": {"op", "assert"},
     "tools_list": {"op", "server"},
@@ -950,6 +1006,16 @@ def validate_step(where, st, tools, validator, errs):
     if op == "repeat":
         validate_repeat(where, st, tools, validator, errs)
         return
+    if op == "signal":
+        if not (isinstance(st.get("signal"), str) and st["signal"] in SIGNALS):
+            errs.append("%s: signal is one of %s" % (where, ", ".join(SIGNALS)))
+        if not (isinstance(st.get("exit"), int) and not isinstance(st.get("exit"), bool) and 0 <= st["exit"] <= 255):
+            errs.append("%s: signal needs exit, the expected exit code (0 to 255; 128 plus the signal number for a signal exit)" % where)
+    elif op == "send-partial":
+        if not (isinstance(st.get("text"), str) and st["text"]):
+            errs.append("%s: send-partial needs text, a non-empty string" % where)
+        elif st["text"].endswith("\n"):
+            errs.append("%s: send-partial text must not end with a newline" % where)
     if op == "call":
         name = st.get("call")
         expect = st.get("expect", "ok")
@@ -1143,10 +1209,10 @@ def track_servers(where, steps, running, errs):
         elif op == "measure_start":
             if running:
                 errs.append("%s: measure_start needs every server stopped (stop the main server first)" % at)
-        elif op in ("stop", "kill", "restart", "tools_list", "call"):
+        elif op in ("stop", "kill", "signal", "send-partial", "restart", "tools_list", "call"):
             if name not in running:
                 errs.append("%s: server %s is not running" % (at, name))
-            elif op in ("stop", "kill"):
+            elif op in ("stop", "kill", "signal"):
                 running.discard(name)
         elif op == "repeat" and isinstance(st.get("steps"), list):
             if track_servers(at, st["steps"], running, errs) != running:
@@ -1164,7 +1230,7 @@ def all_steps(steps):
 
 def validate(scenarios, tools, validator):
     errs, ids = [], set()
-    top = {"id", "title", "req", "steps", "env", "unset_env", "launcher", "strip_path"}
+    top = {"id", "title", "req", "steps", "env", "unset_env", "launcher", "strip_path", "ignore_signals"}
     for s in scenarios:
         f = s["_file"]
         for k in s:
@@ -1176,6 +1242,9 @@ def validate(scenarios, tools, validator):
             errs.append("%s: launcher must be a relative path of plain segments, without '..'" % f)
         if "strip_path" in s and not (isinstance(sp, str) and re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", sp)):
             errs.append("%s: strip_path must be a bare binary name (no '/')" % f)
+        ig = s.get("ignore_signals")
+        if "ignore_signals" in s and not (isinstance(ig, list) and ig and all(isinstance(x, str) and x in SIGNALS for x in ig) and len(set(ig)) == len(ig)):
+            errs.append("%s: ignore_signals is a non-empty list of distinct names from %s" % (f, ", ".join(SIGNALS)))
         if "strip_path" in s and "launcher" not in s:
             errs.append("%s: strip_path needs launcher" % f)
         for k in ("id", "title", "req", "steps"):
