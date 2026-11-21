@@ -197,7 +197,7 @@ type State = "none" | "pending" | "active" | "complete";
 type Route = "hook" | "begin_interview" | "implicit";
 
 /** Skill names that start a pending interview by the hook route (REQ-24, exact match). */
-const LISTED_SKILLS: readonly string[] = ["grill-me"];
+const LISTED_SKILLS: readonly string[] = ["grill-me", "query-walkthrough"];
 /** A parent with at least one child but fewer than this is under-sized (REQ-35). */
 const MIN_CHILDREN = 2;
 const PROMPT_CAP = 2;

@@ -1,0 +1,60 @@
+{
+ "id": "S-20e",
+ "title": "typed-start route: skill_started with the exact listed name query-walkthrough starts a pending interview (hook route, skill recorded) and writes only the start event",
+ "req": [
+  "REQ-20",
+  "REQ-24"
+ ],
+ "steps": [
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-20e",
+    "skill": "query-walkthrough"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "hook_health",
+     "eq": {
+      "note_prompt": 0,
+      "skill_started": 1,
+      "check_stop": 0,
+      "prompt_seen": false
+     }
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "total": 1,
+   "count": {
+    "start": 1
+   },
+   "at": {
+    "1": {
+     "kind": "start",
+     "skill": "query-walkthrough",
+     "route": "hook",
+     "interview_id": "$iid"
+    }
+   }
+  }
+ ]
+}

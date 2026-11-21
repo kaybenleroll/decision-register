@@ -26,7 +26,7 @@
     ],
     "UserPromptExpansion": [
       {
-        "matcher": "^grill-me$",
+        "matcher": "^(grill-me|query-walkthrough)$",
         "hooks": [
           {
             "type": "mcp_tool",

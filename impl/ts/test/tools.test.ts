@@ -398,6 +398,32 @@ test("a user answer needs a prompt, then spends the per-prompt budget", () => {
   );
 });
 
+test("skill_started lists exactly grill-me and query-walkthrough", () => {
+  for (const name of [
+    "query-walkthrough-copy",
+    "Query-Walkthrough",
+    "query-walkthrough ",
+    " query-walkthrough",
+    "query_walkthrough",
+    "query",
+  ]) {
+    const app = new App();
+    call(app, "skill_started", {
+      tool_schema: 4,
+      session_id: "s",
+      skill: name,
+    });
+    assert.equal(call(app, "status", {})["state"], "none", name);
+  }
+  const app = new App();
+  call(app, "skill_started", {
+    tool_schema: 4,
+    session_id: "s",
+    skill: "query-walkthrough",
+  });
+  assert.equal(call(app, "status", {})["state"], "pending");
+});
+
 test("a listed skill starts a pending interview, even on a mismatch", () => {
   const app = new App();
   app.call(
