@@ -1,9 +1,9 @@
 START C1
-2026-11-15T21:58:35Z	C1	0	podman run --rm --userns=keep-id -v /home/mcooney/workspace/decision-register/.scratch/spike3/ts-node:/work:Z docker.io/library/node:lts-slim sh /work/build.sh
+2026-11-15T21:58:35Z	C1	0	podman run --rm --userns=keep-id -v $HOME/workspace/decision-register/.scratch/spike3/ts-node:/work:Z docker.io/library/node:lts-slim sh /work/build.sh
 DONE C1
 START C2
-2026-11-15T21:58:46Z	C2	0	podman run --rm --userns=keep-id -v /home/mcooney/workspace/decision-register/.scratch/spike3/ts-node:/work:Z docker.io/library/node:lts-slim sh /work/build.sh
+2026-11-15T21:58:46Z	C2	0	podman run --rm --userns=keep-id -v $HOME/workspace/decision-register/.scratch/spike3/ts-node:/work:Z docker.io/library/node:lts-slim sh /work/build.sh
 DONE C2
 START C3
-2026-11-15T21:58:48Z	C3	0	podman run --rm --userns=keep-id -v /home/mcooney/workspace/decision-register/.scratch/spike3/ts-node:/work:Z docker.io/library/node:lts-slim sh /work/build.sh
+2026-11-15T21:58:48Z	C3	0	podman run --rm --userns=keep-id -v $HOME/workspace/decision-register/.scratch/spike3/ts-node:/work:Z docker.io/library/node:lts-slim sh /work/build.sh
 DONE C3

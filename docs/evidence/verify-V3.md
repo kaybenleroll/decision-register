@@ -4,7 +4,7 @@ Issue #25. Question: does the `session_id` the hooks send to the server stay the
 
 Source: the live run of 2026-11-19 (`docs/evidence/live-run-2026-11-19.md`), Claude Code 2.1.328, one manual `/compact` at 12:44:01 (`compact_boundary` entry), single trial.
 
-Implementation: run 1 used `REGSPIKE_IMPL=ts` (the TypeScript build) as instructed and reported by the user, started from `/home/mcooney/workspace/register-live-run` with `--plugin-dir`; the transcript and journal do not record the implementation themselves.
+Implementation: run 1 used `REGSPIKE_IMPL=ts` (the TypeScript build) as instructed and reported by the user, started from `$HOME/workspace/register-live-run` with `--plugin-dir`; the transcript and journal do not record the implementation themselves.
 
 ## Verdict: observed equal across one compaction in one session (one trial). Not claimed closed.
 
