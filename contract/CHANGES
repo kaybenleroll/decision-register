@@ -19,6 +19,15 @@ without a valid precedence number.
 
 Log (newest first)
 
+(no bump, 2026-11-21, issue #102)  runtime.md "Signals and shutdown limits": states that
+a stdin EOF shutdown completes pending replies before exit 0 and that a signal shutdown
+may cut a reply the client has not read (both builds); removes the claim that a stalled
+stdout reader blocks the TypeScript handler (three clauses); the "Once only" bullet now
+says that in TypeScript a signal during the EOF drain ends the wait with status 0; a stalled
+EOF drain ends after 5 s with status 0 (reply tail dropped, journal flushed; Rust has no
+ceiling there); no request is processed after a shutdown starts. No
+tool, parameter, result shape or journal event changes.
+
 (no bump, 2026-11-21, issue #96)  runtime.md: the working names are final (set A).
 Process names `regspike-rs`, `regspike-ts` and `regspike.mjs` become `register-rs`,
 `register-ts` and `register.mjs`; environment variables `REGSPIKE_IMPL`,
