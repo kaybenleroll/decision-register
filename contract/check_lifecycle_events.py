@@ -75,10 +75,11 @@ MAPPING = {
 ROW_PINS = {"none": "ecc91373f5", "pending": "cd95e3e70e", "active": "02b7a748c2", "complete": "20e802a278",
             "ended": "1b5dd6ac26", "unfinished": "70622b77fb"}
 # rules 1-5 of REQ-27: events carrying what the rule needs
+# Re-pinned 2026-11-21 (issue #92): rule 4 gains "when it owns the interview (REQ-15)", a skill-side ownership clause; no server transition or event changes.
 RULES = {1: ("68449d82be", ["start", "hook", "resume"]),      # session ids on start, hook and resume
          2: ("dfd955191a", ["prompt", "start"]),               # prompt_count on start; prompt events
          3: ("939f8bee41", ["engage", "end", "mismatch"]),     # engagement, stand-down, mismatch before plain
-         4: ("35ae3833da", ["complete", "item", "resolve", "park", "reopen", "end"]),
+         4: ("74a002ee26", ["complete", "item", "resolve", "park", "reopen", "end"]),
          5: ("612af85d55", ["end", "resume"])}        # signals added to the exit triggers (2026-11-21): same events, no new one
 # "Written when" cell of every event kind (key) and the End kinds / runtime.md ends tables
 WRITTEN = {"start": "35db742d85", "engage": "6d28cc8b60", "prompt": "5d519c11cb", "hook": "52f929a950", "item": "05f2987824",
