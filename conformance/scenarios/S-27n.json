@@ -1,0 +1,154 @@
+{
+ "id": "S-27n",
+ "title": "graceful exit on SIGTERM with an unfinished request on the pipe: the journal holds every complete event and is whole, there is no end event, the pid file is gone, the log is flagged interrupted, the interview resumes and the exit code is 143 (whether the server read the partial bytes is not asserted)",
+ "req": [
+  "REQ-27",
+  "REQ-23",
+  "REQ-52",
+  "REQ-60"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-27n",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27n",
+    "last_assistant_message": "Q1: first?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second"
+   }
+  },
+  {
+   "op": "send-partial",
+   "text": "{\"jsonrpc\":\"2.0\",\"id\":99,\"method\":\"tools/call\",\"params\":{\"name\":\"log_item\",\"arguments\":{\"id\":\"q3\",\"kind\":\"question\",\"text\":\"par"
+  },
+  {
+   "op": "signal",
+   "signal": "SIGTERM",
+   "exit": 143
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid}.jsonl"
+    },
+    {
+     "path": "$key/${iid}.pid",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: [^\\n]+\nstate: [^\\n]+\nmode: register\nend_kind: interrupted\nimplicit_start: [^\\n]+\n",
+     "mode": "600"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "item": 2,
+    "end": 0
+   },
+   "last": {
+    "kind": "item",
+    "id": "q2"
+   }
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "resumable.0.interview_id",
+     "eq": "$iid"
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 2,
+      "resolved": 0,
+      "parked": 0,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -53,7 +53,7 @@ A wrapper script (`exitprobe.mjs`, not committed) that logs signals and stdin ev
 
 - A `SessionEnd` `mcp_tool` hook cannot end an interview when the session exits. Nothing in the hook system can call a stdio server at that point.
 - What ends an interview: (a) the skill's `end_interview` after its replay step (REQ-23, check 13 below); (b) detection of a changed `session_id` on the next hook call (REQ-26), which already covers `/clear` and `/resume`; (c) optionally a `SessionEnd` hook for `clear` and `resume`, which works but duplicates (b); (d) at exit, nothing: the journal stays unfinished and the next session offers resume or discard (REQ-52, REQ-27 rule 5). That path is already the specified one.
-- Gap against REQ-23 and REQ-62 ("a decision log is written ... on interrupted exit"): the exit signal is `SIGINT`, not stdin EOF, so the server's `onEof` path does not run and no `interrupted` log is written. Closing the gap needs the server to handle `SIGINT` and `SIGTERM` like EOF (both implementations, plus a conformance scenario); it was not done here. This is a decision for the user (see `docs/status.md`).
+- Gap against REQ-23 and REQ-62 ("a decision log is written ... on interrupted exit"): the exit signal is `SIGINT`, not stdin EOF, so the server's `onEof` path does not run and no `interrupted` log is written. Closing the gap needs the server to handle `SIGINT` and `SIGTERM` like EOF (both implementations, plus a conformance scenario); it was not done here. This is a decision for the user (see `docs/status.md`). Update 2026-11-21: closed by issue #90, both builds handle `SIGINT`, `SIGTERM` and `SIGHUP` like stdin EOF (`docs/evidence/signal-shutdown.md`).
 
 ## 2. V7 (#36): `mcp_tool` `SessionStart` `compact`
 

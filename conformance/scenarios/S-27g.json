@@ -1,0 +1,185 @@
+{
+ "id": "S-27g",
+ "title": "graceful exit on SIGTERM: an active interview with events queued after the last check_stop keeps a whole, untorn journal that holds every queued event and no end event, loses its pid file, gets a log flagged interrupted and resumes with the full tree; exit code 143",
+ "req": [
+  "REQ-27",
+  "REQ-23",
+  "REQ-52",
+  "REQ-60"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-27g",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 4,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "first"
+   }
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-27g",
+    "last_assistant_message": "Q1: first?"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q2",
+    "kind": "question",
+    "text": "second",
+    "depends_on": [
+     "Q1"
+    ]
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "sq1",
+    "kind": "subquestion",
+    "text": "sub",
+    "parent": "Q1"
+   }
+  },
+  {
+   "call": "resolve",
+   "args": {
+    "id": "sq1",
+    "answer": "an",
+    "source": "model",
+    "rationale": "why"
+   }
+  },
+  {
+   "call": "park",
+   "args": {
+    "id": "q2",
+    "reason": "later",
+    "parked_by": "model"
+   }
+  },
+  {
+   "op": "signal",
+   "signal": "SIGTERM",
+   "exit": 143
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid}.jsonl"
+    },
+    {
+     "path": "$key/${iid}.pid",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "exists": false
+    }
+   ]
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: [^\\n]+\nstate: [^\\n]+\nmode: register\nend_kind: interrupted\nimplicit_start: [^\\n]+\n",
+     "mode": "600"
+    }
+   ]
+  },
+  {
+   "op": "journal",
+   "action": "load"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": false
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "item": 3,
+    "resolve": 1,
+    "park": 1,
+    "end": 0
+   },
+   "last": {
+    "kind": "park",
+    "id": "q2"
+   }
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "resumable.0.interview_id",
+     "eq": "$iid"
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    },
+    {
+     "path": "last_event",
+     "eq": "$n"
+    },
+    {
+     "path": "items",
+     "eq": {
+      "open": 1,
+      "resolved": 1,
+      "parked": 1,
+      "stale": 0
+     }
+    }
+   ]
+  }
+ ]
+}

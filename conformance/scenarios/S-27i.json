@@ -1,0 +1,108 @@
+{
+ "id": "S-27i",
+ "title": "graceful exit on SIGTERM: a pending interview gets an end event stood_down (mode not_engaged, reason 'server exit while pending'), its journal is archived, its pid file removed and its log written; exit code 143",
+ "req": [
+  "REQ-27",
+  "REQ-23",
+  "REQ-52",
+  "REQ-60"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-27i",
+    "prompt": "my answer is below"
+   }
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 4,
+    "session_id": "sess-27i",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    }
+   ]
+  },
+  {
+   "op": "signal",
+   "signal": "SIGTERM",
+   "exit": 143
+  },
+  {
+   "op": "journal",
+   "action": "load",
+   "where": "archive"
+  },
+  {
+   "op": "journal",
+   "action": "check_events",
+   "ended": true
+  },
+  {
+   "op": "journal",
+   "action": "assert_events",
+   "count": {
+    "end": 1
+   },
+   "last": {
+    "kind": "end",
+    "end_kind": "stood_down",
+    "mode": "not_engaged",
+    "reason": "server exit while pending"
+   }
+  },
+  {
+   "op": "fs",
+   "assert": [
+    {
+     "path": "$key/${iid}.jsonl",
+     "exists": false
+    },
+    {
+     "path": "$key/${iid}.pid",
+     "exists": false
+    },
+    {
+     "path": "$key/archive/${iid}.jsonl",
+     "nonempty": true
+    },
+    {
+     "path": "decision-logs/decision-${iid}.md",
+     "root": "project",
+     "matches": "(?s)\\Ainterview_id: ${iid}\njournal_position: [^\\n]+\nstate: [^\\n]+\nmode: not engaged\nend_kind: stood_down\nimplicit_start: [^\\n]+\n",
+     "mode": "600"
+    }
+   ]
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "resumable",
+     "eq": []
+    }
+   ]
+  }
+ ]
+}

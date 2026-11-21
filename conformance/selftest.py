@@ -4,7 +4,7 @@ when malformed. Stdlib only. No server needed.
 
 Usage: python3 -I conformance/selftest.py      (non-zero exit on any failure)
 """
-import importlib.util, json, os, shutil, sys, tempfile
+import importlib.util, json, os, shutil, signal, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("conf_run", os.path.join(HERE, "run.py"))
@@ -41,10 +41,42 @@ def rejects(fragment, *steps, **extra):
 # ---------------------------------------------------------------- a tiny fake server for the execution tests
 # `python3 -I selftest.py --fake`: speaks just enough MCP over stdio for the driver. Every tools/call appends the
 # tool name to <CLAUDE_PLUGIN_DATA>/calls.log (as "<tool> <pid>") and returns empty text (valid for the hook-facing tools); exits at EOF.
+# FAKE_SIGNALS=1: SIGINT, SIGTERM and SIGHUP exit with 128+signo, first writing the unfinished input line to
+# <data>/partial.log. FAKE_REPORT_SIGS=1: at start, writes the ignored (1) or not (0) state of the three signals,
+# from SigIgn in /proc/self/status, to <data>/sigs.log. Without either, the signals keep their inherited dispositions.
+
+def read_lines(fd, state):
+    """Lines from file descriptor fd, keeping the unfinished tail in state["buf"] so a signal handler can report it."""
+    while True:
+        chunk = os.read(fd, 65536)
+        if not chunk:
+            return
+        state["buf"] += chunk
+        while b"\n" in state["buf"]:
+            line, state["buf"] = state["buf"].split(b"\n", 1)
+            yield line.decode()
+
 
 def fake_server():
     data = os.environ.get("CLAUDE_PLUGIN_DATA", ".")
-    for line in sys.stdin:
+    state = {"buf": b""}
+    if os.environ.get("FAKE_REPORT_SIGS"):
+        mask = [int(l.split()[1], 16) for l in open("/proc/self/status") if l.startswith("SigIgn:")][0]
+        with open(os.path.join(data, "sigs.log"), "w") as f:
+            f.write(" ".join("%s=%d" % (n, mask >> (getattr(signal, n) - 1) & 1) for n in ("SIGHUP", "SIGINT", "SIGTERM")) + "\n")
+    if os.environ.get("FAKE_SIGNALS"):
+        def bye(no, frame):
+            os.set_blocking(0, False)  # take what the driver has written but the loop has not read yet
+            try:
+                state["buf"] += os.read(0, 65536) or b""
+            except OSError:
+                pass
+            with open(os.path.join(data, "partial.log"), "w") as f:
+                f.write("partial=%r\n" % state["buf"].decode())
+            os._exit(128 + no)
+        for n in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            signal.signal(n, bye)
+    for line in read_lines(0, state):
         m = json.loads(line)
         if "id" not in m:
             continue
@@ -405,6 +437,103 @@ def kill_runs_without_a_graceful_exit():
           {"op": "fs", "assert": [{"path": "calls.log", "matches": r"\Anote_prompt ${pid}\n\Z"}]})
     fails("not running", {"op": "kill"}, NOTE)
     fails("not running", {"op": "kill"}, {"op": "stop"})
+
+
+# ---------------------------------------------------------------- signals, partial input, spawn dispositions
+
+SIG = {"op": "signal", "signal": "SIGTERM", "exit": 143}
+
+
+@test
+def signal_parsed():
+    accepts(SIG, {"op": "start"})
+    accepts({"op": "start", "server": "b"}, {"op": "signal", "server": "b", "signal": "SIGHUP", "exit": 129},
+            {"op": "start", "server": "b"})
+    for name, code in (("SIGINT", 130), ("SIGTERM", 143), ("SIGHUP", 129), ("SIGHUP", 0)):
+        accepts({"op": "signal", "signal": name, "exit": code})
+
+
+@test
+def signal_rejected_when_malformed():
+    rejects("signal is one of", {"op": "signal", "exit": 143})
+    rejects("signal is one of", {"op": "signal", "signal": "SIGKILL", "exit": 137})
+    rejects("signal is one of", {"op": "signal", "signal": 15, "exit": 143})
+    rejects("signal needs exit", {"op": "signal", "signal": "SIGTERM"})
+    rejects("signal needs exit", {"op": "signal", "signal": "SIGTERM", "exit": 256})
+    rejects("signal needs exit", {"op": "signal", "signal": "SIGTERM", "exit": True})
+    rejects("signal needs exit", {"op": "signal", "signal": "SIGTERM", "exit": "143"})
+    rejects("unknown key", dict(SIG, extra=1))
+    rejects("server b is not running", {"op": "signal", "server": "b", "signal": "SIGTERM", "exit": 143})
+    rejects("server main is not running", SIG, SIG)
+    rejects("server main is not running", SIG, NOTE)
+    rejects("server main is not running", SIG, {"op": "stop"})
+
+
+@test
+def send_partial_parsed_and_rejected():
+    accepts({"op": "send-partial", "text": '{"jsonrpc": "2.0"'}, SIG)
+    accepts({"op": "start", "server": "b"}, {"op": "send-partial", "server": "b", "text": "x"}, {"op": "stop", "server": "b"})
+    rejects("send-partial needs text", {"op": "send-partial"})
+    rejects("send-partial needs text", {"op": "send-partial", "text": ""})
+    rejects("send-partial needs text", {"op": "send-partial", "text": 5})
+    rejects("must not end with a newline", {"op": "send-partial", "text": "abc\n"})
+    rejects("unknown key", {"op": "send-partial", "text": "a", "newline": True})
+    rejects("server b is not running", {"op": "send-partial", "server": "b", "text": "a"})
+    rejects("server main is not running", SIG, {"op": "send-partial", "text": "a"})
+
+
+@test
+def signal_runs_a_graceful_exit_with_the_expected_code():
+    env = {"FAKE_SIGNALS": "1"}
+    plays(SIG, {"op": "start"}, {"op": "signal", "signal": "SIGINT", "exit": 130},
+          {"op": "start"}, {"op": "signal", "signal": "SIGHUP", "exit": 129}, env=env)
+    # the exit code is checked, and a server that dies of the signal (no handler) is not a graceful exit code
+    fails("expected 0", {"op": "signal", "signal": "SIGTERM", "exit": 0}, env=env)
+    fails("exited with code -15", SIG)
+
+
+@test
+def send_partial_reaches_the_server_without_a_newline():
+    plays({"op": "send-partial", "text": '{"jsonrpc": "2.0", "id'}, SIG,
+          {"op": "fs", "assert": [{"path": "partial.log", "matches": r"\Apartial='\{\"jsonrpc\": \"2.0\", \"id'\n\Z"}]},
+          env={"FAKE_SIGNALS": "1"})
+    # a following complete request is not answered by half a line: the reply to a call still arrives after the rest
+    plays({"op": "send-partial", "text": "xx"}, SIG,
+          {"op": "fs", "assert": [{"path": "partial.log", "matches": r"\Apartial='xx'\n\Z"}]}, env={"FAKE_SIGNALS": "1"})
+
+
+@test
+def spawn_dispositions_are_forced_and_ignorable():
+    report = {"FAKE_REPORT_SIGS": "1"}
+    see = lambda want: {"op": "fs", "assert": [{"path": "sigs.log", "matches": r"\A%s\n\Z" % want}]}
+    plays(see("SIGHUP=0 SIGINT=0 SIGTERM=0"), env=report)
+    plays(see("SIGHUP=1 SIGINT=0 SIGTERM=0"), env=report, ignore_signals=["SIGHUP"])
+    plays(see("SIGHUP=1 SIGINT=1 SIGTERM=1"), env=report, ignore_signals=["SIGHUP", "SIGINT", "SIGTERM"])
+    # a driver started with the signals ignored (a backgrounded or non-interactive shell) does not pass that on
+    old = {n: signal.signal(getattr(signal, n), signal.SIG_IGN) for n in ("SIGHUP", "SIGINT", "SIGTERM")}
+    try:
+        plays(see("SIGHUP=0 SIGINT=0 SIGTERM=0"), env=report)
+    finally:
+        for n, h in old.items():
+            signal.signal(getattr(signal, n), h)
+
+
+@test
+def ignore_signals_parsed_and_rejected():
+    accepts(NOTE, ignore_signals=["SIGHUP"])
+    accepts(NOTE, ignore_signals=["SIGHUP", "SIGINT", "SIGTERM"])
+    for bad in ([], "SIGHUP", ["SIGKILL"], ["SIGHUP", "SIGHUP"], [1], None):
+        rejects("ignore_signals is a non-empty list", NOTE, ignore_signals=bad)
+
+
+@test
+def an_ignored_signal_is_not_a_graceful_exit():
+    # SIGTERM ignored at spawn and the fake has no handler: the server ignores it, so the wait times out
+    old, run.EXIT_WAIT = run.EXIT_WAIT, 1
+    try:
+        fails("did not exit within", SIG, ignore_signals=["SIGTERM"])
+    finally:
+        run.EXIT_WAIT = old
 
 
 # ---------------------------------------------------------------- explicit _meta
