@@ -24,7 +24,9 @@ in a scenario or unit test on a throwaway branch; not yet done.
 
 ## 2. Release (`.github/workflows/release.yml`)
 
-Trigger: a pushed tag `v*`. Procedure (by hand):
+Trigger: a pushed tag `v*`. Tag style: `vMAJOR.MINOR.PATCH`, with an optional pre-release suffix (for example `v0.1.0-rc.1`;
+`check_release.py` accepts it, so such a tag also triggers a draft, and the three versions in the files must then carry the same
+suffix). Any other `v*` tag fails the `check_release.py --tag` step. The first tag intended is `v0.1.0`. Procedure (by hand):
 
 1. Make the plugin, crate and package versions equal and bump them together: `plugin/.claude-plugin/plugin.json`,
    `impl/rust/Cargo.toml` (and `Cargo.lock`), `impl/ts/package.json` (and `package-lock.json`). Merge to `main` with CI green.
@@ -33,19 +35,31 @@ Trigger: a pushed tag `v*`. Procedure (by hand):
 4. Review the draft (three assets, notes), then publish it by hand. Nothing is published automatically.
 
 `build` job, in order: the tag is an ancestor of `origin/main`; `.github/scripts/check_release.py --tag` (below); toolchains;
-`cargo build --release --locked`; `npm ci && npm run build`; stage the assets; `sha256sum -c`; record `file`, `ldd` and the
-highest GLIBC symbol version (information); the full conformance suite against the **staged** Rust asset and the staged
+`cargo build --release --locked`; `npm ci && npm run build`; stage the assets; `sha256sum -c`; assert that the staged set is
+exactly `SHA256SUMS register-rs-linux-x86_64 register.mjs`; the glibc guard (below); the full conformance suite against the **staged** Rust asset and the staged
 bundle; `check_release.py` against the same two staged files; upload them as a workflow artefact. `publish` (tag runs only,
 `permissions: contents: write`, no checkout) re-verifies the checksums and creates the draft. Release builds use no caches.
 
 Pull requests that touch `release.yml` or `check_release.py` run the `build` job only (same steps, no tag), so everything
 except the ancestor check and `publish` is exercised before the first tag.
 
+### glibc guard
+
+The `build` job runs `file` and `ldd` on the staged Rust binary, then takes the highest `GLIBC_` version from
+`objdump -T` and fails when it is above 2.34 (compared with `sort -V`) and when no `GLIBC_` version is found at all (a changed
+`objdump` output or a static build would otherwise pass unnoticed). The runner stays `ubuntu-24.04`: the guard, not the runner,
+enforces the floor, so a future dependency bump that raises it turns the build red instead of shipping a binary that needs a
+newer glibc than the documented 2.34. The 2.34 figure is a measurement of the current binary (local `objdump -T`, 2026-11-21),
+not a requirement from REQ-74, which fixes only the platform (Linux x86_64). The same job asserts that the staged directory
+holds exactly `SHA256SUMS`, `register-rs-linux-x86_64` and `register.mjs`. Neither check has run on GitHub yet; both were run as
+shell, locally, against the real files and against a faked `GLIBC_2.35`, an empty `objdump` output and a missing file (all three
+fail as intended).
+
 ### Assets (REQ-73, REQ-74)
 
 | Asset | Content | Notes |
 |---|---|---|
-| `register-rs-linux-x86_64` | Rust release binary | Linux x86_64 only (REQ-74). Dynamically linked against glibc; built on `ubuntu-24.04`, so it needs the glibc of that image or newer (measured on the pull request run: GLIBC_2.34, so the practical floor is glibc 2.34; re-read it from each release run log). Install as `register-rs` and `chmod 755` (release downloads do not carry the mode). |
+| `register-rs-linux-x86_64` | Rust release binary | Linux x86_64 only (REQ-74). Dynamically linked against glibc. The floor is set by the `GLIBC_` symbol versions the binary references, not by the runner image (an older runner cannot raise it): measured highest is GLIBC_2.34, so the floor is glibc 2.34. A `build` step enforces it (see "glibc guard"). Install as `register-rs` and `chmod 755` (release downloads do not carry the mode). |
 | `register.mjs` | esbuild single-file bundle, ESM, target `node26`, no runtime dependencies | Needs Node 26 or newer (`engines`); platform independent. |
 | `SHA256SUMS` | `sha256sum` lines for the two assets | Verify with `sha256sum -c SHA256SUMS` in the download directory. |
 
@@ -95,9 +109,59 @@ Order for `REGISTER_IMPL=ts` (REQ-73, decided in #94; implemented in `plugin/bin
 Then `node` must be on `PATH`, else the stub. The launcher runs the file as `node <file>`, so it need not be executable.
 Whether an environment variable set in `settings.json` `env` reaches the MCP server process is unverified, and so is
 whether the Claude Code process carries a `PATH` that includes the directory a release manager (for example `mise`)
-installs `register.mjs` into; both are settled by the install test listed in section 4.
+installs `register.mjs` into; both are settled by the install test listed in section 5.
 
-## 4. Not verified (needs a tag or a decision)
+## 4. Installing with mise
+
+An alternative to downloading the assets by hand (`mise` github backend). Nothing in this section has been run against a real
+release: no tag or release exists. Everything marked untested is a recalled or documented behaviour, not an observed one. What
+was checked locally: mise 2026.11.2 parses both stanzas below and resolves the tool (`mise ls --json`, nothing installed).
+That check does not validate the option names or the asset matching.
+
+Rust (`register-rs`), in a `mise.toml`:
+
+```toml
+[tools."github:kaybenleroll/decision-register"]
+version = "0.1.0"          # pin; checksum needs a pinned version
+
+[tools."github:kaybenleroll/decision-register".platforms]
+linux-x64 = { asset_pattern = "register-rs-linux-x86_64", bin = "register-rs", checksum = "sha256:<hash>" }
+```
+
+- `asset_pattern` picks the one asset of the release by name; `bin = "register-rs"` pins the installed file name (otherwise mise
+  derives the name itself and may strip the `-linux-x86_64` suffix).
+- `<hash>` is the first column of the `register-rs-linux-x86_64` line of the release's `SHA256SUMS`. Whether mise also reads
+  `SHA256SUMS` by name, or GitHub's reported asset digest, is not established, so keep the explicit `checksum`.
+- Tag style: tags are `vX.Y.Z`; the entry pins `0.1.0`. mise is recalled to accept a leading `v` on the tag (not tested).
+- `mise activate` (or shims for executables) must put the install directory on the `PATH` of the Claude Code process;
+  untested (section 5).
+
+TypeScript bundle fallback, an alternative entry (a tool key cannot be used twice in one file, so use a separate `mise.toml`,
+or a different config file, for it):
+
+```toml
+[tools."github:kaybenleroll/decision-register"]
+version = "0.1.0"
+format = "raw"
+bin = "register.mjs"
+
+[tools."github:kaybenleroll/decision-register".platforms]
+linux-x64 = { asset_pattern = "register.mjs", checksum = "sha256:<hash of the register.mjs line of SHA256SUMS>" }
+```
+
+The launcher then finds `register.mjs` on `PATH` (section 3, step 3), with `REGISTER_IMPL=ts`, Node 26 or newer on `PATH`, and no
+built `impl/ts/dist/register.mjs` in a checkout (a checkout bundle beats `PATH`). **The whole bundle stanza is untested**:
+`format = "raw"`, `bin = "register.mjs"`, the asset name match, whether the file is made executable (the launcher does not need
+it, since it runs `node <file>`), and whether the install directory reaches `PATH`.
+
+Private repository: until the repository is public (#97), mise needs a GitHub token to see the release assets
+(`GITHUB_TOKEN` or `MISE_GITHUB_TOKEN`, recalled from the mise documentation; whether mise also reads the gh CLI login is not established). Do not put the token in a
+committed `mise.toml`.
+
+Untested, in short: the whole mise route (both stanzas), the checksum source, the `v` prefix handling, `PATH` placement, the
+token variable name, and the bundle stanza's raw-file handling.
+
+## 5. Not verified (needs a tag or a decision)
 
 - `publish`: `gh release create --draft --verify-tag` with these three files, asset names, the generated notes, and the
   `contents: write` token, all untested until a tag is pushed.
@@ -106,3 +170,27 @@ installs `register.mjs` into; both are settled by the install test listed in sec
 - The seeded-failure demonstration.
 - That an installed `register.mjs` is on the `PATH` of the Claude Code process (launcher step 3, section 3) and that
   `REGISTER_TS_BUNDLE` in `settings.json` `env` reaches the server; the launcher logic itself is checked offline.
+- The mise install route, section 4, and #95's acceptance criterion "verified by installing on a clean machine": deferred until
+  the repository is public (#97) and a release exists. It stays open (the pull request uses `Refs #95`, not a closing keyword).
+  Exact commands, to run once, in a clean container; the entries below are the documented `mise.toml` stanzas themselves, not an
+  ad hoc `mise use`:
+
+  ```
+  podman run --rm -it docker.io/library/ubuntu:22.04 bash
+  apt-get update && apt-get install -y curl ca-certificates      # the base image has neither
+  curl https://mise.run | sh && export PATH="$HOME/.local/bin:$PATH"
+  mkdir /w && cd /w
+  # Rust: write the section 4 Rust stanza to /w/mise.toml (real hash from SHA256SUMS), then
+  mise trust && mise install && eval "$(mise activate bash)" && command -v register-rs
+  printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}\n' | register-rs
+  # Bundle: replace /w/mise.toml with the section 4 bundle stanza (Node 26 on PATH, for example `mise use node@26`), then
+  mise install && eval "$(mise activate bash)" && command -v register.mjs
+  ```
+
+  Then run the same probe through the launcher, with `REGISTER_IMPL=ts plugin/bin/register-launch`. State how the launcher was
+  supplied: a clone of the repository at the tag (note the clone's own `impl/ts/dist/register.mjs` must be absent, or step 2 of
+  the order wins), or the marketplace install. Add `GITHUB_TOKEN` to the container environment while the repository is private.
+  Pass criteria: `register-rs` and `register.mjs` land on `PATH`, the probe answers `serverInfo` (`register-rs` or `register-ts`)
+  with version `0.1.0`, and the checksum is verified. Afterwards the live checks of unit #92 on the skikk-thor machine.
+- The glibc guard and the staged-asset-set assertion on a GitHub runner (the pull request run of `release.yml` exercises both;
+  they were run only as local shell until then).

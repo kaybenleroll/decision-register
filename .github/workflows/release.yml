@@ -80,11 +80,26 @@ jobs:
           sha256sum -c SHA256SUMS
           cat SHA256SUMS
 
-      - name: Record what the binary needs (information only)
+      - name: The staged set is exactly the three published assets
         run: |
-          file release-assets/register-rs-linux-x86_64
-          ldd release-assets/register-rs-linux-x86_64
-          objdump -T release-assets/register-rs-linux-x86_64 | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+          got=$(find release-assets -type f -printf '%f\n' | LC_ALL=C sort | tr '\n' ' ')
+          want="SHA256SUMS register-rs-linux-x86_64 register.mjs "
+          echo "staged: $got"
+          test "$got" = "$want" || { echo "::error::staged assets differ from: $want"; exit 1; }
+
+      - name: Guard the glibc floor of the Rust binary (highest GLIBC_ symbol version must be 2.34 or lower)
+        # The floor is set by the symbols the binary references, not by the runner image: the guard enforces it, so
+        # keeping ubuntu-24.04 is safe. It fails when a symbol above 2.34 appears and when no GLIBC_ version is found
+        # at all (a changed objdump output or a static build would otherwise pass unnoticed). See docs/release-plan.md.
+        run: |
+          f=release-assets/register-rs-linux-x86_64
+          file "$f"
+          ldd "$f"
+          max=$(objdump -T "$f" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1 || true)
+          echo "highest GLIBC symbol version: ${max:-none}"
+          test -n "$max" || { echo "::error::no GLIBC_ symbol version found in $f"; exit 1; }
+          top=$(printf '%s\n%s\n' "${max#GLIBC_}" 2.34 | sort -V | tail -1)
+          test "$top" = 2.34 || { echo "::error::$max exceeds the GLIBC_2.34 floor"; exit 1; }
 
       - name: Conformance suite against the staged Rust asset
         run: python3 -I conformance/run.py -- release-assets/register-rs-linux-x86_64

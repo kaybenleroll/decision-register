@@ -37,7 +37,7 @@ step 3 (or step 1) serves it. Consequence for development runs: while a built `i
 the checkout, step 2 wins over any installed `register.mjs` on `PATH`; to run the installed bundle from a checkout, set
 `REGISTER_TS_BUNDLE` to it. The Rust build has no equivalent order: `register-rs` is found on `PATH` only. Only a
 `PATH` that the Claude Code process itself carries counts (a shell without `mise activate`, or a GUI launch, may not
-have the install directory on it, which also affects `register-rs`; untested, see `docs/release-plan.md` section 4).
+have the install directory on it, which also affects `register-rs`; untested, see `docs/release-plan.md` section 5).
 
 ## Choose a build without an environment variable
 
@@ -61,6 +61,10 @@ TypeScript wrapper pointing at `dist/regspike.mjs`) goes dead after the rename. 
 (or `ts`) again to create `register-rs`, and remove the old link yourself with `rm ~/.local/bin/regspike-rs`
 (`register-use` never touches it). `REGSPIKE_IMPL` and `REGSPIKE_TS_BUNDLE` are ignored now: set `REGISTER_IMPL`
 and `REGISTER_TS_BUNDLE` instead.
+
+Installing a release with mise (the `github:` backend, a `mise.toml` entry for `register-rs` and a fallback entry for
+`register.mjs`, with `asset_pattern`, `bin`, the `SHA256SUMS` checksum, the tag style and the private-repository token) is
+described in `docs/release-plan.md` section 4. That route is untested: no release exists yet.
 
 ## INSTALL
 
