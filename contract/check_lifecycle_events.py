@@ -59,7 +59,7 @@ MAPPING = {
     ("active", "left", "72d2ebd3ec"): (["stop", "complete"], ""),
     ("active", "left", "3e4228e270"): (["end"], ""),
     ("active", "left", "a1c1463def"): (["end"], ""),
-    ("active", "left", "42e0733832"): (None, "server exit on an active interview writes no end: the absence is the record (rule 5)"),
+    ("active", "left", "4adb480f31"): (None, "server exit (stdin EOF or SIGINT, SIGTERM, SIGHUP) on an active interview writes no end: the absence is the record (rule 5)"),
     ("complete", "entered", "6baf436377"): (["stop", "complete"], ""),
     ("complete", "left", "c45636a237"): (["end"], ""),
     ("ended", "entered", "b8f7e2d4ed"): (None, "see the other rows"),
@@ -68,24 +68,29 @@ MAPPING = {
     ("unfinished", "left", "1805ce561d"): (["resume"], "resume; discard and pruning are file moves and deletions"),
 }
 # whole-row pins (cover the Stop gate and Model-facing calls columns, which hold no state change)
+# Re-pinned 2026-11-21 (issue #90): the active row's 'Left by' cell now names SIGINT, SIGTERM and SIGHUP next to stdin EOF; no
+# transition and no event changes (see the active/left clause below).
 # Re-pinned 2026-11-17 (walk Q5): REQ-21/REQ-27 now say SUCCESSFUL mutating calls start or engage; a failing call changes
 # nothing. Mapping reviewed: the same events record the same transitions (start, engage), only the trigger is narrowed.
-ROW_PINS = {"none": "ecc91373f5", "pending": "cd95e3e70e", "active": "01138372ae", "complete": "20e802a278",
+ROW_PINS = {"none": "ecc91373f5", "pending": "cd95e3e70e", "active": "02b7a748c2", "complete": "20e802a278",
             "ended": "1b5dd6ac26", "unfinished": "70622b77fb"}
 # rules 1-5 of REQ-27: events carrying what the rule needs
 RULES = {1: ("68449d82be", ["start", "hook", "resume"]),      # session ids on start, hook and resume
          2: ("dfd955191a", ["prompt", "start"]),               # prompt_count on start; prompt events
          3: ("939f8bee41", ["engage", "end", "mismatch"]),     # engagement, stand-down, mismatch before plain
          4: ("35ae3833da", ["complete", "item", "resolve", "park", "reopen", "end"]),
-         5: ("570e37d853", ["end", "resume"])}
+         5: ("612af85d55", ["end", "resume"])}        # signals added to the exit triggers (2026-11-21): same events, no new one
 # "Written when" cell of every event kind (key) and the End kinds / runtime.md ends tables
 WRITTEN = {"start": "35db742d85", "engage": "6d28cc8b60", "prompt": "5d519c11cb", "hook": "52f929a950", "item": "05f2987824",
            "resolve": "6cd3fd08a5", "park": "7feeba7820", "reopen": "b81686baa7", "stop": "177316c034", "complete": "667c72ed60",
            "mismatch": "43e35bf3cc", "resume": "f820c8213f", "end": "82c95031fb"}
 END_KINDS = {"normal": "1b1b5a9fad", "ended_incomplete_by_model": "a0c34b692b", "abandoned": "a4f773e622",
-             "ended_after_completion": "a2fc387f00", "stood_down": "cea2fe972b"}
-RUNTIME_ENDS = {"256ebe44ed": True, "9a9670271d": True, "c34dae1ee4": True, "15313763bf": True, "f3885e6244": True,
-                "ee63385b21": False, "85bc5438c8": True, "6711f6ee4c": False}  # True: an end event is written
+             "ended_after_completion": "a2fc387f00", "stood_down": "c5d3bc556e"}   # re-pinned 2026-11-21: trigger "server exit" names the three signals; same end_kind and modes
+RUNTIME_ENDS = {"256ebe44ed": True, "9a9670271d": True, "c34dae1ee4": True, "15313763bf": True, "593958bd63": True,
+                "4f7c2dc408": False, "8b855358b0": True, "20ea22636c": False}  # True: an end event is written
+# The last four rows (pending, active, complete, none) were the stdin EOF rows; since 2026-11-21 their event cell reads
+# "stdin EOF, SIGINT, SIGTERM or SIGHUP" (a signal runs the EOF shutdown, issue #90): the end-event column is unchanged in
+# each (stood_down; none; ended_after_completion; none), so the polarity of each row is kept.
 
 
 def pin(what, text, wanted, extra=""):

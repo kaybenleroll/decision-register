@@ -19,6 +19,22 @@ without a valid precedence number.
 
 Log (newest first)
 
+(no bump, 2026-11-21, user decision, issue #90)  runtime.md, journal.md and
+docs/requirements.md (REQ-27 rule 5 and the active row) extend the 2026-11-16
+stdin-EOF decision to SIGINT, SIGTERM and SIGHUP: each runs the same shutdown as
+stdin EOF (queue flush, decision log, pid file removal) and exits with 128 plus
+the signal number (129, 130, 143; EOF stays 0). New runtime.md section "Signals
+and shutdown limits": the ends table names the four triggers, the always-handle
+policy for signals the parent ignored at spawn (and the unmeasured `nohup claude`
+caveat), the Rust 5 s bound on an in-flight request (expiry equals SIGKILL), the
+absence of a bound in TypeScript and its start-up window of about 40 ms.
+Behaviour change in both builds (new scenarios S-27f to S-27n) and a wording
+change in the contract; no tool name, parameter, result shape, journal event
+shape or error text changes, so tool_schema stays 4 and journal_schema stays 2.
+Why: Claude Code stops the server with SIGINT, so a normal session end wrote no
+decision log and left a stale pid file (docs/evidence/live-run-4.md). SIGKILL and
+crashes are unchanged.
+
 (no bump, 2026-11-19, user decision Q9)  tools.json errors table: the first
 resume|discard row's "when" reads "no id given and nothing unfinished"
 (was "no unfinished journal exists"). Behaviour is unchanged and both builds

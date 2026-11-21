@@ -4,7 +4,7 @@ Authority: REQ-60, REQ-61, REQ-27 rule 5, REQ-52. Changing anything here bumps `
 
 ## File
 
-- One JSON object per line (JSONL), UTF-8, appended; written write-behind. The queue is flushed (written and fsync not required) at every `check_stop` call, at the end of an interview, and on stdin EOF before the server exits (REQ-60 says "at least"; EOF is the user decision of 2026-11-16 so a graceful exit loses nothing). A hard crash can still lose the events since the last flush; `status.last_event` and `resume.last_event` make the loss visible.
+- One JSON object per line (JSONL), UTF-8, appended; written write-behind. The queue is flushed (written and fsync not required) at every `check_stop` call, at the end of an interview, and on stdin EOF or SIGINT, SIGTERM or SIGHUP before the server exits (REQ-60 says "at least"; EOF is the user decision of 2026-11-16 so a graceful exit loses nothing, extended to the three signals on 2026-11-21). A hard crash can still lose the events since the last flush; `status.last_event` and `resume.last_event` make the loss visible.
 - Key order: the order of keys inside a journal line, a tool reply or any other JSON object is not significant; readers and the suite compare parsed JSON, never text. The one exception is the pid file, whose key order is fixed (runtime.md, "Pid file and claim"). This is how REQ-71's "identical journal format" is read: identical events, kinds and field values, not identical bytes.
 - Name: `<interview_id>.jsonl` in the data directory's project folder (runtime.md); archived journals move to its `archive/` folder. The pid file `<interview_id>.pid` sits beside it (REQ-52).
 
@@ -49,7 +49,7 @@ Replay applies the REQ-31 checks (non-blank answer and rationale, single-line ra
 | `ended_incomplete_by_model` | `end_interview` with `abandon: true` and a non-blank reason while items are open (REQ-23); the log says "ended incomplete by the model" | `register` |
 | `abandoned` | session change (REQ-26) on an active interview with items open; the log is flagged incomplete | `register` |
 | `ended_after_completion` | a complete interview ends by `end_interview`, a session change or server exit (REQ-23, REQ-26); never downgraded | `register` |
-| `stood_down` | a pending interview ends by `end_interview` with `mode: plain` (mode `plain`); or, with mode `not_engaged`: by its second Stop check with no model-facing register call, by a session change (REQ-27 rule 3, REQ-26), by being replaced when a `resume` succeeds (REQ-52; `reason` "replaced by resume"), or by server exit (stdin EOF) while pending (`reason` "server exit while pending") | `plain` or `not_engaged` (`plain` only for `end_interview` with `mode: plain`) |
+| `stood_down` | a pending interview ends by `end_interview` with `mode: plain` (mode `plain`); or, with mode `not_engaged`: by its second Stop check with no model-facing register call, by a session change (REQ-27 rule 3, REQ-26), by being replaced when a `resume` succeeds (REQ-52; `reason` "replaced by resume"), or by server exit (stdin EOF, SIGINT, SIGTERM or SIGHUP) while pending (`reason` "server exit while pending") | `plain` or `not_engaged` (`plain` only for `end_interview` with `mode: plain`) |
 
 A pending interview holds no items, so none of its ends is unfinished: every end of a pending interview writes an `end` event with `end_kind` `stood_down` and the journal is archived, including server exit and replacement by `resume`; a pending journal never becomes an unfinished ghost.
 

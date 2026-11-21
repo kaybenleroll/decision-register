@@ -12,7 +12,7 @@ archives; contract/runtime.md). The command runs in a scenario directory, so rel
 Each invocation uses its own scratch directory (`.scratch/conformance/run-<random>/<id>/`: `data/` as CLAUDE_PLUGIN_DATA,
 `project/` as CLAUDE_PROJECT_DIR, `cwd/` as the working directory, `server.stderr.log`); it is removed on pass and kept on failure.
 The server is killed with its whole process group; one that does not exit within 5 s of stdin EOF fails the scenario
-(runtime.md: exits on stdin EOF). A stdout line that is not a JSON-RPC 2.0 message fails the scenario. The variables
+(runtime.md: exits on stdin EOF, and on SIGINT, SIGTERM or SIGHUP with code 128 plus the signal number; the `signal` step below). A stdout line that is not a JSON-RPC 2.0 message fails the scenario. The variables
 CLAUDE_CODE_SESSION_ID and REGSPIKE_CLOCK_OFFSET_SECONDS are unset unless a scenario sets them.
 
 Each scenario is one file, `scenarios/<id>.json`: `id`, `title`, `req` (list), optional `env`, `unset_env` and `ignore_signals`

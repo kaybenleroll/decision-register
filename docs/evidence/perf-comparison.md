@@ -122,6 +122,8 @@ Robustness (`bench.py robust`; identical in both builds unless stated). `EOF` is
 
 SIGINT: neither build installs a handler, so SIGINT, like SIGTERM and SIGHUP, ends the process at once by the default action. The EOF path (queue flush, decision log, pid file removal) is not reached by any signal; whatever the write-behind queue holds since the last Stop-hook flush (or `end_interview`) is lost, and the stale pid file is handled by the next server's start-time liveness check (`resume` succeeded in every signal case). This is as `contract/journal.md` describes for a hard crash; it is reported, not fixed. Nothing differs between the builds except the inherited-ignored behaviour in the table (a Node runtime behaviour, confirmed by running).
 
+Update 2026-11-21 (issue #90): superseded for signals. Both builds now handle SIGINT, SIGTERM and SIGHUP like stdin EOF, and handle them even if the parent ignored them; see `docs/evidence/signal-shutdown.md`. The paragraph above and the robustness table describe the builds as measured on 2026-11-19.
+
 ## 4. Interpretation
 
 Material at human timescales: none of the speed or memory differences.
