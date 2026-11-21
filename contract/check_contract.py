@@ -325,7 +325,7 @@ def main():
         fails.append("spike-3 tool names missing from contract: %s" % sorted(missing))
     check_pins(d, fails)
     env_names = re.findall(r"^\| `(\w+)` \|", open(os.path.join(HERE, "runtime.md")).read().split("## Environment the suite injects")[1].split("##")[0], re.M)
-    if env_names != ["CLAUDE_PLUGIN_DATA", "CLAUDE_PROJECT_DIR", "CLAUDE_CODE_SESSION_ID", "REGSPIKE_CLOCK_OFFSET_SECONDS"]:
+    if env_names != ["CLAUDE_PLUGIN_DATA", "CLAUDE_PROJECT_DIR", "CLAUDE_CODE_SESSION_ID", "REGISTER_CLOCK_OFFSET_SECONDS"]:
         fails.append("runtime.md environment table lists %s" % env_names)
     jg, jb = check_journal(d, fails)
     print("tools: %d, good examples: %d, bad examples: %d, spike-3 names checked: %d, journal examples: %d good, %d bad"

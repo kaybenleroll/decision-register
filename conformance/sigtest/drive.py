@@ -2,15 +2,15 @@
 
 Measurement tooling, not part of the conformance suite (CI does not run it). Standard library only.
 Usage: python3 -I conformance/sigtest/drive.py <rust|ts> <unflushed|flushed> <EOF|SIGINT|SIGTERM|SIGHUP>
-Builds are the release binary impl/rust/target/release/regspike-rs and the bundle impl/ts/dist/regspike.mjs; override with the
-environment variables REGSPIKE_RS_BIN and REGSPIKE_TS_BUNDLE. Output goes below $SIGTEST_OUT (default <repo>/.scratch/sigtest).
+Builds are the release binary impl/rust/target/release/register-rs and the bundle impl/ts/dist/register.mjs; override with the
+environment variables REGISTER_RS_BIN and REGISTER_TS_BUNDLE. Output goes below $SIGTEST_OUT (default <repo>/.scratch/sigtest).
 Sequence of one run: note_prompt, begin_interview, log_item q1 and q2, resolve q1, [flushed: check_stop], then EOF or the signal;
 then a snapshot of the files, then a fresh server on the same data: status, resume, status."""
 import glob, json, os, queue, shutil, signal, subprocess, sys, threading, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-RS_BIN = os.environ.get("REGSPIKE_RS_BIN", os.path.join(ROOT, "impl/rust/target/release/regspike-rs"))
-TS_BUNDLE = os.environ.get("REGSPIKE_TS_BUNDLE", os.path.join(ROOT, "impl/ts/dist/regspike.mjs"))
+RS_BIN = os.environ.get("REGISTER_RS_BIN", os.path.join(ROOT, "impl/rust/target/release/register-rs"))
+TS_BUNDLE = os.environ.get("REGISTER_TS_BUNDLE", os.path.join(ROOT, "impl/ts/dist/register.mjs"))
 BASE = os.environ.get("SIGTEST_OUT", os.path.join(ROOT, ".scratch", "sigtest"))
 LAUNCHER = os.path.join(ROOT, "plugin", "bin", "register-launch")
 
@@ -44,11 +44,11 @@ class S:
     def __init__(s, build, data, proj, err):
         env = server_env(data, proj)
         if build == "rust":
-            env["REGSPIKE_IMPL"] = "rs"
+            env["REGISTER_IMPL"] = "rs"
             env["PATH"] = os.path.dirname(RS_BIN) + ":" + env["PATH"]
         else:
-            env["REGSPIKE_IMPL"] = "ts"
-            env["REGSPIKE_TS_BUNDLE"] = TS_BUNDLE
+            env["REGISTER_IMPL"] = "ts"
+            env["REGISTER_TS_BUNDLE"] = TS_BUNDLE
         s.p = subprocess.Popen([LAUNCHER], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=open(err, "ab"), env=env,
                                cwd=proj, encoding="utf-8", bufsize=1)
         s.q = queue.Queue()

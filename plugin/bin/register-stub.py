@@ -11,7 +11,7 @@ import json
 import os
 import sys
 
-REASON = os.environ.get("REGSPIKE_STUB_REASON") or "binary not found"
+REASON = os.environ.get("REGISTER_STUB_REASON") or "binary not found"
 HOOK_TOOLS = ("note_prompt", "skill_started", "check_stop")
 MODEL_TOOLS = ("begin_interview", "log_item", "resolve", "park", "reopen", "status", "resume", "discard",
                "end_interview")

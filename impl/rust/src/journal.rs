@@ -31,12 +31,12 @@ pub fn civil_from_days(days: i64) -> (i64, i64, i64) {
     (yoe + era * 400 + i64::from(m <= 2), m, d)
 }
 
-/// Seconds since the epoch, plus the test-only `REGSPIKE_CLOCK_OFFSET_SECONDS`.
+/// Seconds since the epoch, plus the test-only `REGISTER_CLOCK_OFFSET_SECONDS`.
 pub fn now_secs() -> i64 {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(0));
-    let offset = std::env::var("REGSPIKE_CLOCK_OFFSET_SECONDS")
+    let offset = std::env::var("REGISTER_CLOCK_OFFSET_SECONDS")
         .ok()
         .and_then(|v| v.trim().parse::<i64>().ok())
         .unwrap_or(0);
@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn archive_moves_a_flushed_journal() {
-        let dir = std::env::temp_dir().join(format!("regspike-j-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("register-j-{}", std::process::id()));
         let mut j = Journal::new("iv-arch");
         j.path = dir.join("iv-arch.jsonl");
         j.event("hook", json!({"tool": "check_stop", "session_id": "s"}));
@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn release_removes_the_pid_file_and_resumed_continues_the_sequence() {
-        let dir = std::env::temp_dir().join(format!("regspike-r-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("register-r-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         claim::create_new(&dir, "iv-rel").unwrap();
         let mut j = Journal::resumed(&dir, "iv-rel", 7);

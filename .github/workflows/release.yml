@@ -73,31 +73,46 @@ jobs:
       - name: Stage the assets and write SHA256SUMS
         run: |
           mkdir release-assets
-          install -m 755 impl/rust/target/release/regspike-rs release-assets/regspike-rs-linux-x86_64
-          install -m 644 impl/ts/dist/regspike.mjs release-assets/regspike.mjs
+          install -m 755 impl/rust/target/release/register-rs release-assets/register-rs-linux-x86_64
+          install -m 644 impl/ts/dist/register.mjs release-assets/register.mjs
           cd release-assets
-          sha256sum regspike-rs-linux-x86_64 regspike.mjs > SHA256SUMS
+          sha256sum register-rs-linux-x86_64 register.mjs > SHA256SUMS
           sha256sum -c SHA256SUMS
           cat SHA256SUMS
 
-      - name: Record what the binary needs (information only)
+      - name: The staged set is exactly the three published assets
         run: |
-          file release-assets/regspike-rs-linux-x86_64
-          ldd release-assets/regspike-rs-linux-x86_64
-          objdump -T release-assets/regspike-rs-linux-x86_64 | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+          got=$(find release-assets -type f -printf '%f\n' | LC_ALL=C sort | tr '\n' ' ')
+          want="SHA256SUMS register-rs-linux-x86_64 register.mjs "
+          echo "staged: $got"
+          test "$got" = "$want" || { echo "::error::staged assets differ from: $want"; exit 1; }
+
+      - name: Guard the glibc floor of the Rust binary (highest GLIBC_ symbol version must be 2.34 or lower)
+        # The floor is set by the symbols the binary references, not by the runner image: the guard enforces it, so
+        # keeping ubuntu-24.04 is safe. It fails when a symbol above 2.34 appears and when no GLIBC_ version is found
+        # at all (a changed objdump output or a static build would otherwise pass unnoticed). See docs/release-plan.md.
+        run: |
+          f=release-assets/register-rs-linux-x86_64
+          file "$f"
+          ldd "$f"
+          max=$(objdump -T "$f" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1 || true)
+          echo "highest GLIBC symbol version: ${max:-none}"
+          test -n "$max" || { echo "::error::no GLIBC_ symbol version found in $f"; exit 1; }
+          top=$(printf '%s\n%s\n' "${max#GLIBC_}" 2.34 | sort -V | tail -1)
+          test "$top" = 2.34 || { echo "::error::$max exceeds the GLIBC_2.34 floor"; exit 1; }
 
       - name: Conformance suite against the staged Rust asset
-        run: python3 -I conformance/run.py -- release-assets/regspike-rs-linux-x86_64
+        run: python3 -I conformance/run.py -- release-assets/register-rs-linux-x86_64
 
       - name: Conformance suite against the staged TypeScript asset
-        run: python3 -I conformance/run.py -- node release-assets/regspike.mjs
+        run: python3 -I conformance/run.py -- node release-assets/register.mjs
 
       - name: The staged assets report the expected version and tool_schema
         run: |
           if [ -n "$TAG" ]; then
-            python3 -I .github/scripts/check_release.py --tag "$TAG" --rs release-assets/regspike-rs-linux-x86_64 --ts release-assets/regspike.mjs
+            python3 -I .github/scripts/check_release.py --tag "$TAG" --rs release-assets/register-rs-linux-x86_64 --ts release-assets/register.mjs
           else
-            python3 -I .github/scripts/check_release.py --rs release-assets/regspike-rs-linux-x86_64 --ts release-assets/regspike.mjs
+            python3 -I .github/scripts/check_release.py --rs release-assets/register-rs-linux-x86_64 --ts release-assets/register.mjs
           fi
 
       - name: Keep the assets for the publish job (and for inspection on pull request runs)
@@ -132,4 +147,4 @@ jobs:
         run: |
           (cd release-assets && sha256sum -c SHA256SUMS)
           gh release create "$TAG" --repo "$REPO" --draft --verify-tag --title "$TAG" --generate-notes \
-            release-assets/regspike-rs-linux-x86_64 release-assets/regspike.mjs release-assets/SHA256SUMS
+            release-assets/register-rs-linux-x86_64 release-assets/register.mjs release-assets/SHA256SUMS

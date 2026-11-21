@@ -1,38 +1,61 @@
 #!/bin/sh
 # Launcher for the register MCP server (REQ-73, REQ-77). The plugin always starts the server here.
-#   REGSPIKE_IMPL unset or rs : the regspike-rs binary found on PATH
-#   REGSPIKE_IMPL=ts          : node <repo>/impl/ts/dist/regspike.mjs (REGSPIKE_TS_BUNDLE overrides the path)
-#   REGSPIKE_IMPL=off or any other value, or the chosen implementation is missing: a no-op stub server
+#   REGISTER_IMPL unset or rs : the register-rs binary found on PATH
+#   REGISTER_IMPL=ts          : node <bundle>, the bundle being the first of these that applies:
+#                                 1. $REGISTER_TS_BUNDLE, if set and non-empty (a missing file serves the stub;
+#                                    an explicit override never falls through to another bundle)
+#                                 2. <plugin>/../../impl/ts/dist/register.mjs, if it exists (a repository
+#                                    checkout under development beats an installed release)
+#                                 3. the first register.mjs found on PATH (an installed release; a marketplace
+#                                    copy of the plugin has no repository-relative bundle, so this serves it)
+#                               node must be on PATH, else the stub.
+#   REGISTER_IMPL=off or any other value, or the chosen implementation is missing: a no-op stub server
 # A missing implementation is never reported as success: one line goes to stderr and the stub answers
 # {"unavailable": ...} to status. Hook-facing tools return {} so hooks in unrelated sessions never block.
 here=$(cd "$(dirname "$0")" && pwd -P) || exit 1
-impl=${REGSPIKE_IMPL:-rs}
+impl=${REGISTER_IMPL:-rs}
 
 stub() { # $1 stderr message, $2 reason reported by status
     echo "$1" >&2
-    REGSPIKE_STUB_REASON=$2
-    export REGSPIKE_STUB_REASON
+    REGISTER_STUB_REASON=$2
+    export REGISTER_STUB_REASON
     exec python3 -I "$here/register-stub.py"
 }
 
 case $impl in
 rs)
-    if command -v regspike-rs >/dev/null 2>&1; then
-        exec regspike-rs
+    if command -v register-rs >/dev/null 2>&1; then
+        exec register-rs
     fi
     stub "register unavailable: binary not found" "binary not found"
     ;;
 ts)
-    bundle=${REGSPIKE_TS_BUNDLE:-$here/../../impl/ts/dist/regspike.mjs}
-    if [ -f "$bundle" ] && command -v node >/dev/null 2>&1; then
+    bundle=
+    if [ -n "${REGISTER_TS_BUNDLE:-}" ]; then
+        bundle=$REGISTER_TS_BUNDLE
+    elif [ -f "$here/../../impl/ts/dist/register.mjs" ]; then
+        bundle=$here/../../impl/ts/dist/register.mjs
+    else
+        oldifs=$IFS
+        IFS=:
+        # shellcheck disable=SC2086 # word splitting on ":" is the point
+        for d in $PATH; do
+            if [ -n "$d" ] && [ -f "$d/register.mjs" ]; then
+                bundle=$d/register.mjs
+                break
+            fi
+        done
+        IFS=$oldifs
+    fi
+    if [ -n "$bundle" ] && [ -f "$bundle" ] && command -v node >/dev/null 2>&1; then
         exec node "$bundle"
     fi
     stub "register unavailable: binary not found" "binary not found"
     ;;
 off)
-    stub "register off: REGSPIKE_IMPL=off" "disabled by REGSPIKE_IMPL=off"
+    stub "register off: REGISTER_IMPL=off" "disabled by REGISTER_IMPL=off"
     ;;
 *)
-    stub "register off: unknown REGSPIKE_IMPL=$impl" "unknown REGSPIKE_IMPL"
+    stub "register off: unknown REGISTER_IMPL=$impl" "unknown REGISTER_IMPL"
     ;;
 esac

@@ -1,9 +1,9 @@
 use std::io::{self, BufRead, Write};
 use std::sync::Arc;
 
-use regspike_rs::protocol::Server;
-use regspike_rs::shutdown::{SIGNAL_BOUND, Shared, SignalOutcome};
-use regspike_rs::signals;
+use register_rs::protocol::Server;
+use register_rs::shutdown::{SIGNAL_BOUND, Shared, SignalOutcome};
+use register_rs::signals;
 
 fn main() {
     // First thing: SIGHUP/SIGINT/SIGTERM reset to default and blocked, so no thread is ever

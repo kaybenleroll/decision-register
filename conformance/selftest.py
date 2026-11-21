@@ -4,7 +4,7 @@ when malformed. Stdlib only. No server needed.
 
 Usage: python3 -I conformance/selftest.py      (non-zero exit on any failure)
 """
-import importlib.util, json, os, shutil, signal, sys, tempfile
+import importlib.util, json, os, select, shutil, signal, socket, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("conf_run", os.path.join(HERE, "run.py"))
@@ -45,9 +45,20 @@ def rejects(fragment, *steps, **extra):
 # <data>/partial.log. FAKE_REPORT_SIGS=1: at start, writes the ignored (1) or not (0) state of the three signals,
 # from SigIgn in /proc/self/status, to <data>/sigs.log. Without either, the signals keep their inherited dispositions.
 
-def read_lines(fd, state):
-    """Lines from file descriptor fd, keeping the unfinished tail in state["buf"] so a signal handler can report it."""
+def read_lines(fd, state, on_signal=None):
+    """Lines from file descriptor fd, keeping the unfinished tail in state["buf"]. With on_signal(), called with the
+    signal number when the signal wakeup socket (state["wake"]) becomes readable, the signal is handled here in the
+    main loop and not in a Python signal handler: a handler runs between any two bytecodes, so it could see the
+    chunk just read but not yet added to the buffer, and a handler that fired just before a blocking read started
+    would leave the read waiting for input that a test keeping stdin open never sends."""
+    wake = state.get("wake")
     while True:
+        if wake is not None:
+            ready = select.select([fd, wake], [], [])[0]
+            if wake in ready:
+                on_signal(wake.recv(1)[0])
+            if fd not in ready:
+                continue
         chunk = os.read(fd, 65536)
         if not chunk:
             return
@@ -64,8 +75,12 @@ def fake_server():
         mask = [int(l.split()[1], 16) for l in open("/proc/self/status") if l.startswith("SigIgn:")][0]
         with open(os.path.join(data, "sigs.log"), "w") as f:
             f.write(" ".join("%s=%d" % (n, mask >> (getattr(signal, n) - 1) & 1) for n in ("SIGHUP", "SIGINT", "SIGTERM")) + "\n")
+    bye = None
     if os.environ.get("FAKE_SIGNALS"):
-        def bye(no, frame):
+        state["wake"], wake_w = socket.socketpair()
+        wake_w.setblocking(False)
+        signal.set_wakeup_fd(wake_w.fileno())  # the C-level handler writes the signal number here, even mid-syscall
+        def bye(no):
             os.set_blocking(0, False)  # take what the driver has written but the loop has not read yet
             try:
                 state["buf"] += os.read(0, 65536) or b""
@@ -75,8 +90,8 @@ def fake_server():
                 f.write("partial=%r\n" % state["buf"].decode())
             os._exit(128 + no)
         for n in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-            signal.signal(n, bye)
-    for line in read_lines(0, state):
+            signal.signal(n, lambda no, frame: None)  # a Python-level handler so the wakeup fd is written
+    for line in read_lines(0, state, bye):
         m = json.loads(line)
         if "id" not in m:
             continue

@@ -19,6 +19,16 @@ without a valid precedence number.
 
 Log (newest first)
 
+(no bump, 2026-11-21, issue #96)  runtime.md: the working names are final (set A).
+Process names `regspike-rs`, `regspike-ts` and `regspike.mjs` become `register-rs`,
+`register-ts` and `register.mjs`; environment variables `REGSPIKE_IMPL`,
+`REGSPIKE_TS_BUNDLE` and the test-only `REGSPIKE_CLOCK_OFFSET_SECONDS` become
+`REGISTER_IMPL`, `REGISTER_TS_BUNDLE` and `REGISTER_CLOCK_OFFSET_SECONDS` (the env
+table in runtime.md and its pin in contract/check_contract.py change together). The
+serverInfo names become `register-rs` and `register-ts` (the suite requires a name
+and version, not these values). No tool, parameter, result shape or journal event
+changes.
+
 (no bump, 2026-11-21, user decision, issue #90)  runtime.md, journal.md and
 docs/requirements.md (REQ-27 rule 5 and the active row) extend the 2026-11-16
 stdin-EOF decision to SIGINT, SIGTERM and SIGHUP: each runs the same shutdown as

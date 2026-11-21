@@ -42,7 +42,7 @@ def status_of(cmd):
     os.makedirs(os.path.join(scratch, "data"), exist_ok=True)
     os.makedirs(os.path.join(scratch, "project"), exist_ok=True)
     env = dict(os.environ, CLAUDE_PLUGIN_DATA=os.path.join(scratch, "data"), CLAUDE_PROJECT_DIR=os.path.join(scratch, "project"))
-    for k in ("REGSPIKE_CLOCK_OFFSET_SECONDS", "CLAUDE_CODE_SESSION_ID"):
+    for k in ("REGISTER_CLOCK_OFFSET_SECONDS", "CLAUDE_CODE_SESSION_ID"):
         env.pop(k, None)
     msgs = [
         {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05",
@@ -84,7 +84,7 @@ def main():
     sent = {h["input"]["tool_schema"] for g in hooks.values() for x in g for h in x["hooks"] if "tool_schema" in h["input"]}
     check(sent == {schema}, "plugin hooks send tool_schema %s, contract is %s" % (sorted(sent), schema))
 
-    for name, cmd in (("regspike-rs", [a.rs] if a.rs else None), ("regspike.mjs", ["node", a.ts] if a.ts else None)):
+    for name, cmd in (("register-rs", [a.rs] if a.rs else None), ("register.mjs", ["node", a.ts] if a.ts else None)):
         if cmd is None:
             continue
         st = status_of([os.path.abspath(c) if os.path.exists(c) else c for c in cmd])

@@ -91,10 +91,10 @@ export function archiveJournal(dir: string, id: string): void {
 export const PRUNE_AGE_MS = 30 * 24 * 3600 * 1000;
 export const STALE_AGE_MS = 3600 * 1000;
 
-/** The server clock in ms: the real clock plus `REGSPIKE_CLOCK_OFFSET_SECONDS` (test-only). */
+/** The server clock in ms: the real clock plus `REGISTER_CLOCK_OFFSET_SECONDS` (test-only). */
 export function clockMs(): number {
   const n = Number.parseInt(
-    process.env["REGSPIKE_CLOCK_OFFSET_SECONDS"] ?? "",
+    process.env["REGISTER_CLOCK_OFFSET_SECONDS"] ?? "",
     10,
   );
   return Date.now() + (Number.isFinite(n) ? n * 1000 : 0);

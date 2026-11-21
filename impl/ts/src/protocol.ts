@@ -62,7 +62,7 @@ export class Server {
         return replyOk(id, {
           protocolVersion: PROTOCOL_VERSION,
           capabilities: { tools: {} },
-          serverInfo: { name: "regspike-ts", version: pkg.version },
+          serverInfo: { name: "register-ts", version: pkg.version },
         });
       case "ping":
         return replyOk(id, {});

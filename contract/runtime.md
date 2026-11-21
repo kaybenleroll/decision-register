@@ -4,7 +4,7 @@ Authority: REQ-61, REQ-77, REQ-80, REQ-27 rule 1, REQ-40. `tool_schema` is **4**
 
 ## Process start
 
-- argv: no arguments. Rust: `regspike-rs`. TypeScript: `node regspike.mjs` (working names, REQ-73). The suite takes the full command after `--` (`python3 conformance/run.py -- <command...>`), as spike 3 did. The plugin starts the server through the launcher (REQ-77); the suite starts the binary directly.
+- argv: no arguments. Rust: `register-rs`. TypeScript: `node register.mjs` (final names, REQ-73). The suite takes the full command after `--` (`python3 conformance/run.py -- <command...>`), as spike 3 did. The plugin starts the server through the launcher (REQ-77); the suite starts the binary directly.
 - Transport: MCP over stdio, newline-delimited JSON-RPC 2.0, protocol version `2024-11-05` in `initialize`, then `notifications/initialized`.
 - Error channel: a domain failure is a `tools/call` result with `isError: true` and one plain-text content item (never a JSON-RPC error object); JSON-RPC errors are for malformed protocol only (tools.json `conventions.errors`). The suite treats a JSON-RPC error on a domain failure as a failure.
 - The server serves one session at a time and exits on stdin EOF or on SIGINT, SIGTERM or SIGHUP (REQ-10, REQ-27 rule 5). On any of the four it first flushes the journal queue, writes the decision log where REQ-27 rule 5 and the table in "Interview ends and server exit" below require, removes its pid file, then exits (exit codes and limits: "Signals and shutdown limits" below). Claude Code stops the server at session end with SIGINT, not EOF (docs/evidence/live-run-4.md).
@@ -16,7 +16,7 @@ Authority: REQ-61, REQ-77, REQ-80, REQ-27 rule 1, REQ-40. `tool_schema` is **4**
 | `CLAUDE_PLUGIN_DATA` | The data directory (REQ-61). The suite sets it to a fresh per-scenario directory under `.scratch/` and reads journals and logs only below it. Layout: see "Journal location" below. |
 | `CLAUDE_PROJECT_DIR` | The project key and, for decision logs, the project root (REQ-61, REQ-62). The suite sets it to a per-scenario directory. Fallback when absent: the server uses its working directory as the project; the suite sets it explicitly except in the scenario that tests absence. |
 | `CLAUDE_CODE_SESSION_ID` | Start-up session id fallback (REQ-27 rule 1); set only in scenarios testing that fallback. |
-| `REGSPIKE_CLOCK_OFFSET_SECONDS` | Test-only integer added to the server's clock, so that pruning (30 days, REQ-61) is testable without waiting. Absent means 0. |
+| `REGISTER_CLOCK_OFFSET_SECONDS` | Test-only integer added to the server's clock, so that pruning (30 days, REQ-61) is testable without waiting. Absent means 0. |
 
 Spike 3's `JOURNAL_DIR` is not part of this contract.
 

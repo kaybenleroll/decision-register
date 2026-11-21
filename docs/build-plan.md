@@ -23,7 +23,7 @@ Tags: [user-decision] marks a step that cannot start until the user decides.
 | G3 | REQ-72 and ADR 0003 values | Decided [user: gate walk 2026-11-16]: 20% margin, Rust tie-break within 20%, four measures confirmed as starting values; the user decides either way | was start of I1 |
 | G4 | REQ-24 list contents | Decided [user: gate walk 2026-11-16]: exactly `grill-me`; revisit in P5 | was S-20c; P1 |
 | G5 | N = 2 (REQ-35), `decision` kind (REQ-34), finish classifier (REQ-43) | Decided [user: gate walk 2026-11-16]: confirmed as starting values; classifier also names presented items; replay test REQ-46 before it ships | was C2 batch |
-| G6 | Product and binary names (working names `regspike-rs`, `regspike-ts`, REQ-73) | Parked [user: gate walk 2026-11-16]: decided at the release milestone (R1) | R1 release naming |
+| G6 | Product and binary names (formerly working names `regspike-rs`, `regspike-ts`, REQ-73) | Decided 2026-11-21, set A, #96: `register-rs`, `register-ts`, `register.mjs`, `REGISTER_IMPL`, `REGISTER_TS_BUNDLE` (supersedes the 2026-11-16 [user: gate walk] parking) | R1 release naming |
 
 ## 3. Milestones (proposed; not to be filed until reviewed)
 
@@ -312,7 +312,7 @@ Filed 2026-11-16 as kaybenleroll/dotfiles #552 to #556, one per issue, under the
 
 | Draft | Title | REQ | Content | Order |
 |---|---|---|---|---|
-| D1 | Install the decision-register plugin and binaries | REQ-73, REQ-75, REQ-76 | Put `regspike-rs` and `regspike-ts` on the PATH from the GitHub release (chezmoi external or run script); document the credential helper requirement; set `REGSPIKE_IMPL` default | After R1 |
+| D1 | Install the decision-register plugin and binaries | REQ-73, REQ-75, REQ-76 | Put `register-rs` and `register-ts` on the PATH from the GitHub release (chezmoi external or run script); document the credential helper requirement; set `REGISTER_IMPL` default | After R1 |
 | D2 | Marketplace and enabled plugin in `settings.json` | REQ-76, REQ-75 | `extraKnownMarketplaces` entry for the private repository; `enabledPlugins` entry; applied by chezmoi template `dot_claude/settings.json.tmpl` | After P1 |
 | D3 | Allow rules for the plugin's tools | REQ-76 | `mcp__plugin_decision-register_register__<tool>` model-facing allow rules (plugin `decision-register`, server `register`) (not the hook-facing ones, which hooks call without permission); keep `mcp__sequential-thinking` for other skills (REQ-5) | After P1 |
 | D4 | Add the register mode with plain fallback to the existing grill-me skill (REQ-15) | REQ-15, REQ-24, REQ-51, REQ-6 | [user: gate walk 2026-11-16] Replaces the earlier 'retire the copy / move to plugin' draft. The skill stays in dotfiles; first step calls `status`; register mode if it answers with the expected `tool_schema`, otherwise the existing plain interview with a once-only notice that no record is being kept; `begin_interview` carrying `mode: register` and no session id; `end_interview` after the replay step, and `end_interview` with `mode: plain` on a schema mismatch; resume prompt per REQ-52 (the filed issue text predates these additions). Acceptance as slice P5 (one live run with the plugin, one without) | After P1 and one passing implementation |

@@ -6,9 +6,9 @@
   "REQ-77"
  ],
  "launcher": "plugin/bin/register-launch",
- "strip_path": "regspike-rs",
+ "strip_path": "register-rs",
  "unset_env": [
-  "REGSPIKE_IMPL"
+  "REGISTER_IMPL"
  ],
  "steps": [
   {
