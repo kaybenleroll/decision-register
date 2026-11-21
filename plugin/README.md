@@ -15,7 +15,7 @@ The launcher starts one of two implementations, chosen by `REGISTER_IMPL`:
 | `REGISTER_IMPL` | Starts |
 |---|---|
 | unset or `rs` | `register-rs` found on `PATH` |
-| `ts` | `node impl/ts/dist/register.mjs`, resolved relative to the repository (override with `REGISTER_TS_BUNDLE`) |
+| `ts` | `node <bundle>`, the first bundle of this order: 1. `$REGISTER_TS_BUNDLE` (non-empty), 2. `impl/ts/dist/register.mjs` relative to the repository, 3. the first `register.mjs` on `PATH` |
 | `off` (or any other value) | the no-op stub (`plugin/bin/register-stub.py`, Python standard library only) |
 
 Rust: `cd impl/rust && cargo build --release`, then put `impl/rust/target/release` (or a copy of
@@ -23,6 +23,21 @@ Rust: `cd impl/rust && cargo build --release`, then put `impl/rust/target/releas
 implementation is missing the launcher prints `register unavailable: binary not found` to stderr and serves
 the stub, so hooks never block; this is a degraded state, not success. `status` then answers
 `{"unavailable":"binary not found"}`.
+
+TypeScript bundle order (`REGISTER_IMPL=ts`), first match wins; `node` must be on `PATH` too, else the stub:
+
+1. `REGISTER_TS_BUNDLE`, when set and non-empty. A path that does not exist serves the stub; the launcher does not
+   fall through to the other sources, so an explicit override never silently runs something else.
+2. `impl/ts/dist/register.mjs` relative to the plugin (`<plugin>/../../impl/ts/dist/register.mjs`), when it exists:
+   a repository checkout (`--plugin-dir`) under development.
+3. The first `register.mjs` on `PATH` (an installed release, for example from a GitHub release placed on `PATH`).
+
+A plugin installed from a marketplace is copied away from the repository, so it has no repository-relative bundle and
+step 3 (or step 1) serves it. Consequence for development runs: while a built `impl/ts/dist/register.mjs` exists in
+the checkout, step 2 wins over any installed `register.mjs` on `PATH`; to run the installed bundle from a checkout, set
+`REGISTER_TS_BUNDLE` to it. The Rust build has no equivalent order: `register-rs` is found on `PATH` only. Only a
+`PATH` that the Claude Code process itself carries counts (a shell without `mise activate`, or a GUI launch, may not
+have the install directory on it, which also affects `register-rs`; untested, see `docs/release-plan.md` section 4).
 
 ## Choose a build without an environment variable
 
@@ -34,6 +49,12 @@ command if it is missing). `status` shows the active build, the resolved target,
 `REGISTER_BIN_DIR` for the link directory, `REGISTER_SHARE_DIR` (default `~/.local/share/register`) for the
 choices. It refuses to replace a real file or a foreign symlink named `register-rs`. A switch takes effect at the
 next session start (the server is started once per session). Offline check: `smoke/check_register_use.sh`.
+
+Ordering note: `register-use` writes `register-rs` (a link, or the TypeScript wrapper) into `~/.local/bin`. The
+launcher takes the first `register-rs` on `PATH`, so a mise-installed `register-rs` earlier on `PATH` than
+`~/.local/bin` wins over the link; `register-use status` shows what the link resolves to, not what the launcher
+picks. The wrapper is only reached through `REGISTER_IMPL` unset or `rs`; with `REGISTER_IMPL=ts` the launcher uses the
+bundle order above and ignores the link.
 
 Migration from the old working names (renamed 2026-11-21, issue #96): a `~/.local/bin/regspike-rs` link (or a
 TypeScript wrapper pointing at `dist/regspike.mjs`) goes dead after the rename. Rebuild, run `bin/register-use rs`

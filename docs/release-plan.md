@@ -73,22 +73,29 @@ environment of the Claude Code process (the start command has no variable expans
 | `REGISTER_IMPL` | The launcher runs | Where it looks |
 |---|---|---|
 | unset or `rs` | `register-rs` | `PATH` (`command -v register-rs`) |
-| `ts` | `node <bundle>` | `$REGISTER_TS_BUNDLE`, else `<plugin>/../../impl/ts/dist/register.mjs` (a repository checkout) |
+| `ts` | `node <bundle>` | the first of: `$REGISTER_TS_BUNDLE` (non-empty), `<plugin>/../../impl/ts/dist/register.mjs` (a repository checkout), the first `register.mjs` on `PATH` |
 | `off` or anything else | the no-op stub | `plugin/bin/register-stub.py` |
 
 A missing implementation serves the stub with `register unavailable: binary not found` on stderr; it is never success.
 
 Trying both from a release: download the assets, `install -m 755 register-rs-linux-x86_64 ~/.local/bin/register-rs`, keep
 `register.mjs` somewhere stable, then `claude` (Rust) or `REGISTER_IMPL=ts REGISTER_TS_BUNDLE=/path/to/register.mjs claude`
-(TypeScript). The choice applies to sessions started afterwards.
+(TypeScript; with `register.mjs` in a `PATH` directory and no checkout bundle, `REGISTER_TS_BUNDLE` can be left out). The choice applies to sessions started afterwards.
 
-**Gap found while writing this (not changed here):** REQ-73 says the TypeScript bundle is installed on the `PATH` as
-`register-ts`, but the launcher does not look on `PATH` for it. Its default is repository-relative, which only exists for
-`--plugin-dir` runs from a checkout; a plugin installed from the marketplace is copied elsewhere by Claude Code (assumed from
-the documented marketplace behaviour, not tested: private install is untested, REQ-75), so TypeScript there needs
-`REGISTER_TS_BUNDLE`. Decision for the user (D1, build-plan section 8, or a launcher change under P1 with an S-73 scenario): add a `PATH` lookup for the
-bundle, or have D1 export `REGISTER_TS_BUNDLE`. Whether an environment variable set in `settings.json` `env` reaches the MCP
-server process is also unverified.
+Order for `REGISTER_IMPL=ts` (REQ-73, decided in #94; implemented in `plugin/bin/register-launch`, checked by
+`conformance/check_launcher.py` with a decoy `register.mjs` on `PATH` so a wrong order fails):
+
+1. `$REGISTER_TS_BUNDLE`, if set and non-empty. A missing file serves the stub and does not fall through, so an explicit
+   override never silently runs another bundle.
+2. `<plugin>/../../impl/ts/dist/register.mjs`, if it exists. A checkout under development beats an installed release.
+3. The first `register.mjs` on `PATH` (an installed release). A plugin installed from the marketplace is copied away from
+   the repository (assumed from the documented marketplace behaviour, not tested: private install is untested, REQ-75), so
+   it has no repository-relative bundle and this step serves it.
+
+Then `node` must be on `PATH`, else the stub. The launcher runs the file as `node <file>`, so it need not be executable.
+Whether an environment variable set in `settings.json` `env` reaches the MCP server process is unverified, and so is
+whether the Claude Code process carries a `PATH` that includes the directory a release manager (for example `mise`)
+installs `register.mjs` into; both are settled by the install test listed in section 4.
 
 ## 4. Not verified (needs a tag or a decision)
 
@@ -96,4 +103,6 @@ server process is also unverified.
   `contents: write` token, all untested until a tag is pushed.
 - The tag-on-`main` ancestor check (runs only for tags).
 - Installing from the private marketplace on a second clone (R1 acceptance, REQ-75), and any background-credential failure.
-- The seeded-failure demonstration; G6 naming.
+- The seeded-failure demonstration.
+- That an installed `register.mjs` is on the `PATH` of the Claude Code process (launcher step 3, section 3) and that
+  `REGISTER_TS_BUNDLE` in `settings.json` `env` reaches the server; the launcher logic itself is checked offline.
