@@ -19,6 +19,10 @@ without a valid precedence number.
 
 Log (newest first)
 
+(no bump, 2026-11-22, issue #114)  the served tools/list inputSchema inlines the referenced
+$defs and drops the $defs block (52.5k to 10.6k chars); no tool name, parameter, result shape
+or journal event shape changes, tools.json unchanged, so tool_schema stays 4.
+
 (no bump, 2026-11-21, issue #109)  the configured skill-name list (REQ-24) gains
 query-walkthrough in both builds, and the UserPromptExpansion hook matcher becomes
 `^(grill-me|query-walkthrough)$`; no tool name, parameter, result shape or journal event

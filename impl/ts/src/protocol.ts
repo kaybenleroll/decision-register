@@ -17,7 +17,43 @@ const replyOk = (id: Id, result: unknown): string =>
 const replyErr = (id: Id, code: number, message: string): string =>
   JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } });
 
-/** `tools/list` body: the implemented tools with their contract input schemas. */
+const MAX_REF_HOPS = 8;
+
+/**
+ * Copies `node` with every `{"$ref": "#/$defs/<name>"}` replaced by the body of that def, so the
+ * served schema needs no `$defs`. `hops` counts `$ref` resolutions only. An unknown def, a ref
+ * that is not `#/$defs/<name>` with one path segment, a `$ref` object with sibling keys, or more
+ * than 8 resolutions throws.
+ */
+export function inlineRefs(node: unknown, defs: unknown, hops = 0): unknown {
+  if (Array.isArray(node)) return node.map((v) => inlineRefs(v, defs, hops));
+  if (!isObject(node)) return node;
+  if ("$ref" in node) {
+    if (Object.keys(node).length !== 1) {
+      throw new Error("$ref object has sibling keys");
+    }
+    const ref = node["$ref"];
+    const prefix = "#/$defs/";
+    if (typeof ref !== "string" || !ref.startsWith(prefix)) {
+      throw new Error(`unsupported $ref ${String(ref)}`);
+    }
+    const name = ref.slice(prefix.length);
+    if (name === "" || name.includes("/")) {
+      throw new Error(`unsupported $ref ${ref}`);
+    }
+    if (hops >= MAX_REF_HOPS) {
+      throw new Error(`more than ${MAX_REF_HOPS} $ref resolutions at ${ref}`);
+    }
+    const table = defs as Record<string, unknown>;
+    if (!Object.hasOwn(table, name)) throw new Error(`unknown $ref ${ref}`);
+    return inlineRefs(table[name], defs, hops + 1);
+  }
+  const out: JsonObject = {};
+  for (const [k, v] of Object.entries(node)) out[k] = inlineRefs(v, defs, hops);
+  return out;
+}
+
+/** `tools/list` body: the implemented tools with their contract input schemas, refs inlined and no `$defs` (issue #114). */
 function toolList(): unknown {
   const doc = contract as unknown as {
     $defs: unknown;
@@ -29,7 +65,7 @@ function toolList(): unknown {
     return {
       name,
       description: tool.description,
-      inputSchema: { ...tool.input, $defs: doc.$defs },
+      inputSchema: inlineRefs(tool.input, doc.$defs),
     };
   });
   return { tools };
