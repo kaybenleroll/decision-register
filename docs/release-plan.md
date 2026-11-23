@@ -1,8 +1,8 @@
 # Release and CI plan (slice R1, #32)
 
 Status: CI is implemented and runs on every pull request. The release workflow has run on tags: v0.1.0 (tag 860c610,
-released 2026-11-21) and v0.1.1 (tag 4cb5f99, released 2026-11-22) each ran `release.yml` to success and are published
-releases (neither is a draft or pre-release, per `gh release list`). Not one of the retirement experiment's five changes (REQ-72). Requirement rules are unchanged; where this
+released 2026-11-21) and v0.1.1 (tag 4cb5f99, released 2026-11-22) and v0.1.2 (tag bbc3da4, released 2026-11-23) each ran `release.yml` to success and are published
+releases (none is a draft or pre-release, per `gh release list`). Not one of the retirement experiment's five changes (REQ-72). Requirement rules are unchanged; where this
 note interprets one, it says so.
 
 ## 1. CI (`.github/workflows/ci.yml`)
@@ -63,8 +63,8 @@ fail as intended).
 | `register.mjs` | esbuild single-file bundle, ESM, target `node26`, no runtime dependencies | Needs Node 26 or newer (`engines`); platform independent. |
 | `SHA256SUMS` | `sha256sum` lines for the two assets | Verify with `sha256sum -c SHA256SUMS` in the download directory. |
 
-Names carry no version, so `releases/latest/download/<name>` is stable for D1 (the repository is private: downloads need
-credentials, for example `gh release download vX.Y.Z -R kaybenleroll/decision-register`). The names `register-rs`,
+Names carry no version, so `releases/latest/download/<name>` is stable for D1 (the repository is public: downloads need no
+credentials; for example `gh release download vX.Y.Z -R kaybenleroll/decision-register`). The names `register-rs`,
 `register-ts` and `register.mjs` are final (set A, decided 2026-11-21, G6, #10, #96); they are the public interface, so
 renaming after the first release breaks pinned installs. Out of scope (REQ-6, REQ-74, drop rule): macOS, Windows, Rust cross-builds, musl or
 other static targets, build provenance attestations (private-repository availability not checked).
@@ -121,9 +121,7 @@ with an isolated `MISE_DATA_DIR` and no token (the repository is public). Observ
 version `0.1.2` and the real hash, installs `register-rs` with mode 755 (`bin` keeps the file name), and the `v`-prefixed tag is
 accepted when `version` is `0.1.2`; the bundle stanza (`format = "raw"`, `bin = "register.mjs"`) installs, runs under `node`,
 and the handshake gives 12 tools; an explicit `checksum` is verified (a wrong hash fails with Expected and Actual sha256
-lines); `bin-paths` lists the install directory for the Rust install. Still untested: marketplace or plugin install, the
-launcher, `REGISTER_IMPL` handling, `PATH` reach into the Claude Code process, `mise activate`, `GITHUB_TOKEN` use, whether mise
-reads `SHA256SUMS` as the checksum source, the clean-container run, and #95's "clean machine" criterion.
+lines); `bin-paths` lists the install directory for the Rust install. Still untested: marketplace or plugin install, `PATH` reach into the Claude Code process, `mise activate`, `GITHUB_TOKEN` use, the clean-container run, and #95's "clean machine" criterion. Tested on v0.1.0 (see the comments on #95): the launcher finds `register-rs` (default) and `register.mjs` (`REGISTER_IMPL=ts`) on `PATH` from a plugin copy with no `impl/` sibling; mise does not read `SHA256SUMS` by name (it uses an explicit `checksum`, else the GitHub API digest).
 
 Rust (`register-rs`), in a `mise.toml`:
 
@@ -158,7 +156,7 @@ linux-x64 = { asset_pattern = "register.mjs", checksum = "sha256:<hash of the re
 
 The launcher then finds `register.mjs` on `PATH` (section 3, step 3), with `REGISTER_IMPL=ts`, Node 26 or newer on `PATH`, and no
 built `impl/ts/dist/register.mjs` in a checkout (a checkout bundle beats `PATH`). The bundle stanza installs and runs under `node` (tested, v0.1.2). Untested: whether
-the install directory reaches `PATH` of the Claude Code process, and the launcher finding the file.
+the install directory reaches `PATH` of the Claude Code process. The launcher finding the file on `PATH` was tested on v0.1.0 (see the comments on #95).
 
 Repository visibility: the repository is public, and no token was needed for the test. Whether `GITHUB_TOKEN` or
 `MISE_GITHUB_TOKEN` is used was not tested. Do not put a token in a committed `mise.toml`.
@@ -193,7 +191,7 @@ Untested, in short: the checksum source (`SHA256SUMS`), `PATH` placement and `mi
 
   Then run the same probe through the launcher, with `REGISTER_IMPL=ts plugin/bin/register-launch`. State how the launcher was
   supplied: a clone of the repository at the tag (note the clone's own `impl/ts/dist/register.mjs` must be absent, or step 2 of
-  the order wins), or the marketplace install.   Pass criteria: `register-rs` and `register.mjs` land on `PATH`, the probe answers `serverInfo` (`register-rs` or `register-ts`)
+  the order wins), or the marketplace install. Pass criteria: `register-rs` and `register.mjs` land on `PATH`, the probe answers `serverInfo` (`register-rs` or `register-ts`)
   with version `0.1.2`, and the checksum is verified. Afterwards the live checks of unit #92 on the skikk-thor machine.
 - The glibc guard and the staged-asset-set assertion on a GitHub runner (the pull request run of `release.yml` exercises both;
   they were run only as local shell until then).
