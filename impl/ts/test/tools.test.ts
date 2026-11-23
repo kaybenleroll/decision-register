@@ -445,6 +445,65 @@ test("a listed skill starts a pending interview, even on a mismatch", () => {
   assert.equal(r["state"], "active");
 });
 
+test("begin_interview claims a pending or ownerless interview; an active owned one keeps its owner (REQ-15)", () => {
+  const sk = (app: App, skill: string): R =>
+    call(app, "skill_started", { tool_schema: 5, session_id: "s", skill });
+  const owner = (app: App): unknown => call(app, "status", {})["owner_skill"];
+  const begin = (app: App, skill: string): R =>
+    call(app, "begin_interview", { ...BEGIN, skill });
+  // A different skill claims a pending interview; the old owner is then a guest.
+  let app = new App();
+  sk(app, "grill-me");
+  const r = begin(app, "query-walkthrough");
+  assert.equal(r["existing"], true);
+  assert.equal(r["state"], "active");
+  assert.equal(owner(app), "query-walkthrough");
+  begin(app, "grill-me");
+  assert.equal(owner(app), "query-walkthrough");
+  // The same skill engaging its own pending interview changes nothing.
+  app = new App();
+  sk(app, "grill-me");
+  begin(app, "grill-me");
+  assert.equal(owner(app), "grill-me");
+  // An implicit (ownerless) active interview is claimed by the first begin_interview only.
+  app = new App();
+  call(app, "log_item", { id: "q1", kind: "question", text: "t" });
+  assert.equal(owner(app), null);
+  const b = begin(app, "grill-me");
+  assert.equal(b["existing"], true);
+  assert.equal(b["state"], "active");
+  assert.equal(owner(app), "grill-me");
+  begin(app, "query-walkthrough");
+  assert.equal(owner(app), "grill-me");
+  // An ownerless interview that has become complete is claimed too, and stays complete.
+  app = new App();
+  call(app, "log_item", { id: "q1", kind: "question", text: "t" });
+  call(app, "resolve", {
+    id: "q1",
+    answer: "a",
+    source: "model",
+    rationale: "r",
+  });
+  call(app, "check_stop", { session_id: "s", last_assistant_message: "done" });
+  assert.equal(call(app, "status", {})["state"], "complete");
+  assert.equal(owner(app), null);
+  const c = begin(app, "grill-me");
+  assert.equal(c["existing"], true);
+  assert.equal(c["state"], "complete");
+  assert.equal(owner(app), "grill-me");
+  begin(app, "query-walkthrough");
+  assert.equal(owner(app), "grill-me");
+  // complete to active through log_item keeps the owner.
+  app = new App();
+  begin(app, "grill-me");
+  call(app, "check_stop", { session_id: "s", last_assistant_message: "done" });
+  assert.equal(call(app, "status", {})["state"], "complete");
+  assert.equal(owner(app), "grill-me");
+  call(app, "log_item", { id: "q2", kind: "question", text: "t" });
+  assert.equal(call(app, "status", {})["state"], "active");
+  assert.equal(owner(app), "grill-me");
+});
+
 test("status.owner_skill: null with no interview, the starting skill after a hook or begin start, null for an implicit start, unchanged by a guest, null after end (REQ-15)", () => {
   const sk = (app: App, skill: string): R =>
     call(app, "skill_started", { tool_schema: 5, session_id: "s", skill });

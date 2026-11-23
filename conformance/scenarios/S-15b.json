@@ -1,6 +1,6 @@
 {
  "id": "S-15b",
- "title": "status.owner_skill after a begin_interview start (no hook) names the calling skill; a different skill's begin_interview is a no-op that leaves the owner unchanged; a resumed interview reports the owner of its start event again",
+ "title": "status.owner_skill after a begin_interview start (no hook) names the calling skill; a different skill's begin_interview on an active interview is a guest call that leaves the owner unchanged; a resumed interview reports the owner of its start event again",
  "req": [
   "REQ-15",
   "REQ-21",

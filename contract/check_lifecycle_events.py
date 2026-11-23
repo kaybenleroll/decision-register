@@ -81,10 +81,11 @@ RULES = {1: ("68449d82be", ["start", "hook", "resume"]),      # session ids on s
          3: ("939f8bee41", ["engage", "end", "mismatch"]),     # engagement, stand-down, mismatch before plain
          4: ("74a002ee26", ["complete", "item", "resolve", "park", "reopen", "end"]),
          5: ("612af85d55", ["end", "resume"])}        # signals added to the exit triggers (2026-11-21): same events, no new one
+# Re-pinned 2026-11-23 (issue #113, owner claim): the `engage` and `resume` cells gain the `skill` field (the claimant); no new event kind and no new transition, so the mapping is unchanged.
 # "Written when" cell of every event kind (key) and the End kinds / runtime.md ends tables
-WRITTEN = {"start": "35db742d85", "engage": "6d28cc8b60", "prompt": "5d519c11cb", "hook": "52f929a950", "item": "05f2987824",
+WRITTEN = {"start": "35db742d85", "engage": "d44ec3c290", "prompt": "5d519c11cb", "hook": "52f929a950", "item": "05f2987824",
            "resolve": "6cd3fd08a5", "park": "7feeba7820", "reopen": "b81686baa7", "stop": "177316c034", "complete": "667c72ed60",
-           "mismatch": "43e35bf3cc", "resume": "f820c8213f", "end": "82c95031fb"}
+           "mismatch": "43e35bf3cc", "resume": "82034bbd13", "end": "82c95031fb"}
 END_KINDS = {"normal": "1b1b5a9fad", "ended_incomplete_by_model": "a0c34b692b", "abandoned": "a4f773e622",
              "ended_after_completion": "a2fc387f00", "stood_down": "c5d3bc556e"}   # re-pinned 2026-11-21: trigger "server exit" names the three signals; same end_kind and modes
 RUNTIME_ENDS = {"256ebe44ed": True, "9a9670271d": True, "c34dae1ee4": True, "15313763bf": True, "593958bd63": True,

@@ -25,7 +25,8 @@ pub struct Replayed {
     /// `seq` of the last valid event.
     pub last_seq: u64,
     pub implicit: bool,
-    /// The `start` event's skill (null for an implicit start).
+    /// The owning skill: the `start` event's skill (null for an implicit start), replaced by
+    /// the `skill` of each later `engage` or `resume` event that carries one.
     pub skill: Option<String>,
     pub hook_note_prompt: u64,
     pub hook_skill_started: u64,
@@ -101,6 +102,12 @@ fn apply(out: &mut Replayed, kind: &str, o: &Map<String, Value>) -> Result<(), S
             out.implicit = o.get("implicit").and_then(Value::as_bool).unwrap_or(false);
             out.hook_note_prompt = o.get("prompt_count").and_then(Value::as_u64).unwrap_or(0);
             out.hook_skill_started = u64::from(str_field(o, "route") == Some("hook"));
+        }
+        // `engage` and `resume` events carry a `skill` when the call claimed the interview.
+        "engage" | "resume" => {
+            if let Some(skill) = str_field(o, "skill") {
+                out.skill = Some(skill.to_owned());
+            }
         }
         "hook" => match str_field(o, "tool") {
             Some("note_prompt") => out.hook_note_prompt += 1,

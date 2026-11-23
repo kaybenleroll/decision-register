@@ -28,7 +28,7 @@ Replay applies the REQ-31 checks (non-blank answer and rationale, single-line ra
 | kind | Extra fields | Written when |
 |---|---|---|
 | `start` | `interview_id`, `route` (`hook`, `begin_interview`, `implicit`), `skill` (string; null when route is `implicit`), `session_id` (string, or null if no hook call was seen and `CLAUDE_CODE_SESSION_ID` is unset), `implicit` (boolean, true exactly when route is `implicit`), `prompt_count` (1 if `prompt_seen` was set, else 0) | an interview starts (REQ-20, REQ-21, REQ-22) |
-| `engage` | `via` (tool name) | a pending interview becomes active (REQ-27 rule 3) |
+| `engage` | `via` (tool name), `skill` (string, or null) | a pending interview becomes active (REQ-27 rule 3); also a `begin_interview` on an ownerless interview. `skill` is the skill that claimed the interview (REQ-15: `begin_interview` found it pending under another skill, or with no owner), else null |
 | `prompt` | `session_id`, `count` (the interview's prompt count after this prompt) | `note_prompt` while an interview is pending, active or complete (written after that call's `hook` event) |
 | `hook` | `tool` (`note_prompt`, `skill_started`, `check_stop`), `session_id` | exactly one per hook call while an interview is pending, active or complete, written first; the `skill_started` call that starts the interview writes `start` instead and no `hook`. Hook calls while no interview exists write nothing (there is no journal). |
 | `item` | `id`, `item_kind`, `text`, `parent`, `depends_on` | `log_item` |
@@ -38,7 +38,7 @@ Replay applies the REQ-31 checks (non-blank answer and rationale, single-line ra
 | `stop` | `decision` (`allow`, `block`), `classification` (`finish`, `question`, `unknown`), `presented` (ids or null for unknown), `blocks` (object `{prompt, finish, unlogged}`: the three cap counters, REQ-42, after this decision) | `check_stop` in an active interview, written after that call's `hook` event (REQ-42, REQ-43). In pending the call writes `hook` only, and an `end` if it stands the interview down. |
 | `complete` | none | allowed finish attempt with nothing open (REQ-23) |
 | `mismatch` | `plugin_tool_schema`, `server_tool_schema` | `skill_started` sees a tool_schema mismatch after its interview started or already exists (REQ-77); a `begin_interview` mismatch is an error and a failing call never writes a journal event, even when a pending interview exists; it only sets or clears the in-memory `status.version_mismatch`. With no interview a `skill_started` mismatch is likewise kept in memory for `status.version_mismatch` only. |
-| `resume` | `session_id`, `from_seq` | `resume` claims the journal (REQ-52). `from_seq` is the `seq` of the last event before this one, equal to the `last_event` in the resume result; the `resume` event itself has `seq` = `from_seq` + 1 and later `status.last_event` includes it. |
+| `resume` | `session_id`, `from_seq`, `skill` (string, or null) | `resume` claims the journal (REQ-52). `from_seq` is the `seq` of the last event before this one, equal to the `last_event` in the resume result; `skill` is the `skill` argument of the call (the new owner, REQ-15), null when none was given; the `resume` event itself has `seq` = `from_seq` + 1 and later `status.last_event` includes it. |
 | `end` | `end_kind` (`normal`, `ended_after_completion`, `ended_incomplete_by_model`, `abandoned`, `stood_down`), `mode` (`register`, `plain`, `not_engaged`), `reason` | the interview ends (REQ-23, REQ-27). A journal without `end` whose owner is dead is `unfinished`. `interrupted` is not a journal end kind: a crash or a server exit on an active interview writes no `end` event, the journal stays unfinished, and `interrupted` appears only among the decision-log kinds (REQ-62; REQ-27 rule 5). End kinds and triggers are listed below. |
 
 ## End kinds (journal `end` event) and their triggers
@@ -57,9 +57,10 @@ A pending interview holds no items, so none of its ends is unfinished: every end
 
 Every row and rule of the REQ-27 table maps to at least one of the 13 event names above; the frozen names are checked by `contract/check_lifecycle_events.py`.
 
-The kinds `engage`, `prompt`, `hook`, `stop`, `complete` and `mismatch` carry no register data a replay must reproduce except counters, caps and state; replay rebuilds those from them:
+The kinds `engage`, `prompt`, `hook`, `stop`, `complete` and `mismatch` carry no register data a replay must reproduce except counters, caps, state and the owner; replay rebuilds those from them:
 
 - `status.hook_health.note_prompt` = `start.prompt_count` + the number of `hook` events with tool `note_prompt`; `skill_started` = 1 if the route was `hook` else 0, + the `hook` events with tool `skill_started`; `check_stop` = the `hook` events with tool `check_stop`. `prompt_seen` is not journalled (it only matters while no interview exists) and is false after a resume.
+- `status.owner_skill` = the `skill` of the `start` event, replaced by the non-null `skill` of each later `engage` or `resume` event (the last one wins); null if none is non-null. contract/journal.schema.json validates the current writer (engage and resume require `skill`); a v0.1.2 journal lacks the field and replays it as null. A journal written before the `skill` field existed on `engage` and `resume` replays with that field absent, read as null.
 - The cap counters are the last `stop.blocks`; the prompt count is the last `prompt.count` (or `start.prompt_count`).
 
 ## Replay failure modes (`resume`)

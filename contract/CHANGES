@@ -22,11 +22,30 @@ Log (newest first)
 tool_schema 5  (2026-11-23, issue #113, user decision: option B)  status gains the required
 result field owner_skill (string, or null when no interview exists or the interview was started
 implicitly): the skill of the current interview's start event, so a re-invoked skill can
-recognise itself as the owner (REQ-15). No tool name, parameter or journal event shape changes
-(the start event already carries skill; journal_schema stays 2). Bumped in the same commit:
+recognise itself as the owner (REQ-15). As first written, no tool name, parameter or journal event shape changes
+(the start event already carries skill; journal_schema stays 2); see the amendment below. Bumped in the same commit:
 tools.json (value, examples, status result), runtime.md heading and statement, check_contract.py,
 both server constants, the plugin hooks, the scenarios, the selftest and the smoke prompts.
 Scenarios that used 5 as a mismatching plugin value (S-20d, S-77b) now use 6.
+
+  Amendment inside tool_schema 5 (2026-11-23, issue #113, user decision: option A, the server
+  tracks the claimant). tool_schema 5 has not been released (v0.1.2 and every earlier tag serve
+  tool_schema 4; checked with git show v0.1.2:contract/tools.json), so the rule above (a parameter
+  change bumps tool_schema in the same commit) is met by amending 5 rather than bumping to 6: no
+  published build or plugin hook ever sent or served the pre-amendment 5. status.owner_skill now
+  means the skill that currently OWNS the interview. (1) resume gains the optional parameter skill
+  (non-blank): when given, the resumed interview's owner_skill is that skill; when absent the
+  journal's recorded owner is restored. (2) begin_interview on an existing interview CLAIMS it for
+  its skill when the interview is pending under another skill or has no owner (an implicit start);
+  an active or complete interview with a different non-null owner keeps it. (3) Journal: the
+  engage and resume events gain the required field skill (string, or null when the call claimed
+  nothing); journal_schema stays 2 and no new event kind is added. Replay reads owner_skill from
+  start.skill, replaced by the non-null skill of each later engage or resume event; journals
+  written before the field existed replay unchanged (the field reads as absent, then null). An
+  older server replaying a journal that carries the field ignores it. The status, begin_interview
+  and resume descriptions changed, and suite-internal wording was trimmed from the status,
+  resume, discard, end_interview and log_item descriptions to stay inside the model-tools ceiling
+  (conformance/tools_list_ceilings.json, 8,300; measured 8,291).
 
 (no bump, 2026-11-22, issue #114)  the served tools/list inputSchema inlines the referenced
 $defs and drops the $defs block (52.5k to 10.6k chars); no tool name, parameter, result shape

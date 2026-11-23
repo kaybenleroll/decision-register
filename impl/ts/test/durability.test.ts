@@ -228,6 +228,73 @@ test("resume restores status.owner_skill from the start event (REQ-15)", () => {
   assert.equal(call(app, "status")["owner_skill"], "grill-me");
 });
 
+test("resume takes an optional skill that becomes the owner and replays; blank is refused (REQ-15)", () => {
+  const dir = sandbox();
+  seedUnfinished(dir, "iv-a", dead("iv-a"));
+  const app = new App();
+  app.call("note_prompt", { session_id: "sess-2", prompt: "hi" }, false);
+  assert.equal(app.call("resume", { skill: " " }, true)?.isError, true);
+  assert.equal(app.call("resume", { skill: 3 }, true)?.isError, true);
+  assert.equal(app.call("discard", { skill: "grill-me" }, true)?.isError, true);
+  call(app, "resume", { skill: "query-walkthrough" });
+  assert.equal(call(app, "status")["owner_skill"], "query-walkthrough");
+  const last = JSON.parse(
+    readFileSync(join(dir, "iv-a.jsonl"), "utf8").trim().split("\n").at(-1) ??
+      "",
+  );
+  assert.deepEqual([last.kind, last.skill], ["resume", "query-walkthrough"]);
+  // The named owner is what a later resume without skill restores.
+  app.onEof();
+  const again = new App();
+  again.call("note_prompt", { session_id: "sess-3", prompt: "hi" }, false);
+  call(again, "resume");
+  assert.equal(call(again, "status")["owner_skill"], "query-walkthrough");
+  again.onEof();
+});
+
+test("an implicit journal resumes ownerless, or claimed when skill is given; a claim event replays (REQ-15)", () => {
+  const dir = sandbox();
+  mkdirSync(dir, { recursive: true });
+  const start = {
+    v: 2,
+    ts: "2026-11-16T09:30:15Z",
+    seq: 1,
+    kind: "start",
+    interview_id: "iv-i",
+    route: "implicit",
+    skill: null,
+    session_id: "old",
+    implicit: true,
+    prompt_count: 0,
+  };
+  const claimed = {
+    v: 2,
+    ts: "2026-11-16T09:30:16Z",
+    seq: 2,
+    kind: "engage",
+    via: "begin_interview",
+    skill: "grill-me",
+  };
+  const write = (id: string, evs: object[]): void =>
+    writeFileSync(
+      join(dir, `${id}.jsonl`),
+      `${evs.map((e) => JSON.stringify(e)).join("\n")}\n`,
+    );
+  write("iv-i", [start]);
+  let app = new App();
+  app.call("note_prompt", { session_id: "sess-2", prompt: "hi" }, false);
+  call(app, "resume");
+  assert.equal(call(app, "status")["owner_skill"], null);
+  app.onEof();
+  // A journal that records a claim restores the claimant.
+  write("iv-i", [start, claimed]);
+  app = new App();
+  app.call("note_prompt", { session_id: "sess-3", prompt: "hi" }, false);
+  call(app, "resume");
+  assert.equal(call(app, "status")["owner_skill"], "grill-me");
+  app.onEof();
+});
+
 test("resume replay failure names the line, removes the new pid file and keeps the journal", () => {
   const dir = sandbox();
   seedUnfinished(dir, "iv-a", dead("iv-a"));

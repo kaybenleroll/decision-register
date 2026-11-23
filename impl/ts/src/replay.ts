@@ -103,6 +103,13 @@ function apply(s: Replayed, kind: string, e: Record<string, unknown>): void {
       s.hookSkillStarted = s.route === "hook" ? 1 : 0;
       break;
     }
+    case "engage":
+    case "resume": {
+      // A claim: the call that wrote the event took the interview for this skill.
+      const claimed = strOrNull(e, "skill");
+      if (claimed !== null) s.skill = claimed;
+      break;
+    }
     case "hook": {
       const tool = e["tool"];
       if (tool === "note_prompt") s.hookNotePrompt += 1;
@@ -160,7 +167,7 @@ function apply(s: Replayed, kind: string, e: Record<string, unknown>): void {
       s.ended = true;
       break;
     default:
-      break; // engage, prompt, complete, mismatch, resume: no register data
+      break; // prompt, complete, mismatch: no register data
   }
 }
 
