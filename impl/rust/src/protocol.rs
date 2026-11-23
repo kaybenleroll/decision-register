@@ -6,6 +6,8 @@ use crate::tools::{self, App};
 
 pub const PROTOCOL_VERSION: &str = "2024-11-05";
 const CONTRACT: &str = include_str!("../../../contract/tools.json");
+#[cfg(test)]
+const CEILINGS: &str = include_str!("../../../conformance/tools_list_ceilings.json");
 
 pub struct Server {
     app: App,
@@ -25,15 +27,55 @@ fn reply_err(id: &Value, code: i64, message: &str) -> String {
     json!({"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": message}}).to_string()
 }
 
-/// `tools/list` body: all twelve contract tools (unbuilt ones answer calls with an error result) with their contract input schemas.
+/// Most `$ref` resolutions along one chain before `inline_refs` gives up (a cycle).
+const MAX_REF_HOPS: usize = 8;
+
+/// Copies `node` with every `{"$ref": "#/$defs/<name>"}` replaced by the body of that def, so the
+/// served schema needs no `$defs`. `hops` counts `$ref` resolutions only. An unknown def, a ref
+/// that is not `#/$defs/<name>` with one path segment, a `$ref` object with sibling keys, or more
+/// than `MAX_REF_HOPS` resolutions is an error.
+fn inline_refs(node: &Value, defs: &Value, hops: usize) -> Result<Value, String> {
+    match node {
+        Value::Object(map) => {
+            if let Some(r) = map.get("$ref") {
+                if map.len() != 1 {
+                    return Err("$ref object has sibling keys".to_string());
+                }
+                let r = r.as_str().ok_or("$ref is not a string")?;
+                let name = r
+                    .strip_prefix("#/$defs/")
+                    .filter(|n| !n.is_empty() && !n.contains('/'))
+                    .ok_or_else(|| format!("unsupported $ref {r}"))?;
+                if hops >= MAX_REF_HOPS {
+                    return Err(format!("more than {MAX_REF_HOPS} $ref resolutions at {r}"));
+                }
+                let def = defs.get(name).ok_or_else(|| format!("unknown $ref {r}"))?;
+                return inline_refs(def, defs, hops + 1);
+            }
+            let mut out = serde_json::Map::new();
+            for (k, v) in map {
+                out.insert(k.clone(), inline_refs(v, defs, hops)?);
+            }
+            Ok(Value::Object(out))
+        }
+        Value::Array(items) => items
+            .iter()
+            .map(|v| inline_refs(v, defs, hops))
+            .collect::<Result<Vec<_>, _>>()
+            .map(Value::Array),
+        other => Ok(other.clone()),
+    }
+}
+
+/// `tools/list` body: all twelve contract tools (unbuilt ones answer calls with an error result) with their contract input schemas, refs inlined and no `$defs` block (issue #114).
 fn tool_list() -> Value {
     let doc: Value = serde_json::from_str(CONTRACT).expect("contract/tools.json parses");
     let list: Vec<Value> = tools::CONTRACT_TOOLS
         .iter()
         .map(|name| {
             let tool = &doc["tools"][*name];
-            let mut schema = tool["input"].clone();
-            schema["$defs"] = doc["$defs"].clone();
+            let schema =
+                inline_refs(&tool["input"], &doc["$defs"], 0).expect("contract refs resolve");
             json!({"name": name, "description": tool["description"], "inputSchema": schema})
         })
         .collect();
@@ -182,6 +224,106 @@ mod tests {
         want.sort_unstable();
         got.sort_unstable();
         assert_eq!(got, want);
+    }
+
+    /// Independent resolver for the expectation (does not call `inline_refs`): contract refs are
+    /// all `#/$defs/<name>` leaves today.
+    fn resolve_expected(node: &Value, defs: &Value) -> Value {
+        match node {
+            Value::Object(m) => match m.get("$ref").and_then(Value::as_str) {
+                Some(r) => defs[r.trim_start_matches("#/$defs/")].clone(),
+                None => Value::Object(
+                    m.iter()
+                        .map(|(k, v)| (k.clone(), resolve_expected(v, defs)))
+                        .collect(),
+                ),
+            },
+            Value::Array(a) => Value::Array(a.iter().map(|v| resolve_expected(v, defs)).collect()),
+            o => o.clone(),
+        }
+    }
+
+    fn has_key(v: &Value, banned: &[&str]) -> bool {
+        match v {
+            Value::Object(m) => m
+                .iter()
+                .any(|(k, c)| banned.contains(&k.as_str()) || has_key(c, banned)),
+            Value::Array(a) => a.iter().any(|c| has_key(c, banned)),
+            _ => false,
+        }
+    }
+
+    #[test]
+    fn tools_list_inlines_refs_and_drops_defs() {
+        let doc: Value = serde_json::from_str(CONTRACT).unwrap();
+        let ceilings: Value = serde_json::from_str(CEILINGS).unwrap();
+        let mut s = Server {
+            app: App::with_dir(tools::tests::scratch_dir()),
+        };
+        let r = rpc(&mut s, r#"{"id":1,"method":"tools/list"}"#);
+        let tools = r["result"]["tools"].as_array().unwrap();
+        let mut names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        let mut want: Vec<&str> = doc["tools"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        names.sort_unstable();
+        want.sort_unstable();
+        assert_eq!(want.len(), 12);
+        assert_eq!(names, want);
+        for t in tools {
+            let name = t["name"].as_str().unwrap();
+            let schema = &t["inputSchema"];
+            assert!(
+                !has_key(schema, &["$defs", "definitions", "$ref"]),
+                "{name} still has $defs or $ref"
+            );
+            assert_eq!(schema["type"], "object", "{name} top-level type");
+            assert_eq!(
+                *schema,
+                resolve_expected(&doc["tools"][name]["input"], &doc["$defs"]),
+                "{name} inputSchema differs from the resolved contract input"
+            );
+        }
+        let chars = |list: &[&Value]| serde_json::to_string(list).unwrap().chars().count();
+        let all: Vec<&Value> = tools.iter().collect();
+        let model: Vec<&Value> = tools
+            .iter()
+            .filter(|t| doc["tools"][t["name"].as_str().unwrap()]["audience"] == "model")
+            .collect();
+        assert_eq!(model.len(), 9);
+        let all_max = ceilings["all_tools_chars"].as_u64().unwrap() as usize;
+        let model_max = ceilings["model_tools_chars"].as_u64().unwrap() as usize;
+        assert!(
+            chars(&all) <= all_max,
+            "all tools {} chars > {all_max}",
+            chars(&all)
+        );
+        assert!(
+            chars(&model) <= model_max,
+            "model tools {} chars > {model_max}",
+            chars(&model)
+        );
+    }
+
+    #[test]
+    fn inline_refs_rejects_bad_refs() {
+        let defs = json!({"a": {"type": "string"}, "loop": {"$ref": "#/$defs/loop"}, "n": {"x": {"y": 1}}});
+        assert_eq!(
+            inline_refs(&json!({"p": {"$ref": "#/$defs/a"}}), &defs, 0).unwrap(),
+            json!({"p": {"type": "string"}})
+        );
+        for bad in [
+            json!({"$ref": "#/$defs/missing"}),
+            json!({"$ref": "#/definitions/a"}),
+            json!({"$ref": "#/$defs/a", "description": "x"}),
+            json!({"$ref": "#/$defs/n/x"}),
+            json!({"$ref": "#/$defs/loop"}),
+        ] {
+            assert!(inline_refs(&bad, &defs, 0).is_err(), "{bad} should fail");
+        }
     }
 
     #[test]
