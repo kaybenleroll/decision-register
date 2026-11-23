@@ -1,8 +1,8 @@
 # Release and CI plan (slice R1, #32)
 
-Status: CI is implemented and runs on every pull request. The release workflow is written and its build half is exercised by
-a pull request run; the tag-only half (draft release creation) has **never run** and is untested. No tag has been pushed and
-no release exists. Not one of the retirement experiment's five changes (REQ-72). Requirement rules are unchanged; where this
+Status: CI is implemented and runs on every pull request. The release workflow has run on tags: v0.1.0 (tag 860c610,
+released 2026-11-21) and v0.1.1 (tag 4cb5f99, released 2026-11-22) each ran `release.yml` to success and are published
+releases (neither is a draft or pre-release, per `gh release list`). Not one of the retirement experiment's five changes (REQ-72). Requirement rules are unchanged; where this
 note interprets one, it says so.
 
 ## 1. CI (`.github/workflows/ci.yml`)
@@ -114,7 +114,7 @@ installs `register.mjs` into; both are settled by the install test listed in sec
 ## 4. Installing with mise
 
 An alternative to downloading the assets by hand (`mise` github backend). Nothing in this section has been run against a real
-release: no tag or release exists. Everything marked untested is a recalled or documented behaviour, not an observed one. What
+release, although releases v0.1.0 and v0.1.1 now exist. Everything marked untested is a recalled or documented behaviour, not an observed one. What
 was checked locally: mise 2026.11.2 parses both stanzas below and resolves the tool (`mise ls --json`, nothing installed).
 That check does not validate the option names or the asset matching.
 
@@ -163,15 +163,14 @@ token variable name, and the bundle stanza's raw-file handling.
 
 ## 5. Not verified (needs a tag or a decision)
 
-- `publish`: `gh release create --draft --verify-tag` with these three files, asset names, the generated notes, and the
-  `contents: write` token, all untested until a tag is pushed.
-- The tag-on-`main` ancestor check (runs only for tags).
+- (Resolved: `publish` and the tag-on-`main` ancestor check ran for v0.1.0 and v0.1.1, `release.yml` success, and both
+  releases are published.)
 - Installing from the private marketplace on a second clone (R1 acceptance, REQ-75), and any background-credential failure.
 - The seeded-failure demonstration.
 - That an installed `register.mjs` is on the `PATH` of the Claude Code process (launcher step 3, section 3) and that
   `REGISTER_TS_BUNDLE` in `settings.json` `env` reaches the server; the launcher logic itself is checked offline.
 - The mise install route, section 4, and #95's acceptance criterion "verified by installing on a clean machine": deferred until
-  the repository is public (#97) and a release exists. It stays open (the pull request uses `Refs #95`, not a closing keyword).
+  the repository is public (#97) and a release exists (v0.1.0 and v0.1.1 now do; the repository is not yet public). It stays open (the pull request uses `Refs #95`, not a closing keyword).
   Exact commands, to run once, in a clean container; the entries below are the documented `mise.toml` stanzas themselves, not an
   ad hoc `mise use`:
 
