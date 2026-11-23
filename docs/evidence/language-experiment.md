@@ -58,8 +58,8 @@ Columns from ADR 0003 section 4 step 3 (change id, language that went first, tok
 
 | Change id | Order (1 to 5) | Language | Went first | Tokens used | Suite failures on first submission | Date |
 |---|---|---|---|---|---|---|
-| (change 1) | 1 | Rust | Rust |  |  |  |
-| (change 1) | 1 | TypeScript | Rust |  |  |  |
+| #80 (change 1) | 1 | Rust | Rust |  |  |  |
+| #80 (change 1) | 1 | TypeScript | Rust |  |  |  |
 | (change 2) | 2 | Rust | TypeScript |  |  |  |
 | (change 2) | 2 | TypeScript | TypeScript |  |  |  |
 | (change 3) | 3 | Rust | Rust |  |  |  |
@@ -109,10 +109,14 @@ Questions 1, 2, 3, 5, 7, 8, 9 and 11 are settled; 4 and 10 are decided at M2; 6 
 2. RESOLVED 2026-11-18 (user): accepted as recommended. Question: Change table layout, one row per language per change (as above) versus one row per change with both languages in columns (recommendation: one row per language, as above; the pairing is by change id).
 3. RESOLVED 2026-11-18 (user): tokens = total input plus output for the session that made the change, including subagents, from the harness usage report; the source is named in each row. Question: How tokens are counted and from where (input plus output, cached tokens, subagent tokens, session versus change boundary), recorded at the time of the change (recommendation: total input plus output tokens for the agent session that made the change, including subagents, from the harness usage report at the end of that session, with the source named in the row).
 4. DECIDED AT M2 (user, 2026-11-18): as recommended; the user confirms the list at M2. Question: What counts as a change request and who picks the five (recommendation: the first five requests after M2 that alter behaviour covered by the suite, listed by issue number in the order raised; the user confirms the list at M2).
+   - CONFIRMED [user, 2026-11-23, accepted via /proceed of the assistant's recommended defaults]: Q4 stands as written. The five counted changes are the first five requests after M2 that alter suite-covered behaviour, in the order raised. First-implementer order: Rust, TypeScript, Rust, TypeScript, Rust.
+   - Change 1 is #80 (schema validation at boundaries). Changes 2 to 5 are named as they are raised and qualify, so the section 5 table is filled one row at a time. Only #80 exists today, so the experiment waits for four more qualifying requests.
+   - Not counted: P4 (#31), #91, #102, #114 Phase 1, and anything that is docs, tooling or release only.
 5. RESOLVED 2026-11-18 (user): accepted as recommended. Question: Treatment of a change that fails the suite on first submission and is resubmitted (recommendation: count only the first submission's failures; tokens cover the whole change to green).
 6. DECIDED AT E1 (user, 2026-11-18): as recommended, to be settled at E1. Question: Definition of a defect after merge and of release friction, and how each is scored at E1 (recommendation: defect is a confirmed bug in merged code of one language that the suite and unit tests missed, counted per language; friction is a free-text note per release, compared qualitatively).
 7. RESOLVED 2026-11-18 (user): accepted as recommended. Question: How the four measures combine when they disagree with the token rule (recommendation: tokens alone fix the recommendation as ADR 0003 section 4 step 5 says; the other measures are reported and the user weighs them).
 8. RESOLVED 2026-11-18 (user): accepted as recommended. Question: Sequencing of E1 relative to the fifth change if R1 is later (recommendation: E1 waits for both, as the build plan states; no interim decision).
 9. RESOLVED 2026-11-18 (user): accepted as recommended; no cost ceiling. Question: Cost and time budget for the experiment (the plan and issue set none; recommendation: no cap beyond the five changes, with the user able to stop early; a token ceiling per change only if the user wants one).
 10. DECIDED AT M2 (user, 2026-11-18): as recommended; user decision at M2. Question: Early-stop or abandonment conditions, for example one implementation failing to pass the suite by M2 (recommendation: user decision at M2; no automatic rule).
+    - CONFIRMED [user, 2026-11-23, accepted via /proceed of the assistant's recommended defaults]: no automatic early stop; the user may stop at any time.
 11. RESOLVED 2026-11-18 (user): accepted as recommended. Question: Whether differing change sizes are normalised (changes may differ in size; recommendation: no normalisation, the paired design and the five-change limit are accepted as thin data per ADR 0003 section 7).
