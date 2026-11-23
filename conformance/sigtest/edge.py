@@ -44,7 +44,7 @@ def setup(p):
         send(p, drive.call_msg(n[0], name, args, meta))
         return json.loads(p.stdout.readline())
     call("note_prompt", {"session_id": "s", "prompt": "grill me"}, False)
-    call("begin_interview", {"tool_schema": 4, "skill": "grill-me", "mode": "register"})
+    call("begin_interview", {"tool_schema": 5, "skill": "grill-me", "mode": "register"})
     call("log_item", {"id": "q1", "kind": "question", "text": "first"})
 
 
@@ -122,7 +122,7 @@ elif mode == "race":
         p, d = spawn("race-%d" % i)
         send(p, drive.init_msg())
         p.stdout.readline()
-        send(p, drive.call_msg(2, "begin_interview", {"tool_schema": 4, "skill": "grill-me", "mode": "register"}))
+        send(p, drive.call_msg(2, "begin_interview", {"tool_schema": 5, "skill": "grill-me", "mode": "register"}))
         send(p, drive.call_msg(3, "log_item", {"id": "q1", "kind": "question", "text": "t"}))
         p.stdout.readline()
         p.stdout.readline()

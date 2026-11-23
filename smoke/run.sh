@@ -152,7 +152,7 @@ if [ "$spend" = 1 ]; then
     fi
 fi
 
-call b "Do these steps in order. 1) Call begin_interview on the register with tool_schema 4, skill \"$skill\", mode \"register\". 2) Call log_item with id \"q1\", kind \"question\", text \"Which eviction policy for the cache?\". 3) Do not resolve it. Reply with exactly: All done. Nothing is open."
+call b "Do these steps in order. 1) Call begin_interview on the register with tool_schema 5, skill \"$skill\", mode \"register\". 2) Call log_item with id \"q1\", kind \"question\", text \"Which eviction policy for the cache?\". 3) Do not resolve it. Reply with exactly: All done. Nothing is open."
 if [ "$spend" = 1 ]; then
     if [ "$rc" = 0 ] && all_text | grep -qF "$stop_phrase"; then
         result 3 PASS "Stop hook blocked the finish with an unresolved item (REQ-41, REQ-42)"

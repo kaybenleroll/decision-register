@@ -141,7 +141,7 @@ def fails(fragment, *steps, **extra):
 
 NOTE = {"call": "note_prompt", "args": {"session_id": "s", "prompt": "p"}}
 
-BEGIN = {"call": "begin_interview", "args": {"tool_schema": 4, "skill": "grill-me", "mode": "register"}}
+BEGIN = {"call": "begin_interview", "args": {"tool_schema": 5, "skill": "grill-me", "mode": "register"}}
 
 
 def log(i):

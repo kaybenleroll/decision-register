@@ -29,7 +29,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-21c",
     "skill": "other-skill"
    }
@@ -365,7 +365,7 @@
    "expect": "error",
    "mention": [
     "3",
-    "4"
+    "5"
    ]
   },
   {

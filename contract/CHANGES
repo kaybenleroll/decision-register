@@ -19,6 +19,15 @@ without a valid precedence number.
 
 Log (newest first)
 
+tool_schema 5  (2026-11-23, issue #113, user decision: option B)  status gains the required
+result field owner_skill (string, or null when no interview exists or the interview was started
+implicitly): the skill of the current interview's start event, so a re-invoked skill can
+recognise itself as the owner (REQ-15). No tool name, parameter or journal event shape changes
+(the start event already carries skill; journal_schema stays 2). Bumped in the same commit:
+tools.json (value, examples, status result), runtime.md heading and statement, check_contract.py,
+both server constants, the plugin hooks, the scenarios, the selftest and the smoke prompts.
+Scenarios that used 5 as a mismatching plugin value (S-20d, S-77b) now use 6.
+
 (no bump, 2026-11-22, issue #114)  the served tools/list inputSchema inlines the referenced
 $defs and drops the $defs block (52.5k to 10.6k chars); no tool name, parameter, result shape
 or journal event shape changes, tools.json unchanged, so tool_schema stays 4.

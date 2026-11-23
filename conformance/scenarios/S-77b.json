@@ -15,20 +15,20 @@
    "expect": "error",
    "mention": [
     "3",
-    "4"
+    "5"
    ]
   },
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 5,
+    "tool_schema": 6,
     "skill": "grill-me",
     "mode": "register"
    },
    "expect": "error",
    "mention": [
     "5",
-    "4"
+    "5"
    ]
   },
   {
@@ -50,8 +50,8 @@
     {
      "path": "version_mismatch",
      "eq": {
-      "plugin_tool_schema": 5,
-      "server_tool_schema": 4
+      "plugin_tool_schema": 6,
+      "server_tool_schema": 5
      }
     }
    ]
@@ -59,7 +59,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-77b",
     "skill": "grill-me"
    }
@@ -87,7 +87,7 @@
    "expect": "error",
    "mention": [
     "3",
-    "4"
+    "5"
    ]
   },
   {
@@ -115,7 +115,7 @@
      "path": "version_mismatch",
      "eq": {
       "plugin_tool_schema": 3,
-      "server_tool_schema": 4
+      "server_tool_schema": 5
      }
     }
    ]
@@ -135,7 +135,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },

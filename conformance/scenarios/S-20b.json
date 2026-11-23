@@ -9,7 +9,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "grill-me-copy"
    }
@@ -44,7 +44,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "Grill-Me"
    }
@@ -79,7 +79,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "GRILL-ME"
    }
@@ -114,7 +114,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "grill-me "
    }
@@ -149,7 +149,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": " grill-me"
    }
@@ -184,7 +184,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "wayfinder"
    }
@@ -219,7 +219,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "write-a-prd"
    }
@@ -254,7 +254,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "grill_me"
    }
@@ -289,7 +289,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "grill"
    }
@@ -324,7 +324,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "query-walkthrough-copy"
    }
@@ -359,7 +359,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "Query-Walkthrough"
    }
@@ -394,7 +394,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "query-walkthrough "
    }
@@ -429,7 +429,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": " query-walkthrough"
    }
@@ -464,7 +464,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "query_walkthrough"
    }
@@ -499,7 +499,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "query"
    }
@@ -534,7 +534,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-20b",
     "skill": "grill-me"
    }

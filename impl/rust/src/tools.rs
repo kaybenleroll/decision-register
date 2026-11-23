@@ -65,7 +65,7 @@ const VOLUNTEERED_CAP: usize = 4;
 /// A branch is a parent with at least this many children (REQ-35).
 const BRANCH_MIN: usize = 2;
 
-const TOOL_SCHEMA: u64 = 4;
+const TOOL_SCHEMA: u64 = 5;
 const JOURNAL_SCHEMA: u64 = 2;
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Harness-injected subagent hand-back prompts start with exactly this (REQ-41).
@@ -290,6 +290,8 @@ pub struct App {
     version_mismatch: Option<(u64, u64)>,
     /// The interview began with an implicit start (log header `implicit_start`).
     implicit: bool,
+    /// The skill that started the current interview (the `start` event's skill); None if none or implicit (REQ-15).
+    owner_skill: Option<String>,
     declog: DecisionLog,
     /// Reopen calls of this interview, for the decision log.
     reopens: Vec<Reopen>,
@@ -445,6 +447,10 @@ impl App {
         self.hook_check_stop = 0;
         self.complete = false;
         self.implicit = matches!(route, Route::Implicit);
+        self.owner_skill = match &route {
+            Route::Hook(s) | Route::Begin(s) => Some(s.clone()),
+            Route::Implicit => None,
+        };
         self.declog = DecisionLog::default();
         self.reopens.clear();
         self.blocks = Blocks::default();
@@ -753,6 +759,7 @@ impl App {
         self.complete = false;
         self.pending = false;
         self.implicit = false;
+        self.owner_skill = None;
         self.declog = DecisionLog::default();
         self.reopens.clear();
         (id, log.unwrap_or_default())
@@ -855,6 +862,7 @@ impl App {
             unlogged: replayed.blocks.2,
         };
         self.implicit = replayed.implicit;
+        self.owner_skill = replayed.skill;
         self.bound_session = session;
         self.complete = false;
         self.pending = false;
@@ -977,6 +985,7 @@ impl App {
                 (Some(_), false) => "active",
             },
             "interview_id": self.interview_id,
+            "owner_skill": self.owner_skill,
             "items": {"open": c.open, "resolved": c.resolved, "parked": c.parked, "stale": c.stale},
             "tree": self.register.ordered().into_iter().map(item_json).collect::<Vec<_>>(),
             "hook_health": {
@@ -1294,7 +1303,7 @@ pub(crate) mod tests {
 
     fn started() -> App {
         let mut app = fresh();
-        let args = json!({"tool_schema": 4, "skill": "grill-me", "mode": "register"});
+        let args = json!({"tool_schema": 5, "skill": "grill-me", "mode": "register"});
         call(&mut app, "begin_interview", args).unwrap();
         app
     }
@@ -1321,7 +1330,7 @@ pub(crate) mod tests {
     #[test]
     fn begin_is_idempotent_and_checks_schema() {
         let mut app = fresh();
-        let args = json!({"tool_schema": 4, "skill": "x", "mode": "register"});
+        let args = json!({"tool_schema": 5, "skill": "x", "mode": "register"});
         let a = call(&mut app, "begin_interview", args.clone()).unwrap();
         let b = call(&mut app, "begin_interview", args).unwrap();
         assert_eq!(a["existing"], false);
@@ -1331,7 +1340,7 @@ pub(crate) mod tests {
         assert!(id.starts_with("iv-") && id.len() == "iv-20261116T093015Z-a3f9c2d1".len());
         let old = json!({"tool_schema": 3, "skill": "x", "mode": "register"});
         let e = call(&mut app, "begin_interview", old).unwrap_err();
-        assert!(e.contains('3') && e.contains('4'));
+        assert!(e.contains('3') && e.contains('5'));
         let s = call(&mut app, "status", json!({})).unwrap();
         assert_eq!(s["version_mismatch"]["plugin_tool_schema"], 3);
     }
@@ -1416,7 +1425,7 @@ pub(crate) mod tests {
         call(
             &mut app,
             "begin_interview",
-            json!({"tool_schema": 4, "skill": "x", "mode": "register"}),
+            json!({"tool_schema": 5, "skill": "x", "mode": "register"}),
         )
         .unwrap();
         call(&mut app, "note_prompt", p("again")).unwrap();
@@ -1436,7 +1445,7 @@ pub(crate) mod tests {
     #[test]
     fn hook_facing_tools_reject_model_calls_without_effect() {
         let mut app = fresh();
-        let sk = json!({"tool_schema": 4, "session_id": "s", "skill": "grill-me"});
+        let sk = json!({"tool_schema": 5, "session_id": "s", "skill": "grill-me"});
         let r = hook_call(&mut app, "skill_started", sk.clone(), true);
         assert!(r.is_error && r.text.contains("skill_started") && r.text.contains("hook-facing"));
         let r = hook_call(
@@ -1460,8 +1469,8 @@ pub(crate) mod tests {
         let mut app = fresh();
         let sk =
             |skill: &str, ts: u64| json!({"tool_schema": ts, "session_id": "s", "skill": skill});
-        call(&mut app, "skill_started", sk("other-skill", 4)).unwrap();
-        call(&mut app, "skill_started", sk("Grill-Me", 4)).unwrap();
+        call(&mut app, "skill_started", sk("other-skill", 5)).unwrap();
+        call(&mut app, "skill_started", sk("Grill-Me", 5)).unwrap();
         assert_eq!(
             call(&mut app, "status", json!({})).unwrap()["state"],
             "none"
@@ -1476,12 +1485,12 @@ pub(crate) mod tests {
             call(&mut app, "status", json!({})).unwrap()["state"],
             "pending"
         );
-        call(&mut app, "skill_started", sk("grill-me", 4)).unwrap();
+        call(&mut app, "skill_started", sk("grill-me", 5)).unwrap();
         let s = call(&mut app, "status", json!({})).unwrap();
         assert_eq!(s["version_mismatch"], Value::Null);
         assert_eq!(s["hook_health"]["skill_started"], 2);
         let id = s["interview_id"].clone();
-        let begin = json!({"tool_schema": 4, "skill": "grill-me", "mode": "register"});
+        let begin = json!({"tool_schema": 5, "skill": "grill-me", "mode": "register"});
         let b = call(&mut app, "begin_interview", begin).unwrap();
         assert_eq!(
             (b["existing"].clone(), b["interview_id"].clone()),
@@ -1494,8 +1503,60 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn status_owner_skill_follows_the_start_event() {
+        let owner = |app: &mut App| call(app, "status", json!({})).unwrap()["owner_skill"].clone();
+        let sk = |skill: &str| json!({"tool_schema": 5, "session_id": "s", "skill": skill});
+        let begin = |skill: &str| json!({"tool_schema": 5, "skill": skill, "mode": "register"});
+        let mut app = fresh();
+        assert_eq!(owner(&mut app), Value::Null);
+        call(&mut app, "skill_started", sk("grill-me")).unwrap();
+        assert_eq!(owner(&mut app), "grill-me");
+        // Same skill re-invoked: still the owner. A different skill is a guest.
+        call(&mut app, "begin_interview", begin("grill-me")).unwrap();
+        call(&mut app, "skill_started", sk("grill-me")).unwrap();
+        call(&mut app, "skill_started", sk("query-walkthrough")).unwrap();
+        call(&mut app, "begin_interview", begin("query-walkthrough")).unwrap();
+        assert_eq!(owner(&mut app), "grill-me");
+        call(&mut app, "end_interview", json!({})).unwrap();
+        assert_eq!(owner(&mut app), Value::Null);
+        // A begin_interview start records its own skill.
+        let mut app = fresh();
+        call(&mut app, "begin_interview", begin("query-walkthrough")).unwrap();
+        assert_eq!(owner(&mut app), "query-walkthrough");
+        // An implicit start has no owner although the interview is active.
+        let mut app = fresh();
+        call(
+            &mut app,
+            "log_item",
+            json!({"id": "q1", "kind": "question", "text": "t"}),
+        )
+        .unwrap();
+        let s = call(&mut app, "status", json!({})).unwrap();
+        assert_eq!(
+            (s["state"].clone(), s["owner_skill"].clone()),
+            (json!("active"), Value::Null)
+        );
+    }
+
+    #[test]
+    fn resume_restores_owner_skill_from_the_start_event() {
+        let mut app = fresh();
+        seed_journal(&app, "iv-old", &[ITEM2]);
+        assert_eq!(
+            call(&mut app, "status", json!({})).unwrap()["owner_skill"],
+            Value::Null
+        );
+        call(&mut app, "resume", json!({})).unwrap();
+        assert_eq!(
+            call(&mut app, "status", json!({})).unwrap()["owner_skill"],
+            "grill-me"
+        );
+        let _ = std::fs::remove_dir_all(app.dir());
+    }
+
+    #[test]
     fn skill_started_lists_query_walkthrough_exactly() {
-        let sk = |skill: &str| json!({"tool_schema": 4, "session_id": "s", "skill": skill});
+        let sk = |skill: &str| json!({"tool_schema": 5, "session_id": "s", "skill": skill});
         for name in [
             "query-walkthrough-copy",
             "Query-Walkthrough",
@@ -1722,7 +1783,7 @@ pub(crate) mod tests {
         call(&mut app, "note_prompt", other).unwrap();
         assert_eq!(state(&app), "none");
         // A pending interview survives one Stop check and is stood down by the second.
-        let sk = json!({"tool_schema": 4, "session_id": "other", "skill": "grill-me"});
+        let sk = json!({"tool_schema": 5, "session_id": "other", "skill": "grill-me"});
         call(&mut app, "skill_started", sk).unwrap();
         let stop = json!({"session_id": "other", "last_assistant_message": "hm?"});
         call(&mut app, "check_stop", stop.clone()).unwrap();

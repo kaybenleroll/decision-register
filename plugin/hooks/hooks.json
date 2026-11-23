@@ -32,7 +32,7 @@
             "type": "mcp_tool",
             "server": "plugin:decision-register:register",
             "tool": "skill_started",
-            "input": { "tool_schema": 4, "session_id": "${session_id}", "skill": "${command_name}" }
+            "input": { "tool_schema": 5, "session_id": "${session_id}", "skill": "${command_name}" }
           }
         ]
       }
@@ -45,7 +45,7 @@
             "type": "mcp_tool",
             "server": "plugin:decision-register:register",
             "tool": "skill_started",
-            "input": { "tool_schema": 4, "session_id": "${session_id}", "skill": "${tool_input.skill}" }
+            "input": { "tool_schema": 5, "session_id": "${session_id}", "skill": "${tool_input.skill}" }
           }
         ]
       }

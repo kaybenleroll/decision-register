@@ -21,7 +21,7 @@ function call(app: App, name: string, args: unknown, model = true) {
   return JSON.parse(r.text) as Record<string, any>;
 }
 
-const BEGIN = { tool_schema: 4, skill: "grill-me", mode: "register" };
+const BEGIN = { tool_schema: 5, skill: "grill-me", mode: "register" };
 const dir = join(data, projectKey());
 const logOf = (id: string): string =>
   readFileSync(join(proj, "decision-logs", `decision-${id}.md`), "utf8");
@@ -50,7 +50,7 @@ test("EOF on a pending interview stands it down and archives it", () => {
   call(
     app,
     "skill_started",
-    { tool_schema: 4, session_id: "s-eof", skill: "grill-me" },
+    { tool_schema: 5, session_id: "s-eof", skill: "grill-me" },
     false,
   );
   const id = call(app, "status", {})["interview_id"];

@@ -104,7 +104,7 @@ HOOK_FACING = {"note_prompt", "skill_started", "check_stop"}
 ENUMS = {"kind": ["question", "subquestion", "decision"], "source": ["user", "model"],
          "status": ["Open", "Resolved", "Parked", "Stale"], "state": ["none", "pending", "active", "complete"]}
 ITEM_STATUS_CONSTS = ["Open", "Stale", "Parked", "Resolved"]
-STATUS_REQUIRED = {"server_version", "tool_schema", "journal_schema", "state", "interview_id", "items", "tree", "hook_health",
+STATUS_REQUIRED = {"server_version", "tool_schema", "journal_schema", "state", "interview_id", "owner_skill", "items", "tree", "hook_health",
                    "last_event", "resumable", "version_mismatch", "decision_log", "write_error"}
 EXAMPLE_FLOORS = {  # input_good, input_bad, result_good, result_bad
     "begin_interview": [1, 4, 3, 5], "log_item": [3, 11, 2, 3], "resolve": [1, 5, 1, 2], "park": [1, 3, 1, 2],
@@ -261,8 +261,8 @@ def main():
     d = json.load(open(os.path.join(HERE, "tools.json")))
     defs = d["$defs"]
     fails, n_good, n_bad = [], 0, 0
-    if d["tool_schema"] != 4:
-        fails.append("tool_schema is %r, expected 4" % d["tool_schema"])
+    if d["tool_schema"] != 5:
+        fails.append("tool_schema is %r, expected 5" % d["tool_schema"])
     expected = {"begin_interview", "log_item", "resolve", "park", "reopen", "status", "resume",
                 "discard", "end_interview", "note_prompt", "skill_started", "check_stop"}
     if set(d["tools"]) != expected:

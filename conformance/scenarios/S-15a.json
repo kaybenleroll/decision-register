@@ -1,0 +1,183 @@
+{
+ "id": "S-15a",
+ "title": "status.owner_skill records the skill that started the interview: null with no interview; a hook start names its skill while pending and stays so when the same skill engages it with begin_interview (a same-skill re-invocation recognises itself); a different skill's skill_started and begin_interview (a guest) do not change it; it is null again after end_interview",
+ "req": [
+  "REQ-15",
+  "REQ-20",
+  "REQ-22",
+  "REQ-27"
+ ],
+ "steps": [
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "owner_skill",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 5,
+    "session_id": "sess-15a",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "owner_skill",
+     "eq": "grill-me"
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 5,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "save": {
+    "iid": "interview_id"
+   },
+   "assert": [
+    {
+     "path": "existing",
+     "eq": true
+    },
+    {
+     "path": "state",
+     "eq": "active"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "owner_skill",
+     "eq": "grill-me"
+    }
+   ]
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 5,
+    "skill": "grill-me",
+    "mode": "register"
+   },
+   "assert": [
+    {
+     "path": "existing",
+     "eq": true
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "owner_skill",
+     "eq": "grill-me"
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 5,
+    "session_id": "sess-15a",
+    "skill": "query-walkthrough"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 5,
+    "skill": "query-walkthrough",
+    "mode": "register"
+   },
+   "assert": [
+    {
+     "path": "existing",
+     "eq": true
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "owner_skill",
+     "eq": "grill-me"
+    },
+    {
+     "path": "interview_id",
+     "eq": "$iid"
+    }
+   ]
+  },
+  {
+   "call": "end_interview",
+   "args": {},
+   "assert": [
+    {
+     "path": "end_kind",
+     "eq": "normal"
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "owner_skill",
+     "eq": null
+    },
+    {
+     "path": "interview_id",
+     "eq": null
+    }
+   ]
+  }
+ ]
+}

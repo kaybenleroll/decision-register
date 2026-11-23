@@ -35,7 +35,7 @@ function call(
 const fails = (app: App, name: string, args: unknown, re: RegExp): void =>
   assert.throws(() => call(app, name, args), re);
 
-const BEGIN = { tool_schema: 4, skill: "grill-me", mode: "register" };
+const BEGIN = { tool_schema: 5, skill: "grill-me", mode: "register" };
 const hook = (app: App, name: string, args: Record<string, unknown>): R =>
   call(app, name, args, false);
 
@@ -129,7 +129,7 @@ test("abandon with nothing open and mode plain outside pending are refused", () 
 test("a pending interview is stood down by mode plain only", () => {
   const app = new App();
   hook(app, "skill_started", {
-    tool_schema: 4,
+    tool_schema: 5,
     session_id: "s1",
     skill: "grill-me",
   });
@@ -186,7 +186,7 @@ test("resume and discard refuse: nothing unfinished, or the wrong state", () => 
 test("the second Stop check stands a pending interview down", () => {
   const app = new App();
   hook(app, "skill_started", {
-    tool_schema: 4,
+    tool_schema: 5,
     session_id: "s3",
     skill: "grill-me",
   });
@@ -206,7 +206,7 @@ test("the second Stop check stands a pending interview down", () => {
 test("an engaged interview is not stood down by later Stop checks", () => {
   const app = new App();
   hook(app, "skill_started", {
-    tool_schema: 4,
+    tool_schema: 5,
     session_id: "s4",
     skill: "grill-me",
   });
@@ -221,7 +221,7 @@ test("an engaged interview is not stood down by later Stop checks", () => {
 test("a session change ends the interview and the triggering call acts as with none", () => {
   const app = new App();
   hook(app, "skill_started", {
-    tool_schema: 4,
+    tool_schema: 5,
     session_id: "a",
     skill: "grill-me",
   });
@@ -252,7 +252,7 @@ test("a session change with nothing open ends normally; a complete one is not do
   hook(app, "note_prompt", { session_id: "a", prompt: "p" });
   const { interview_id: one } = call(app, "begin_interview", BEGIN);
   hook(app, "skill_started", {
-    tool_schema: 4,
+    tool_schema: 5,
     session_id: "z",
     skill: "other",
   });

@@ -16,7 +16,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },
@@ -73,7 +73,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-52g-2",
     "skill": "grill-me"
    }
@@ -102,7 +102,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },
@@ -206,7 +206,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },

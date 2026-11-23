@@ -22,7 +22,7 @@ for i in range(iters):
     p = subprocess.Popen(drive.command(build), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                          env=drive.server_env(d + "/data", d + "/proj"), cwd=d + "/proj")
     assert os.readlink("/proc/%d/cwd" % p.pid) == d + "/proj"
-    msgs = [drive.init_msg(1), drive.call_msg(2, "begin_interview", {"tool_schema": 4, "skill": "grill-me", "mode": "register"})]
+    msgs = [drive.init_msg(1), drive.call_msg(2, "begin_interview", {"tool_schema": 5, "skill": "grill-me", "mode": "register"})]
     msgs += [drive.call_msg(10 + k, "log_item", {"id": "q%d" % k, "kind": "question", "text": "x" * 50}) for k in range(N)]
     data = "".join(json.dumps(m) + "\n" for m in msgs).encode()
     chunks = []
