@@ -95,6 +95,7 @@ A missing implementation serves the stub with `register unavailable: binary not 
 Trying both from a release: download the assets, `install -m 755 register-rs-linux-x86_64 ~/.local/bin/register-rs`, keep
 `register.mjs` somewhere stable, then `claude` (Rust) or `REGISTER_IMPL=ts REGISTER_TS_BUNDLE=/path/to/register.mjs claude`
 (TypeScript; with `register.mjs` in a `PATH` directory and no checkout bundle, `REGISTER_TS_BUNDLE` can be left out). The choice applies to sessions started afterwards.
+The binary has no `--version` (it starts the server and blocks on stdin), so verify with the `initialize` handshake.
 
 Order for `REGISTER_IMPL=ts` (REQ-73, decided in #94; implemented in `plugin/bin/register-launch`, checked by
 `conformance/check_launcher.py` with a decoy `register.mjs` on `PATH` so a wrong order fails):
@@ -113,16 +114,22 @@ installs `register.mjs` into; both are settled by the install test listed in sec
 
 ## 4. Installing with mise
 
-An alternative to downloading the assets by hand (`mise` github backend). Nothing in this section has been run against a real
-release, although releases v0.1.0 and v0.1.1 now exist. Everything marked untested is a recalled or documented behaviour, not an observed one. What
-was checked locally: mise 2026.11.2 parses both stanzas below and resolves the tool (`mise ls --json`, nothing installed).
-That check does not validate the option names or the asset matching.
+An alternative to downloading the assets by hand (`mise` github backend). Tested on 2026-11-23 against the published v0.1.2 release,
+with an isolated `MISE_DATA_DIR` and no token (the repository is public). Observed: `sha256sum -c SHA256SUMS` passes for
+`register-rs-linux-x86_64` and `register.mjs`; the Rust binary and `node register.mjs` both complete `initialize` and
+`tools/list` (`serverInfo` `register-rs` 0.1.2 and `register-ts` 0.1.2; 12 tools; no `$defs`); the Rust stanza below, with
+version `0.1.2` and the real hash, installs `register-rs` with mode 755 (`bin` keeps the file name), and the `v`-prefixed tag is
+accepted when `version` is `0.1.2`; the bundle stanza (`format = "raw"`, `bin = "register.mjs"`) installs, runs under `node`,
+and the handshake gives 12 tools; an explicit `checksum` is verified (a wrong hash fails with Expected and Actual sha256
+lines); `bin-paths` lists the install directory for the Rust install. Still untested: marketplace or plugin install, the
+launcher, `REGISTER_IMPL` handling, `PATH` reach into the Claude Code process, `mise activate`, `GITHUB_TOKEN` use, whether mise
+reads `SHA256SUMS` as the checksum source, the clean-container run, and #95's "clean machine" criterion.
 
 Rust (`register-rs`), in a `mise.toml`:
 
 ```toml
 [tools."github:kaybenleroll/decision-register"]
-version = "0.1.0"          # pin; checksum needs a pinned version
+version = "0.1.2"          # pin; checksum needs a pinned version
 
 [tools."github:kaybenleroll/decision-register".platforms]
 linux-x64 = { asset_pattern = "register-rs-linux-x86_64", bin = "register-rs", checksum = "sha256:<hash>" }
@@ -132,7 +139,7 @@ linux-x64 = { asset_pattern = "register-rs-linux-x86_64", bin = "register-rs", c
   derives the name itself and may strip the `-linux-x86_64` suffix).
 - `<hash>` is the first column of the `register-rs-linux-x86_64` line of the release's `SHA256SUMS`. Whether mise also reads
   `SHA256SUMS` by name, or GitHub's reported asset digest, is not established, so keep the explicit `checksum`.
-- Tag style: tags are `vX.Y.Z`; the entry pins `0.1.0`. mise is recalled to accept a leading `v` on the tag (not tested).
+- Tag style: tags are `vX.Y.Z`; the entry pins `0.1.2`. mise accepts the leading `v` on the tag when `version` is `0.1.2` (tested).
 - `mise activate` (or shims for executables) must put the install directory on the `PATH` of the Claude Code process;
   untested (section 5).
 
@@ -141,7 +148,7 @@ or a different config file, for it):
 
 ```toml
 [tools."github:kaybenleroll/decision-register"]
-version = "0.1.0"
+version = "0.1.2"
 format = "raw"
 bin = "register.mjs"
 
@@ -150,16 +157,14 @@ linux-x64 = { asset_pattern = "register.mjs", checksum = "sha256:<hash of the re
 ```
 
 The launcher then finds `register.mjs` on `PATH` (section 3, step 3), with `REGISTER_IMPL=ts`, Node 26 or newer on `PATH`, and no
-built `impl/ts/dist/register.mjs` in a checkout (a checkout bundle beats `PATH`). **The whole bundle stanza is untested**:
-`format = "raw"`, `bin = "register.mjs"`, the asset name match, whether the file is made executable (the launcher does not need
-it, since it runs `node <file>`), and whether the install directory reaches `PATH`.
+built `impl/ts/dist/register.mjs` in a checkout (a checkout bundle beats `PATH`). The bundle stanza installs and runs under `node` (tested, v0.1.2). Untested: whether
+the install directory reaches `PATH` of the Claude Code process, and the launcher finding the file.
 
-Private repository: until the repository is public (#97), mise needs a GitHub token to see the release assets
-(`GITHUB_TOKEN` or `MISE_GITHUB_TOKEN`, recalled from the mise documentation; whether mise also reads the gh CLI login is not established). Do not put the token in a
-committed `mise.toml`.
+Repository visibility: the repository is public, and no token was needed for the test. Whether `GITHUB_TOKEN` or
+`MISE_GITHUB_TOKEN` is used was not tested. Do not put a token in a committed `mise.toml`.
 
-Untested, in short: the whole mise route (both stanzas), the checksum source, the `v` prefix handling, `PATH` placement, the
-token variable name, and the bundle stanza's raw-file handling.
+Untested, in short: the checksum source (`SHA256SUMS`), `PATH` placement and `mise activate`, token use, the launcher and
+`REGISTER_IMPL` handling, and the clean-container run.
 
 ## 5. Not verified (needs a tag or a decision)
 
@@ -169,8 +174,8 @@ token variable name, and the bundle stanza's raw-file handling.
 - The seeded-failure demonstration.
 - That an installed `register.mjs` is on the `PATH` of the Claude Code process (launcher step 3, section 3) and that
   `REGISTER_TS_BUNDLE` in `settings.json` `env` reaches the server; the launcher logic itself is checked offline.
-- The mise install route, section 4, and #95's acceptance criterion "verified by installing on a clean machine": deferred until
-  the repository is public (#97) and a release exists (v0.1.0 and v0.1.1 now do; the repository is not yet public). It stays open (the pull request uses `Refs #95`, not a closing keyword).
+- The mise install route, section 4: run for v0.1.2 (isolated `MISE_DATA_DIR`, no token; results in section 4). Remaining:
+  the items listed there as untested, and #95's acceptance criterion "verified by installing on a clean machine" (no clean-container run yet). It stays open (the pull request uses `Refs #95`, not a closing keyword).
   Exact commands, to run once, in a clean container; the entries below are the documented `mise.toml` stanzas themselves, not an
   ad hoc `mise use`:
 
@@ -188,8 +193,7 @@ token variable name, and the bundle stanza's raw-file handling.
 
   Then run the same probe through the launcher, with `REGISTER_IMPL=ts plugin/bin/register-launch`. State how the launcher was
   supplied: a clone of the repository at the tag (note the clone's own `impl/ts/dist/register.mjs` must be absent, or step 2 of
-  the order wins), or the marketplace install. Add `GITHUB_TOKEN` to the container environment while the repository is private.
-  Pass criteria: `register-rs` and `register.mjs` land on `PATH`, the probe answers `serverInfo` (`register-rs` or `register-ts`)
-  with version `0.1.0`, and the checksum is verified. Afterwards the live checks of unit #92 on the skikk-thor machine.
+  the order wins), or the marketplace install.   Pass criteria: `register-rs` and `register.mjs` land on `PATH`, the probe answers `serverInfo` (`register-rs` or `register-ts`)
+  with version `0.1.2`, and the checksum is verified. Afterwards the live checks of unit #92 on the skikk-thor machine.
 - The glibc guard and the staged-asset-set assertion on a GitHub runner (the pull request run of `release.yml` exercises both;
   they were run only as local shell until then).
