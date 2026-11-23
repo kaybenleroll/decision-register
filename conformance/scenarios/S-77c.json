@@ -36,7 +36,7 @@
      "path": "version_mismatch",
      "eq": {
       "plugin_tool_schema": 3,
-      "server_tool_schema": 4
+      "server_tool_schema": 5
      }
     }
    ]
@@ -65,7 +65,7 @@
      "path": "version_mismatch",
      "eq": {
       "plugin_tool_schema": 9,
-      "server_tool_schema": 4
+      "server_tool_schema": 5
      }
     }
    ]
@@ -73,7 +73,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-77c",
     "skill": "grill-me"
    }

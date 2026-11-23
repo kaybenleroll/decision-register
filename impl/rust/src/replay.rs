@@ -25,6 +25,8 @@ pub struct Replayed {
     /// `seq` of the last valid event.
     pub last_seq: u64,
     pub implicit: bool,
+    /// The `start` event's skill (null for an implicit start).
+    pub skill: Option<String>,
     pub hook_note_prompt: u64,
     pub hook_skill_started: u64,
     pub hook_check_stop: u64,
@@ -95,6 +97,7 @@ fn apply(out: &mut Replayed, kind: &str, o: &Map<String, Value>) -> Result<(), S
     let need = |key: &str| str_field(o, key).ok_or_else(|| format!("{key} missing"));
     match kind {
         "start" => {
+            out.skill = str_field(o, "skill").map(str::to_owned);
             out.implicit = o.get("implicit").and_then(Value::as_bool).unwrap_or(false);
             out.hook_note_prompt = o.get("prompt_count").and_then(Value::as_u64).unwrap_or(0);
             out.hook_skill_started = u64::from(str_field(o, "route") == Some("hook"));

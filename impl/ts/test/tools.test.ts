@@ -53,7 +53,7 @@ const fails = (
   modelFacing?: boolean,
 ): void => assert.throws(() => call(app, name, args, modelFacing), re);
 
-const BEGIN = { tool_schema: 4, skill: "grill-me", mode: "register" };
+const BEGIN = { tool_schema: 5, skill: "grill-me", mode: "register" };
 
 function started(): App {
   const app = new App();
@@ -74,7 +74,7 @@ test("begin is idempotent and checks the schema version", () => {
   assert.equal(b["existing"], true);
   assert.equal(a["interview_id"], b["interview_id"]);
   assert.match(a["interview_id"], /^iv-\d{8}T\d{6}Z-[0-9a-f]{8}$/);
-  fails(app, "begin_interview", { ...BEGIN, tool_schema: 3 }, /3.*4/);
+  fails(app, "begin_interview", { ...BEGIN, tool_schema: 3 }, /3.*5/);
   assert.equal(
     call(app, "status", {})["version_mismatch"].plugin_tool_schema,
     3,
@@ -281,7 +281,7 @@ test("hook-facing tools reject a model-style call and change nothing", () => {
   const before = call(app, "status", {});
   for (const [name, args] of [
     ["note_prompt", { session_id: "s", prompt: "p" }],
-    ["skill_started", { tool_schema: 4, session_id: "s", skill: "grill-me" }],
+    ["skill_started", { tool_schema: 5, session_id: "s", skill: "grill-me" }],
     ["check_stop", { session_id: "s", last_assistant_message: "done" }],
   ] as const) {
     const r = app.call(name, args, true);
@@ -340,18 +340,18 @@ test("skill_started: returns {}, counts while an interview exists, flags mismatc
   const app = new App();
   const ss = (tool_schema: number, skill = "grill-me"): R =>
     call(app, "skill_started", { tool_schema, session_id: "s1", skill });
-  assert.deepEqual(ss(4, "other-skill"), {});
+  assert.deepEqual(ss(5, "other-skill"), {});
   assert.equal(call(app, "status", {})["hook_health"].skill_started, 0);
   call(app, "begin_interview", BEGIN);
-  assert.deepEqual(ss(4), {});
+  assert.deepEqual(ss(5), {});
   assert.deepEqual(ss(3), {});
   let st = call(app, "status", {});
   assert.equal(st["hook_health"].skill_started, 2);
   assert.deepEqual(st["version_mismatch"], {
     plugin_tool_schema: 3,
-    server_tool_schema: 4,
+    server_tool_schema: 5,
   });
-  ss(4);
+  ss(5);
   st = call(app, "status", {});
   assert.equal(st["version_mismatch"], null);
   assert.equal(st["state"], "active");
@@ -366,8 +366,8 @@ test("skill_started validates its arguments", () => {
     { tool_schema: 0, session_id: "s", skill: "g" },
     /tool_schema/,
   );
-  fails(app, "skill_started", { tool_schema: 4, skill: "g" }, /session_id/);
-  fails(app, "skill_started", { tool_schema: 4, session_id: "s" }, /skill/);
+  fails(app, "skill_started", { tool_schema: 5, skill: "g" }, /session_id/);
+  fails(app, "skill_started", { tool_schema: 5, session_id: "s" }, /skill/);
 });
 
 test("hook calls record the last seen session id; an agent-message does not", () => {
@@ -377,7 +377,7 @@ test("hook calls record the last seen session id; an agent-message does not", ()
   assert.equal(app.lastSeen, "s1");
   call(app, "note_prompt", { session_id: "s2", prompt: "<agent-message x" });
   assert.equal(app.lastSeen, "s1");
-  call(app, "skill_started", { tool_schema: 4, session_id: "s3", skill: "g" });
+  call(app, "skill_started", { tool_schema: 5, session_id: "s3", skill: "g" });
   assert.equal(app.lastSeen, "s3");
 });
 
@@ -409,7 +409,7 @@ test("skill_started lists exactly grill-me and query-walkthrough", () => {
   ]) {
     const app = new App();
     call(app, "skill_started", {
-      tool_schema: 4,
+      tool_schema: 5,
       session_id: "s",
       skill: name,
     });
@@ -417,7 +417,7 @@ test("skill_started lists exactly grill-me and query-walkthrough", () => {
   }
   const app = new App();
   call(app, "skill_started", {
-    tool_schema: 4,
+    tool_schema: 5,
     session_id: "s",
     skill: "query-walkthrough",
   });
@@ -434,13 +434,44 @@ test("a listed skill starts a pending interview, even on a mismatch", () => {
   assert.equal(call(app, "status", {})["state"], "pending");
   assert.deepEqual(call(app, "status", {})["version_mismatch"], {
     plugin_tool_schema: 3,
-    server_tool_schema: 4,
+    server_tool_schema: 5,
   });
   const r = call(app, "begin_interview", {
-    tool_schema: 4,
+    tool_schema: 5,
     skill: "x",
     mode: "register",
   });
   assert.equal(r["existing"], true);
   assert.equal(r["state"], "active");
+});
+
+test("status.owner_skill: null with no interview, the starting skill after a hook or begin start, null for an implicit start, unchanged by a guest, null after end (REQ-15)", () => {
+  const sk = (app: App, skill: string): R =>
+    call(app, "skill_started", { tool_schema: 5, session_id: "s", skill });
+  const owner = (app: App): unknown => call(app, "status", {})["owner_skill"];
+  let app = new App();
+  assert.equal(owner(app), null);
+  sk(app, "grill-me");
+  assert.equal(call(app, "status", {})["state"], "pending");
+  assert.equal(owner(app), "grill-me");
+  // Same skill re-invoked (begin again, hook again): still the owner.
+  call(app, "begin_interview", BEGIN);
+  call(app, "begin_interview", BEGIN);
+  sk(app, "grill-me");
+  assert.equal(owner(app), "grill-me");
+  // A different skill is a guest: the recorded owner does not change.
+  sk(app, "query-walkthrough");
+  call(app, "begin_interview", { ...BEGIN, skill: "query-walkthrough" });
+  assert.equal(owner(app), "grill-me");
+  call(app, "end_interview", {});
+  assert.equal(owner(app), null);
+  // A begin_interview start (no hook) records its own skill.
+  app = new App();
+  call(app, "begin_interview", { ...BEGIN, skill: "query-walkthrough" });
+  assert.equal(owner(app), "query-walkthrough");
+  // An implicit start has no owner although the interview is active.
+  app = new App();
+  call(app, "log_item", { id: "q1", kind: "question", text: "t" });
+  assert.equal(call(app, "status", {})["state"], "active");
+  assert.equal(owner(app), null);
 });

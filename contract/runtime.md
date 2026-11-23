@@ -1,6 +1,6 @@
-# Run-time contract (tool_schema 4)
+# Run-time contract (tool_schema 5)
 
-Authority: REQ-61, REQ-77, REQ-80, REQ-27 rule 1, REQ-40. `tool_schema` is **4** (tools.json). Any change bumps it (CHANGES).
+Authority: REQ-61, REQ-77, REQ-80, REQ-27 rule 1, REQ-40. `tool_schema` is **5** (tools.json). Any change bumps it (CHANGES).
 
 ## Process start
 
@@ -44,7 +44,7 @@ Both implementations must produce byte-identical paths; the suite computes the s
 ## Compatibility with spike 3 (`docs/evidence/spike3/acceptance.py`)
 
 - Tool names kept: `begin_interview`, `log_item`, `resolve`, `park`, `reopen`, `status`, `resume`, `check_stop`, `note_prompt` (checked by `check_contract.py`).
-- Script changes C2 must make, listed here so they are not discovered later: (1) `begin_interview(interview_id=...)` becomes `begin_interview(tool_schema=4, skill="grill-me", mode="register")` (the id is server-assigned and returned); (2) `JOURNAL_DIR` is replaced by `CLAUDE_PLUGIN_DATA` and the journal path by the layout above; (3) `note_prompt` and `check_stop` calls gain `session_id` and are sent without `_meta`; (4) `resume` takes `id`, not `interview_id`; (5) `status` keeps the top-level `items` counts and `journal_schema` the script reads, and gains the other fields in tools.json; the `items` counts must equal the counts derived from `tree` by status, and every C2 scenario that reads `status` asserts it. `log_item`, `resolve`, `park` and `reopen` keep their argument names.
+- Script changes C2 must make, listed here so they are not discovered later: (1) `begin_interview(interview_id=...)` becomes `begin_interview(tool_schema=5, skill="grill-me", mode="register")` (the id is server-assigned and returned); (2) `JOURNAL_DIR` is replaced by `CLAUDE_PLUGIN_DATA` and the journal path by the layout above; (3) `note_prompt` and `check_stop` calls gain `session_id` and are sent without `_meta`; (4) `resume` takes `id`, not `interview_id`; (5) `status` keeps the top-level `items` counts and `journal_schema` the script reads, and gains the other fields in tools.json; the `items` counts must equal the counts derived from `tree` by status, and every C2 scenario that reads `status` asserts it. `log_item`, `resolve`, `park` and `reopen` keep their argument names.
 
 ## Decision log (REQ-23, REQ-62, REQ-63)
 

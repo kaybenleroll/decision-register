@@ -1,6 +1,6 @@
 {
  "id": "S-77a",
- "title": "status returns the server version and the integer tool_schema (4) and journal_schema (2) in every state",
+ "title": "status returns the server version and the integer tool_schema (5) and journal_schema (2) in every state",
  "req": [
   "REQ-77"
  ],
@@ -11,7 +11,7 @@
    "assert": [
     {
      "path": "tool_schema",
-     "eq": 4
+     "eq": 5
     },
     {
      "path": "journal_schema",
@@ -30,7 +30,7 @@
   {
    "call": "skill_started",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "session_id": "sess-77a",
     "skill": "grill-me"
    }
@@ -41,7 +41,7 @@
    "assert": [
     {
      "path": "tool_schema",
-     "eq": 4
+     "eq": 5
     },
     {
      "path": "server_version",
@@ -56,7 +56,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },
@@ -70,7 +70,7 @@
    "assert": [
     {
      "path": "tool_schema",
-     "eq": 4
+     "eq": 5
     },
     {
      "path": "journal_schema",

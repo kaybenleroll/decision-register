@@ -209,8 +209,8 @@ def item_text(i):
 def start_interview(c):
     """The route Claude Code takes: the skill_started hook, then begin_interview (the session id is established first,
     otherwise the first hook with a session id is read as a session change and ends the interview)."""
-    c.call("skill_started", {"tool_schema": 4, "session_id": SESSION, "skill": "grill-me"}, hook=True)
-    c.call("begin_interview", {"tool_schema": 4, "skill": "grill-me", "mode": "register"})
+    c.call("skill_started", {"tool_schema": 5, "session_id": SESSION, "skill": "grill-me"}, hook=True)
+    c.call("begin_interview", {"tool_schema": 5, "skill": "grill-me", "mode": "register"})
 
 
 def log_one(c, i):
@@ -340,13 +340,13 @@ def latency(args):
                 for j in range(warm + calls):
                     _, dt = note_prompt(c)
                     _, dt2 = check_stop(c, "Q1")
-                    _, dt3 = c.call("skill_started", {"tool_schema": 4, "session_id": SESSION, "skill": "other-skill"}, hook=True)
+                    _, dt3 = c.call("skill_started", {"tool_schema": 5, "session_id": SESSION, "skill": "other-skill"}, hook=True)
                     if j >= warm:
                         buckets["note_prompt_no_interview"].append(dt)
                         buckets["check_stop_no_interview"].append(dt2)
                         buckets["skill_started_no_interview"].append(dt3)
-                c.call("skill_started", {"tool_schema": 4, "session_id": SESSION, "skill": "grill-me"}, hook=True)
-                c.call("begin_interview", {"tool_schema": 4, "skill": "grill-me", "mode": "register"})
+                c.call("skill_started", {"tool_schema": 5, "session_id": SESSION, "skill": "grill-me"}, hook=True)
+                c.call("begin_interview", {"tool_schema": 5, "skill": "grill-me", "mode": "register"})
                 total = warm + calls
                 for i in range(1, total + 31):  # total timed+warm items, plus 30 that stay open
                     _, dt = log_one(c, i)
@@ -362,7 +362,7 @@ def latency(args):
                         buckets["status"].append(dt)
                 for j in range(warm + calls):
                     _, dt = note_prompt(c)
-                    _, dt2 = c.call("skill_started", {"tool_schema": 4, "session_id": SESSION, "skill": "grill-me"}, hook=True)
+                    _, dt2 = c.call("skill_started", {"tool_schema": 5, "session_id": SESSION, "skill": "grill-me"}, hook=True)
                     _, dt3 = check_stop(c, "Q%d" % (total + 1))
                     if j >= warm:
                         buckets["note_prompt"].append(dt)

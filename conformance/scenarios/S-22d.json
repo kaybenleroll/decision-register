@@ -10,7 +10,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },
@@ -105,7 +105,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },
@@ -200,7 +200,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },
@@ -295,7 +295,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },

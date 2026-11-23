@@ -29,7 +29,7 @@ Tags: [user-decision] marks a step that cannot start until the user decides.
 
 | Milestone | Slices | Exit |
 |---|---|---|
-| M0 Contract and suite | C1 to C5, X1 | Suite runs; every scenario red against the stub; schema file frozen at the current `tool_schema` (4; see `contract/CHANGES`) |
+| M0 Contract and suite | C1 to C5, X1 | Suite runs; every scenario red against the stub; schema file frozen at the current `tool_schema` (5; see `contract/CHANGES`) |
 | M1 Core register | I1R, I1T, I2T, I2R | Data model, transitions, status, hook-facing tools and finish gate green in both languages |
 | M2 Lifecycle and durability | I3R, I3T, I4T, I4R, I5R, I5T | Full suite green in both (green means every non-pending scenario passes; the launcher scenarios S-73a and S-73b pass now that `plugin/bin/register-launch` exists); REQ-90 measured |
 | M3 Plugin and verification | P1, P5 (dotfiles side), V1 to V10 (can run once P1 exists, in parallel with M1/M2; V7 is an upgrade, not a dependency) | Plugin loads from a local clone; open items of requirements section 12 each have a recorded outcome |

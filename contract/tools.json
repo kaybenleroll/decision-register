@@ -1,5 +1,5 @@
 {
- "tool_schema": 4,
+ "tool_schema": 5,
  "journal_schema": 2,
  "conventions": {
   "transport": "MCP over stdio, newline-delimited JSON-RPC 2.0; tools/call result.content[0].text carries the result.",
@@ -394,19 +394,19 @@
    "examples": {
     "input_good": [
      {
-      "tool_schema": 4,
+      "tool_schema": 5,
       "skill": "grill-me",
       "mode": "register"
      }
     ],
     "input_bad": [
      {
-      "tool_schema": 4,
+      "tool_schema": 5,
       "skill": "grill-me",
       "mode": "plain"
      },
      {
-      "tool_schema": 4,
+      "tool_schema": 5,
       "skill": "grill-me",
       "mode": "register",
       "session_id": "s1"
@@ -917,7 +917,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; after an interview ends the state is none, never ended), the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable (an array of {interview_id, last_event}, one per unfinished journal with no live owner, most recently modified first, ties by interview id ascending; empty when none), and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7). The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale); check_contract.py checks this on every good example and C2 scenarios assert it. version_mismatch reflects the most recent tool_schema comparison: set by a mismatching skill_started or begin_interview, cleared by a later matching one, null if none was made. decision_log is the absolute path of the current interview's decision log once written (first allowed finish attempt, end, or exit), else null (runtime.md 'Decision log'). write_error is null, or the last journal or decision-log write failure message (runtime.md 'Unwritable data directory').",
+   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; after an interview ends the state is none, never ended), owner_skill (the skill that started the interview, else null; REQ-15), the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable (an array of {interview_id, last_event}, one per unfinished journal with no live owner, most recently modified first, ties by interview id ascending; empty when none), and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7). The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale); check_contract.py checks this on every good example and C2 scenarios assert it. version_mismatch reflects the most recent tool_schema comparison: set by a mismatching skill_started or begin_interview, cleared by a later matching one, null if none was made. decision_log is the absolute path of the current interview's decision log once written (first allowed finish attempt, end, or exit), else null (runtime.md 'Decision log'). write_error is null, or the last journal or decision-log write failure message (runtime.md 'Unwritable data directory').",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -933,6 +933,7 @@
      "journal_schema",
      "state",
      "interview_id",
+     "owner_skill",
      "items",
      "tree",
      "hook_health",
@@ -962,6 +963,16 @@
        },
        {
         "$ref": "#/$defs/id"
+       }
+      ]
+     },
+     "owner_skill": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "$ref": "#/$defs/nonblank"
        }
       ]
      },
@@ -1107,10 +1118,11 @@
     "result_good": [
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
+      "owner_skill": null,
       "items": {
        "open": 0,
        "resolved": 0,
@@ -1132,10 +1144,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
+      "owner_skill": "grill-me",
       "items": {
        "open": 1,
        "resolved": 1,
@@ -1210,10 +1223,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
+      "owner_skill": null,
       "items": {
        "open": 0,
        "resolved": 0,
@@ -1244,10 +1258,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "iv-20261116T093015Z-a3f9c2d1",
+      "owner_skill": "grill-me",
       "items": {
        "open": 0,
        "resolved": 0,
@@ -1271,15 +1286,16 @@
     "result_bad": [
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "state": "none"
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "running",
       "interview_id": null,
+      "owner_skill": null,
       "items": {
        "open": 0,
        "resolved": 0,
@@ -1299,10 +1315,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "ended",
       "interview_id": null,
+      "owner_skill": null,
       "items": {
        "open": 0,
        "resolved": 0,
@@ -1322,10 +1339,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
+      "owner_skill": "grill-me",
       "items": {
        "open": 1,
        "resolved": 1,
@@ -1398,10 +1416,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
+      "owner_skill": "grill-me",
       "items": {
        "open": 1,
        "resolved": 1,
@@ -1474,10 +1493,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
+      "owner_skill": "grill-me",
       "items": {
        "open": 1,
        "resolved": 1,
@@ -1550,10 +1570,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "active",
       "interview_id": "i1",
+      "owner_skill": "grill-me",
       "items": {
        "open": 1,
        "resolved": 1,
@@ -1626,10 +1647,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
+      "owner_skill": null,
       "items": {
        "open": 0,
        "resolved": 0,
@@ -1649,10 +1671,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
+      "owner_skill": null,
       "items": {
        "open": 0,
        "resolved": 0,
@@ -1675,10 +1698,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
+      "owner_skill": null,
       "items": {
        "open": 0,
        "resolved": 0,
@@ -1698,10 +1722,11 @@
      },
      {
       "server_version": "0.1.0",
-      "tool_schema": 4,
+      "tool_schema": 5,
       "journal_schema": 2,
       "state": "none",
       "interview_id": null,
+      "owner_skill": null,
       "items": {
        "open": 0,
        "resolved": 0,
@@ -2134,7 +2159,7 @@
    "examples": {
     "input_good": [
      {
-      "tool_schema": 4,
+      "tool_schema": 5,
       "session_id": "s1",
       "skill": "grill-me"
      }
@@ -2145,7 +2170,7 @@
       "skill": "grill-me"
      },
      {
-      "tool_schema": 4,
+      "tool_schema": 5,
       "session_id": "s1"
      },
      {

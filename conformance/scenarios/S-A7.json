@@ -12,7 +12,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },
@@ -44,7 +44,7 @@
     },
     {
      "path": "tool_schema",
-     "eq": 4
+     "eq": 5
     },
     {
      "path": "state",
@@ -101,7 +101,7 @@
   {
    "call": "begin_interview",
    "args": {
-    "tool_schema": 4,
+    "tool_schema": 5,
     "skill": "grill-me",
     "mode": "register"
    },

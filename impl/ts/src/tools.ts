@@ -61,7 +61,7 @@ export const HOOK_FACING: readonly string[] = [
   "check_stop",
 ];
 
-const TOOL_SCHEMA = 4;
+const TOOL_SCHEMA = 5;
 const JOURNAL_SCHEMA = 2;
 /** Harness-injected subagent hand-back prompts start with exactly this (REQ-41). */
 const AGENT_MESSAGE_PREFIX = "<agent-message ";
@@ -219,6 +219,8 @@ export class App {
   /** The session id the interview is bound to (REQ-26); null when none was known. */
   private boundSession: string | null = null;
   private implicitStart = false;
+  /** The skill that started the current interview (its `start` event's skill); null if none or implicit (REQ-15). */
+  private ownerSkill: string | null = null;
   /** A prompt arrived while no interview existed (cleared at a start and by a none Stop). */
   private promptSeen = false;
   private hookNotePrompt = 0;
@@ -344,6 +346,7 @@ export class App {
     this.journal = journal;
     this.declog = new DecisionLog(id);
     this.implicitStart = route === "implicit";
+    this.ownerSkill = skill;
     this.state = route === "hook" ? "pending" : "active";
     // The prompt before the start counts once; earlier inactive ones are not counted.
     const promptCount = this.promptSeen ? 1 : 0;
@@ -436,6 +439,7 @@ export class App {
     this.declog = null;
     this.boundSession = null;
     this.implicitStart = false;
+    this.ownerSkill = null;
     this.hookNotePrompt = 0;
     this.hookSkillStarted = 0;
     this.hookCheckStop = 0;
@@ -683,6 +687,7 @@ export class App {
     this.declog = new DecisionLog(id);
     this.state = "active";
     this.implicitStart = s.implicit;
+    this.ownerSkill = s.skill;
     this.boundSession = this.lastSeenSessionId;
     this.promptSeen = false;
     this.hookNotePrompt = s.hookNotePrompt;
@@ -930,6 +935,7 @@ export class App {
       journal_schema: JOURNAL_SCHEMA,
       state: this.state,
       interview_id: this.interviewId,
+      owner_skill: this.ownerSkill,
       items: {
         open: c.open,
         resolved: c.resolved,

@@ -1,0 +1,46 @@
+{
+ "id": "S-15c",
+ "title": "status.owner_skill is null for an implicit start (a model-facing mutating call with no interview) even though the state is active",
+ "req": [
+  "REQ-15",
+  "REQ-21"
+ ],
+ "steps": [
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "owner_skill",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-one"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "owner_skill",
+     "eq": null
+    }
+   ]
+  }
+ ]
+}

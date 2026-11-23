@@ -106,7 +106,7 @@ def run(build, variant, sig, base=None):
     cmd = open("/proc/%d/cmdline" % s.p.pid).read().replace("\0", " ")
     sid = "sess-" + name
     s.call("note_prompt", {"session_id": sid, "prompt": "grill me"}, meta=False)
-    s.call("begin_interview", {"tool_schema": 4, "skill": "grill-me", "mode": "register"})
+    s.call("begin_interview", {"tool_schema": 5, "skill": "grill-me", "mode": "register"})
     s.call("log_item", {"id": "q1", "kind": "question", "text": "first question"})
     s.call("log_item", {"id": "q2", "kind": "question", "text": "second question"})
     s.call("resolve", {"id": "q1", "answer": "ans one", "source": "model", "rationale": "test"})

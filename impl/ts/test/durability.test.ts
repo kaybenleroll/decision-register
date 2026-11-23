@@ -34,7 +34,7 @@ function call(app: App, name: string, args: unknown = {}): R {
   return JSON.parse(r.text);
 }
 
-const begin = { tool_schema: 4, skill: "grill-me", mode: "register" };
+const begin = { tool_schema: 5, skill: "grill-me", mode: "register" };
 
 test("a new interview owns a pid file with its pid and start time, mode 0600", () => {
   const dir = sandbox();
@@ -176,7 +176,7 @@ test("discard in pending leaves the pending interview alone", () => {
   const app = new App();
   app.call(
     "skill_started",
-    { tool_schema: 4, session_id: "s", skill: "grill-me" },
+    { tool_schema: 5, session_id: "s", skill: "grill-me" },
     false,
   );
   assert.equal(call(app, "status")["state"], "pending");
@@ -218,6 +218,16 @@ test("resume claims the pid file, replays, appends a resume event and returns ac
   assert.equal(app.call("resume", {}, true)?.isError, true);
 });
 
+test("resume restores status.owner_skill from the start event (REQ-15)", () => {
+  const dir = sandbox();
+  seedUnfinished(dir, "iv-a", dead("iv-a"));
+  const app = new App();
+  app.call("note_prompt", { session_id: "sess-2", prompt: "hi" }, false);
+  assert.equal(call(app, "status")["owner_skill"], null);
+  call(app, "resume");
+  assert.equal(call(app, "status")["owner_skill"], "grill-me");
+});
+
 test("resume replay failure names the line, removes the new pid file and keeps the journal", () => {
   const dir = sandbox();
   seedUnfinished(dir, "iv-a", dead("iv-a"));
@@ -253,7 +263,7 @@ test("resume while pending stands the pending interview down after success", () 
   const app = new App();
   app.call(
     "skill_started",
-    { tool_schema: 4, session_id: "s", skill: "grill-me" },
+    { tool_schema: 5, session_id: "s", skill: "grill-me" },
     false,
   );
   const pendingId = call(app, "status")["interview_id"];
