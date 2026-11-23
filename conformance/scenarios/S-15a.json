@@ -1,6 +1,6 @@
 {
  "id": "S-15a",
- "title": "status.owner_skill records the skill that started the interview: null with no interview; a hook start names its skill while pending and stays so when the same skill engages it with begin_interview (a same-skill re-invocation recognises itself); a different skill's skill_started and begin_interview (a guest) do not change it; it is null again after end_interview",
+ "title": "status.owner_skill names the owning skill: null with no interview; a hook start names its skill while pending and stays so when the same skill engages it with begin_interview (a same-skill re-invocation recognises itself); a different skill's skill_started and begin_interview (a guest) do not change it; it is null again after end_interview",
  "req": [
   "REQ-15",
   "REQ-20",

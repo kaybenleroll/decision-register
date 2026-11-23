@@ -1,0 +1,80 @@
+{
+ "id": "S-15j",
+ "title": "a complete interview keeps its owner_skill, and returns to active through log_item with the owner unchanged",
+ "req": [
+  "REQ-15",
+  "REQ-22",
+  "REQ-27"
+ ],
+ "steps": [
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-15j",
+    "prompt": "hi"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 5,
+    "skill": "query-walkthrough",
+    "mode": "register"
+   },
+   "assert": [
+    {
+     "path": "existing",
+     "eq": false
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-15j",
+    "last_assistant_message": "all done"
+   },
+   "assert": [
+    {
+     "decision_block": false
+    }
+   ]
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "complete"
+    },
+    {
+     "path": "owner_skill",
+     "eq": "query-walkthrough"
+    }
+   ]
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-one"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "owner_skill",
+     "eq": "query-walkthrough"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,179 @@
+{
+ "id": "S-15i",
+ "title": "owner_skill is null after a session change and after the second Stop check of a pending interview; a new pending interview starts with its own owner (the clear on stdin EOF is covered by the unit tests)",
+ "req": [
+  "REQ-15",
+  "REQ-22",
+  "REQ-27",
+  "REQ-26"
+ ],
+ "steps": [
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 5,
+    "session_id": "sess-15i-1",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "begin_interview",
+   "args": {
+    "tool_schema": 5,
+    "skill": "query-walkthrough",
+    "mode": "register"
+   }
+  },
+  {
+   "call": "log_item",
+   "args": {
+    "kind": "question",
+    "text": "open 1"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "owner_skill",
+     "eq": "query-walkthrough"
+    }
+   ]
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-15i-other",
+    "prompt": "hi"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "owner_skill",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 5,
+    "session_id": "sess-15i-2",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "owner_skill",
+     "eq": "grill-me"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-15i-2",
+    "last_assistant_message": "hm?"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "owner_skill",
+     "eq": "grill-me"
+    }
+   ]
+  },
+  {
+   "call": "check_stop",
+   "args": {
+    "session_id": "sess-15i-2",
+    "last_assistant_message": "hm?"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "owner_skill",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "skill_started",
+   "args": {
+    "tool_schema": 5,
+    "session_id": "sess-15i-3",
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "pending"
+    },
+    {
+     "path": "owner_skill",
+     "eq": "grill-me"
+    }
+   ]
+  },
+  {
+   "op": "stop"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "owner_skill",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "op": "stop"
+  }
+ ]
+}

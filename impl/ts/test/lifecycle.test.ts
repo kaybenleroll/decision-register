@@ -247,6 +247,40 @@ test("a session change ends the interview and the triggering call acts as with n
   assert.equal(abandoned["mode"], "register");
 });
 
+test("owner_skill is cleared by a session-change end, the second-Stop stand-down and EOF (REQ-15)", () => {
+  const owner = (app: App): unknown => call(app, "status", {})["owner_skill"];
+  let app = new App();
+  hook(app, "skill_started", {
+    tool_schema: 5,
+    session_id: "o1",
+    skill: "grill-me",
+  });
+  call(app, "begin_interview", { ...BEGIN, skill: "query-walkthrough" });
+  assert.equal(owner(app), "query-walkthrough");
+  call(app, "log_item", { id: "q1", kind: "question", text: "t" });
+  hook(app, "note_prompt", { session_id: "o2", prompt: "p" });
+  assert.equal(call(app, "status", {})["state"], "none");
+  assert.equal(owner(app), null);
+  app = new App();
+  hook(app, "skill_started", {
+    tool_schema: 5,
+    session_id: "o3",
+    skill: "grill-me",
+  });
+  hook(app, "check_stop", { session_id: "o3", last_assistant_message: "hi" });
+  assert.equal(owner(app), "grill-me");
+  hook(app, "check_stop", { session_id: "o3", last_assistant_message: "hi" });
+  assert.equal(owner(app), null);
+  app = new App();
+  hook(app, "skill_started", {
+    tool_schema: 5,
+    session_id: "o4",
+    skill: "grill-me",
+  });
+  app.onEof();
+  assert.equal(owner(app), null);
+});
+
 test("a session change with nothing open ends normally; a complete one is not downgraded", () => {
   const app = new App();
   hook(app, "note_prompt", { session_id: "a", prompt: "p" });

@@ -1,0 +1,110 @@
+{
+ "id": "S-15g",
+ "title": "resume of an implicit (ownerless) journal reports owner_skill null; resume with skill claims it; a blank skill is refused as an invalid argument and changes nothing",
+ "req": [
+  "REQ-15",
+  "REQ-22",
+  "REQ-27",
+  "REQ-21",
+  "REQ-52"
+ ],
+ "steps": [
+  {
+   "call": "log_item",
+   "args": {
+    "id": "q1",
+    "kind": "question",
+    "text": "text-one"
+   }
+  },
+  {
+   "op": "kill"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-15g",
+    "prompt": "hi"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {
+    "skill": " "
+   },
+   "expect": "error",
+   "mention": "skill"
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "none"
+    },
+    {
+     "path": "owner_skill",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "call": "resume",
+   "args": {}
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "owner_skill",
+     "eq": null
+    }
+   ]
+  },
+  {
+   "op": "kill"
+  },
+  {
+   "op": "start"
+  },
+  {
+   "call": "note_prompt",
+   "args": {
+    "session_id": "sess-15g-2",
+    "prompt": "hi"
+   }
+  },
+  {
+   "call": "resume",
+   "args": {
+    "skill": "grill-me"
+   }
+  },
+  {
+   "call": "status",
+   "args": {},
+   "assert": [
+    {
+     "path": "state",
+     "eq": "active"
+    },
+    {
+     "path": "owner_skill",
+     "eq": "grill-me"
+    }
+   ]
+  },
+  {
+   "op": "stop"
+  }
+ ]
+}

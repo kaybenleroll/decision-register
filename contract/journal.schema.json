@@ -128,7 +128,8 @@
     "ts",
     "seq",
     "kind",
-    "via"
+    "via",
+    "skill"
    ],
    "properties": {
     "v": {
@@ -151,6 +152,16 @@
       "resolve",
       "park",
       "reopen"
+     ]
+    },
+    "skill": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/nonblank"
+      }
      ]
     }
    }
@@ -544,7 +555,8 @@
     "seq",
     "kind",
     "session_id",
-    "from_seq"
+    "from_seq",
+    "skill"
    ],
    "properties": {
     "v": {
@@ -573,6 +585,16 @@
     "from_seq": {
      "type": "integer",
      "minimum": 0
+    },
+    "skill": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/nonblank"
+      }
+     ]
     }
    }
   },
@@ -674,7 +696,16 @@
     "ts": "2026-11-16T10:00:00Z",
     "seq": 2,
     "kind": "engage",
-    "via": "log_item"
+    "via": "log_item",
+    "skill": null
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 3,
+    "kind": "engage",
+    "via": "begin_interview",
+    "skill": "query-walkthrough"
    },
    {
     "v": 2,
@@ -786,7 +817,17 @@
     "seq": 13,
     "kind": "resume",
     "session_id": "s2",
-    "from_seq": 12
+    "from_seq": 12,
+    "skill": null
+   },
+   {
+    "v": 2,
+    "ts": "2026-11-16T10:00:00Z",
+    "seq": 13,
+    "kind": "resume",
+    "session_id": "s2",
+    "from_seq": 12,
+    "skill": "grill-me"
    },
    {
     "v": 2,
@@ -1012,7 +1053,30 @@
      "ts": "2026-11-16T10:00:00Z",
      "seq": 1,
      "kind": "engage",
-     "via": "status"
+     "via": "status",
+     "skill": null
+    }
+   },
+   {
+    "why": "engage without skill",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "engage",
+     "via": "begin_interview"
+    }
+   },
+   {
+    "why": "resume with blank skill",
+    "event": {
+     "v": 2,
+     "ts": "2026-11-16T10:00:00Z",
+     "seq": 1,
+     "kind": "resume",
+     "session_id": null,
+     "from_seq": 0,
+     "skill": " "
     }
    },
    {
@@ -1149,7 +1213,8 @@
      "seq": 1,
      "kind": "resume",
      "session_id": null,
-     "from_seq": -1
+     "from_seq": -1,
+     "skill": null
     }
    },
    {

@@ -119,3 +119,17 @@ test("v1 lines take the line number as seq and only four kinds", () => {
   assert.equal(s.lastSeq, 2);
   assert.equal(failLine(`${JSON.stringify({ kind: "start" })}\n`), 1);
 });
+
+test("a v0.1.2 journal whose engage and resume lines lack skill replays ownerless", () => {
+  const implicit = ev(1, "start", {
+    interview_id: "iv-1",
+    route: "implicit",
+    skill: null,
+    session_id: "s",
+    implicit: true,
+    prompt_count: 0,
+  });
+  const engage = ev(2, "engage", { via: "begin_interview" });
+  const resume = ev(3, "resume", { session_id: "s2", from_seq: 2 });
+  assert.equal(ok([implicit, engage, resume].join("\n") + "\n").skill, null);
+});

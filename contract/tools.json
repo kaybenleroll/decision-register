@@ -347,7 +347,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": true,
-   "description": "Register-mode start by the skill after its status probe (REQ-21). No session id: binds to last_seen_session_id (REQ-27 rule 1). In state none it starts an interview into active (existing false). In state pending it engages it: pending becomes active, the id of the pending interview is returned, existing true (REQ-27 rule 3). In active or complete it is a no-op returning the existing id with the unchanged state and existing true; it does not return a complete interview to active (REQ-22, REQ-27). Refused while an unfinished journal exists (REQ-52). Error on tool_schema mismatch names both values (REQ-77). Accepts any non-blank skill name: the exact-match skill-name list (REQ-24) applies only to the hook route (skill_started), not to this call.",
+   "description": "Register-mode start by the skill after its status probe. No session id: binds to last_seen_session_id (REQ-27 rule 1). In state none it starts an interview into active (existing false). In state pending it engages it: pending becomes active, the id of the pending interview is returned, existing true. In active or complete it returns the existing id with the unchanged state and existing true and never returns a complete interview to active. Refused while an unfinished journal exists (REQ-52). Error on tool_schema mismatch names both values (REQ-77). skill must equal the skill's own invocation name (exact match, no normalisation); any non-blank name is accepted (REQ-24 list: skill_started only). Claim (REQ-15): an existing interview pending under another skill, or in any state without an owner (implicit start), becomes owned by the caller (owner_skill, one engage event); an active or complete one owned by another skill keeps its owner (guest: no event, no change).",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -468,7 +468,7 @@
    "mutating": true,
    "rejects_meta": false,
    "engages_pending": true,
-   "description": "Log an item. id is an optional caller-supplied label (kept from spike 3); the server assigns one if absent. depends_on ids must already exist. A subquestion requires parent. answer, source and rationale together record a decision the user volunteered (REQ-32); source user is subject to the per-prompt rule: it needs a user prompt counted since the previous check_stop call and stays under the volunteered-answer cap, and draws no budget point (source model needs no prompt, S-32b). Errors on: a kind decision with a model answer (REQ-34), a subquestion without parent, the budget rows.",
+   "description": "Log an item. id is an optional caller-supplied label; the server assigns one if absent. depends_on ids must already exist. A subquestion requires parent. answer, source and rationale together record a decision the user volunteered (REQ-32); source user is subject to the per-prompt rule: it needs a user prompt counted since the previous check_stop call and stays under the volunteered-answer cap, and draws no budget point (source model needs no prompt). Errors on: a kind decision with a model answer (REQ-34), a subquestion without parent, the budget rows.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -917,7 +917,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; after an interview ends the state is none, never ended), owner_skill (the skill that started the interview, else null; REQ-15), the full tree (open items first, REQ-45), counts, hook-health counts, last event number, resumable (an array of {interview_id, last_event}, one per unfinished journal with no live owner, most recently modified first, ties by interview id ascending; empty when none), and any recorded version mismatch (REQ-77). Never engages a pending interview and never starts one. journal_schema is kept from spike 3 (A7). The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale); check_contract.py checks this on every good example and C2 scenarios assert it. version_mismatch reflects the most recent tool_schema comparison: set by a mismatching skill_started or begin_interview, cleared by a later matching one, null if none was made. decision_log is the absolute path of the current interview's decision log once written (first allowed finish attempt, end, or exit), else null (runtime.md 'Decision log'). write_error is null, or the last journal or decision-log write failure message (runtime.md 'Unwritable data directory').",
+   "description": "Probe and recovery. Reports server_version, tool_schema, lifecycle state (none, pending, active or complete; after an interview ends the state is none, never ended), owner_skill (the owning skill, else null; the starting skill unless a begin_interview claim or resume skill changed it; REQ-15), the full tree (open items first), counts, hook-health counts, last event number, resumable (an array of {interview_id, last_event}, one per unfinished journal with no live owner, most recently modified first, ties by interview id ascending; empty when none), and any recorded version mismatch. Never engages a pending interview and never starts one. The items counts must equal the counts derived from tree by status (Open, Resolved, Parked, Stale). version_mismatch reflects the most recent tool_schema comparison: set by a mismatching skill_started or begin_interview, cleared by a later matching one, null if none was made. decision_log is the absolute path of the current interview's decision log once written (first allowed finish attempt, end, or exit), else null. write_error is null, or the last journal or decision-log write failure message.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -1753,7 +1753,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Resume an unfinished journal (REQ-52): accepted only in state none or pending; rebinds to last_seen_session_id; claims the pid file exclusively. id may be omitted when exactly one unfinished journal exists; when several exist the error lists them. An id naming a live-owned journal is refused (journal is live-owned) even when no unfinished journal exists, so journal is live-owned wins over no unfinished journal; losing the claim race (journal already claimed) is distinct, and is left to implementation unit tests, not the suite. Wrong state, no journal, unknown id: see errors. Replay failure names the 1-based line number and leaves state unchanged (REQ-60). The result state is always active (a journal whose last events include complete replays to active; the complete state is not restored). Not a start-engaging call.",
+   "description": "Resume an unfinished journal (REQ-52): accepted only in state none or pending; rebinds to last_seen_session_id; claims the pid file exclusively. id may be omitted when exactly one unfinished journal exists; when several exist the error lists them. An id naming a live-owned journal is refused (journal is live-owned) even when no unfinished journal exists; losing the claim race (journal already claimed) is distinct. Other errors: see errors. Replay failure names the 1-based line number and leaves state unchanged (REQ-60). The result state is always active (a journal whose last events include complete replays to active; the complete state is not restored). Optional skill (the caller's own name) becomes owner_skill, else the journal's owner is restored (REQ-15). Not a start-engaging call.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -1761,6 +1761,9 @@
     "properties": {
      "id": {
       "$ref": "#/$defs/id"
+     },
+     "skill": {
+      "$ref": "#/$defs/nonblank"
      }
     }
    },
@@ -1819,11 +1822,17 @@
      {},
      {
       "id": "iv-20261116T093015Z-a3f9c2d1"
+     },
+     {
+      "skill": "grill-me"
      }
     ],
     "input_bad": [
      {
       "id": ""
+     },
+     {
+      "skill": ""
      },
      {
       "interview_id": "iv-20261116T093015Z-a3f9c2d1"
@@ -1866,7 +1875,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "Archive an unfinished journal and continue plain (REQ-52). id may be omitted when exactly one unfinished journal exists. Accepted in states none and pending only (a pending interview stays pending); the same no-journal, unknown-id, live-owned, several-and-no-id and wrong-state errors as resume. Archives by moving <id>.jsonl to archive/ and removing any <id>.pid file.",
+   "description": "Archive an unfinished journal and continue plain (REQ-52): it is moved to archive/, not deleted, and its pid file removed. id may be omitted when exactly one unfinished journal exists. Accepted in states none and pending only (a pending interview stays pending); the same no-journal, unknown-id, live-owned, several-and-no-id and wrong-state errors as resume.",
    "input": {
     "type": "object",
     "additionalProperties": false,
@@ -1930,7 +1939,7 @@
    "mutating": false,
    "rejects_meta": false,
    "engages_pending": false,
-   "description": "End the interview (REQ-23). Refused while items are open unless abandon is true with a non-blank reason. end_kind: normal = active, nothing open; ended_incomplete_by_model = abandon true with a reason while items are open; ended_after_completion = complete interview; stood_down = mode plain on a pending interview. The journal-only kinds abandoned (session change) and the log-only kind interrupted are never returned by this tool. mode plain stands a pending interview down without flagging it incomplete (REQ-27 rule 3). The result state is the const ended (the transition just made); a later status reports none. Not a start-engaging call. Input is either {mode: plain} alone, or an optional abandon (true only) that must come with a reason, and a reason that must come with abandon. Per-state outcomes: see state_matrix. The result carries decision_log, the absolute path of the log just written.",
+   "description": "End the interview (REQ-23). Refused while items are open unless abandon is true with a non-blank reason. end_kind: normal = active, nothing open; ended_incomplete_by_model = abandon true with a reason while items are open; ended_after_completion = complete interview; stood_down = mode plain on a pending interview. The journal-only kinds abandoned (session change) and the log-only kind interrupted are never returned by this tool. mode plain stands a pending interview down without flagging it incomplete (REQ-27 rule 3). The result state is the const ended (the transition just made); a later status reports none. Not a start-engaging call. Input is either {mode: plain} alone, or an optional abandon (true only) that must come with a reason, and a reason that must come with abandon. The result carries decision_log, the absolute path of the log just written.",
    "input": {
     "type": "object",
     "oneOf": [
@@ -2461,9 +2470,9 @@
  "state_matrix": {
   "begin_interview": {
    "none": "result: starts an interview into active, existing false; the skill value is recorded unvalidated (an unlisted skill name is accepted)",
-   "pending": "result: engages the pending interview into active, existing true (REQ-27 rule 3)",
-   "active": "result: no-op, state active, existing true",
-   "complete": "result: no-op, state complete (does not return to active), existing true"
+   "pending": "result: engages the pending interview into active, existing true (REQ-27 rule 3); the caller becomes owner_skill when it differs from the hook skill (a claim, REQ-15)",
+   "active": "result: interview_id, state active, existing true (no state change); an interview with no owner (implicit start) is claimed by the caller (engage event, owner_skill set), one owned by another skill keeps its owner (guest: no event, no change) (REQ-15)",
+   "complete": "result: interview_id, state complete (does not return to active), existing true; an ownerless interview is claimed by the caller and a guest changes nothing, as in active"
   },
   "log_item": {
    "none": "result: implicit start into active (route implicit), item logged; rule errors leave state none",
@@ -2496,7 +2505,7 @@
    "complete": "result: state complete; does not return it to active"
   },
   "resume": {
-   "none": "result: replays the journal and claims it, state active; errors: no unfinished journal, unknown id, live owner, several and no id, replay failure, journal already claimed",
+   "none": "result: replays the journal and claims it, state active; owner_skill is the skill argument when given, else the journal's recorded owner; errors: no unfinished journal, unknown id, live owner, several and no id, replay failure, journal already claimed",
    "pending": "result: as none; the pending interview is replaced (ended as stood_down, not_engaged) only after the resume succeeded",
    "active": "error: wrong state (message names active)",
    "complete": "error: wrong state (message names complete)"

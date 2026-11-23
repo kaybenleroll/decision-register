@@ -432,7 +432,7 @@ impl App {
         if let Some(id) = self.interview_id.clone() {
             if self.pending {
                 self.pending = false;
-                self.emit("engage", json!({"via": via}));
+                self.emit("engage", json!({"via": via, "skill": Value::Null}));
             }
             return id;
         }
@@ -522,6 +522,27 @@ impl App {
         );
     }
 
+    /// `begin_interview` on an existing interview (REQ-15): it engages a pending one, and
+    /// CLAIMS the interview for `skill` when it is pending under another skill or has no
+    /// owner (an implicit start). An active interview owned by another skill is left alone
+    /// (the caller is a guest). A claim or an engage writes one `engage` event; its `skill`
+    /// is the claimant, or null when the owner did not change.
+    fn engage_or_claim(&mut self, skill: &str) -> String {
+        let claim = self.owner_skill.is_none()
+            || (self.pending && self.owner_skill.as_deref() != Some(skill));
+        if claim {
+            self.owner_skill = Some(skill.to_string());
+        }
+        if self.pending || claim {
+            self.pending = false;
+            self.emit(
+                "engage",
+                json!({"via": "begin_interview", "skill": claim.then_some(skill)}),
+            );
+        }
+        self.interview_id.clone().unwrap_or_default()
+    }
+
     fn begin_interview(&mut self, args: &Args) -> Result<Value, String> {
         check_known(args, &["tool_schema", "skill", "mode"])?;
         let ts = required(
@@ -543,7 +564,11 @@ impl App {
         self.refuse_if_unfinished()?;
         self.version_mismatch = None;
         let existing = self.interview_id.is_some();
-        let id = self.ensure_started("begin_interview", Route::Begin(skill));
+        let id = if existing {
+            self.engage_or_claim(&skill)
+        } else {
+            self.ensure_started("begin_interview", Route::Begin(skill))
+        };
         // A start while complete is a no-op that stays complete (tools.json state_matrix).
         let state = if self.complete { "complete" } else { "active" };
         Ok(json!({"interview_id": id, "state": state, "existing": existing}))
@@ -794,8 +819,12 @@ impl App {
 
     /// `resume` and `discard` (REQ-52): accepted in none and pending only.
     fn resume_or_discard(&mut self, discard: bool, args: &Args) -> Result<Value, String> {
-        check_known(args, &["id"])?;
+        check_known(args, if discard { &["id"] } else { &["id", "skill"] })?;
         let id = opt_id_arg(args, "id")?;
+        let skill = match args.get("skill") {
+            None => None,
+            Some(_) => Some(text_arg(args, "skill")?),
+        };
         if self.interview_id.is_some() && !self.pending {
             let state = if self.complete { "complete" } else { "active" };
             return Err(format!("wrong state: {state}"));
@@ -804,7 +833,7 @@ impl App {
         if discard {
             self.discard(&id)
         } else {
-            self.resume(&id)
+            self.resume(&id, skill)
         }
     }
 
@@ -820,7 +849,7 @@ impl App {
     /// Claims the journal (pid file), replays it, then replaces a pending interview and
     /// writes the `resume` event. A replay failure removes the new pid file and changes
     /// nothing else.
-    fn resume(&mut self, id: &str) -> Result<Value, String> {
+    fn resume(&mut self, id: &str, skill: Option<String>) -> Result<Value, String> {
         let dir = self.dir();
         // One read of the pid file: the liveness decision and the claim's `expected` use
         // the same text, so a change in between is caught by the claim's verify step.
@@ -847,7 +876,7 @@ impl App {
         let mut journal = Journal::resumed(&dir, id, replayed.last_seq);
         journal.event(
             "resume",
-            json!({"session_id": session, "from_seq": replayed.last_seq}),
+            json!({"session_id": session, "from_seq": replayed.last_seq, "skill": skill}),
         );
         journal.flush();
         self.journal = Some(journal);
@@ -862,7 +891,8 @@ impl App {
             unlogged: replayed.blocks.2,
         };
         self.implicit = replayed.implicit;
-        self.owner_skill = replayed.skill;
+        // The skill the caller names is the owner; else the journal's last recorded owner.
+        self.owner_skill = skill.or(replayed.skill);
         self.bound_session = session;
         self.complete = false;
         self.pending = false;
@@ -1555,6 +1585,189 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn begin_interview_claims_a_pending_or_ownerless_interview() {
+        let owner = |app: &mut App| call(app, "status", json!({})).unwrap()["owner_skill"].clone();
+        let sk = |skill: &str| json!({"tool_schema": 5, "session_id": "s", "skill": skill});
+        let begin = |skill: &str| json!({"tool_schema": 5, "skill": skill, "mode": "register"});
+        // A different skill claims a pending interview; a later begin by the old owner is a guest.
+        let mut app = fresh();
+        call(&mut app, "skill_started", sk("grill-me")).unwrap();
+        let r = call(&mut app, "begin_interview", begin("query-walkthrough")).unwrap();
+        assert_eq!(
+            (r["existing"].clone(), r["state"].clone()),
+            (json!(true), json!("active"))
+        );
+        assert_eq!(owner(&mut app), "query-walkthrough");
+        call(&mut app, "begin_interview", begin("grill-me")).unwrap();
+        assert_eq!(owner(&mut app), "query-walkthrough");
+        // The claim is journalled on the engage event and replays.
+        let id = call(&mut app, "status", json!({})).unwrap()["interview_id"].clone();
+        app.flush_journal();
+        let text =
+            std::fs::read_to_string(app.dir().join(format!("{}.jsonl", id.as_str().unwrap())))
+                .unwrap();
+        let engages: Vec<Value> = text
+            .lines()
+            .map(|l| serde_json::from_str::<Value>(l).unwrap())
+            .filter(|e| e["kind"] == "engage")
+            .collect();
+        assert_eq!(engages.len(), 1, "{text}");
+        assert_eq!(engages[0]["via"], "begin_interview");
+        assert_eq!(engages[0]["skill"], "query-walkthrough");
+        assert_eq!(
+            crate::replay::replay(&text).unwrap().skill.as_deref(),
+            Some("query-walkthrough")
+        );
+        // Same skill engaging its own pending interview records no claim.
+        let mut app = fresh();
+        call(&mut app, "skill_started", sk("grill-me")).unwrap();
+        call(&mut app, "begin_interview", begin("grill-me")).unwrap();
+        assert_eq!(owner(&mut app), "grill-me");
+        app.flush_journal();
+        let id = call(&mut app, "status", json!({})).unwrap()["interview_id"].clone();
+        let text =
+            std::fs::read_to_string(app.dir().join(format!("{}.jsonl", id.as_str().unwrap())))
+                .unwrap();
+        assert!(
+            text.contains(r#""kind":"engage""#) && text.contains(r#""skill":null"#),
+            "{text}"
+        );
+        // An implicit (ownerless) active interview is claimed by the first begin_interview.
+        let mut app = fresh();
+        call(
+            &mut app,
+            "log_item",
+            json!({"id": "q1", "kind": "question", "text": "t"}),
+        )
+        .unwrap();
+        assert_eq!(owner(&mut app), Value::Null);
+        let r = call(&mut app, "begin_interview", begin("grill-me")).unwrap();
+        assert_eq!(
+            (r["existing"].clone(), r["state"].clone()),
+            (json!(true), json!("active"))
+        );
+        assert_eq!(owner(&mut app), "grill-me");
+        call(&mut app, "begin_interview", begin("query-walkthrough")).unwrap();
+        assert_eq!(owner(&mut app), "grill-me");
+        // An ownerless interview that has become complete is claimed too, and stays complete.
+        let mut app = fresh();
+        call(
+            &mut app,
+            "log_item",
+            json!({"id": "q1", "kind": "question", "text": "t"}),
+        )
+        .unwrap();
+        call(
+            &mut app,
+            "resolve",
+            json!({"id": "q1", "answer": "a", "source": "model", "rationale": "r"}),
+        )
+        .unwrap();
+        stop(&mut app, "done");
+        assert!(app.complete);
+        assert_eq!(owner(&mut app), Value::Null);
+        let r = call(&mut app, "begin_interview", begin("grill-me")).unwrap();
+        assert_eq!(
+            (r["existing"].clone(), r["state"].clone()),
+            (json!(true), json!("complete"))
+        );
+        assert_eq!(owner(&mut app), "grill-me");
+        call(&mut app, "begin_interview", begin("query-walkthrough")).unwrap();
+        assert_eq!(owner(&mut app), "grill-me");
+        // complete to active through log_item keeps the owner.
+        let mut app = fresh();
+        call(&mut app, "begin_interview", begin("grill-me")).unwrap();
+        stop(&mut app, "done");
+        assert!(app.complete);
+        assert_eq!(owner(&mut app), "grill-me");
+        call(
+            &mut app,
+            "log_item",
+            json!({"id": "q2", "kind": "question", "text": "t"}),
+        )
+        .unwrap();
+        let s = call(&mut app, "status", json!({})).unwrap();
+        assert_eq!(
+            (s["state"].clone(), s["owner_skill"].clone()),
+            (json!("active"), json!("grill-me"))
+        );
+    }
+
+    #[test]
+    fn a_v0_1_2_journal_without_a_skill_field_on_engage_and_resume_replays_ownerless() {
+        let implicit = r#"{"v":2,"ts":"t","seq":1,"kind":"start","interview_id":"iv","route":"implicit","skill":null,"session_id":"s","implicit":true,"prompt_count":0}"#;
+        let engage = r#"{"v":2,"ts":"t","seq":2,"kind":"engage","via":"begin_interview"}"#;
+        let resume = r#"{"v":2,"ts":"t","seq":3,"kind":"resume","session_id":"s2"}"#;
+        let text = [implicit, engage, resume].join("\n") + "\n";
+        assert_eq!(crate::replay::replay(&text).unwrap().skill, None);
+    }
+
+    #[test]
+    fn owner_is_cleared_when_a_pending_interview_stands_down_at_eof() {
+        let mut app = fresh();
+        let sk = json!({"tool_schema": 5, "session_id": "s", "skill": "grill-me"});
+        call(&mut app, "skill_started", sk).unwrap();
+        assert_eq!(app.owner_skill.as_deref(), Some("grill-me"));
+        app.shutdown();
+        assert_eq!(app.owner_skill, None);
+        let _ = std::fs::remove_dir_all(app.dir());
+    }
+
+    #[test]
+    fn resume_takes_an_optional_skill_that_becomes_the_owner() {
+        let owner = |app: &mut App| call(app, "status", json!({})).unwrap()["owner_skill"].clone();
+        // Without skill: the journal's owner. With skill: the named skill, and it replays.
+        let mut app = fresh();
+        seed_journal(&app, "iv-old", &[ITEM2]);
+        call(&mut app, "resume", json!({"skill": "query-walkthrough"})).unwrap();
+        assert_eq!(owner(&mut app), "query-walkthrough");
+        app.flush_journal();
+        let text = std::fs::read_to_string(app.dir().join("iv-old.jsonl")).unwrap();
+        assert_eq!(
+            crate::replay::replay(&text).unwrap().skill.as_deref(),
+            Some("query-walkthrough")
+        );
+        let _ = std::fs::remove_dir_all(app.dir());
+        // An implicit journal resumed without skill is ownerless; with skill it is claimed.
+        let implicit = r#"{"v":2,"ts":"t","seq":1,"kind":"start","interview_id":"iv-imp","route":"implicit","skill":null,"session_id":"old","implicit":true,"prompt_count":0}"#;
+        let mut app = fresh();
+        std::fs::create_dir_all(app.dir()).unwrap();
+        std::fs::write(app.dir().join("iv-imp.jsonl"), format!("{implicit}\n")).unwrap();
+        call(&mut app, "resume", json!({})).unwrap();
+        assert_eq!(owner(&mut app), Value::Null);
+        let _ = std::fs::remove_dir_all(app.dir());
+        let mut app = fresh();
+        std::fs::create_dir_all(app.dir()).unwrap();
+        std::fs::write(app.dir().join("iv-imp.jsonl"), format!("{implicit}\n")).unwrap();
+        call(&mut app, "resume", json!({"skill": "grill-me"})).unwrap();
+        assert_eq!(owner(&mut app), "grill-me");
+        let _ = std::fs::remove_dir_all(app.dir());
+        // Resume while pending stands the pending interview down and takes the new owner.
+        let mut app = fresh();
+        let sk = json!({"tool_schema": 5, "session_id": "s", "skill": "grill-me"});
+        call(&mut app, "skill_started", sk).unwrap();
+        seed_journal(&app, "iv-old", &[ITEM2]);
+        call(&mut app, "resume", json!({"skill": "query-walkthrough"})).unwrap();
+        let s = call(&mut app, "status", json!({})).unwrap();
+        assert_eq!(
+            (
+                s["state"].clone(),
+                s["interview_id"].clone(),
+                s["owner_skill"].clone()
+            ),
+            (json!("active"), json!("iv-old"), json!("query-walkthrough"))
+        );
+        let _ = std::fs::remove_dir_all(app.dir());
+        // A blank or non-string skill is refused; discard takes no skill.
+        let mut app = fresh();
+        seed_journal(&app, "iv-old", &[ITEM2]);
+        assert!(call(&mut app, "resume", json!({"skill": " "})).is_err());
+        assert!(call(&mut app, "resume", json!({"skill": 3})).is_err());
+        assert!(call(&mut app, "discard", json!({"skill": "grill-me"})).is_err());
+        let _ = std::fs::remove_dir_all(app.dir());
+    }
+
+    #[test]
     fn skill_started_lists_query_walkthrough_exactly() {
         let sk = |skill: &str| json!({"tool_schema": 5, "session_id": "s", "skill": skill});
         for name in [
@@ -1782,14 +1995,17 @@ pub(crate) mod tests {
         let other = json!({"session_id": "other", "prompt": "hello"});
         call(&mut app, "note_prompt", other).unwrap();
         assert_eq!(state(&app), "none");
+        assert_eq!(app.owner_skill, None);
         // A pending interview survives one Stop check and is stood down by the second.
         let sk = json!({"tool_schema": 5, "session_id": "other", "skill": "grill-me"});
         call(&mut app, "skill_started", sk).unwrap();
         let stop = json!({"session_id": "other", "last_assistant_message": "hm?"});
         call(&mut app, "check_stop", stop.clone()).unwrap();
         assert_eq!(state(&app), "pending");
+        assert_eq!(app.owner_skill.as_deref(), Some("grill-me"));
         call(&mut app, "check_stop", stop).unwrap();
         assert_eq!(state(&app), "none");
+        assert_eq!(app.owner_skill, None);
         let _ = std::fs::remove_dir_all(&project);
     }
 

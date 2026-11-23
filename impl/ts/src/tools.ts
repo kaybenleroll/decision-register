@@ -582,8 +582,8 @@ export class App {
    * Picks the journal `resume` or `discard` acts on (REQ-52). Errors, in order: wrong
    * state; for an id, live-owned or unknown; without one, none or several.
    */
-  private pickUnfinished(args: JsonObject): string {
-    checkKnown(args, ["id"]);
+  private pickUnfinished(args: JsonObject, allowed: readonly string[]): string {
+    checkKnown(args, allowed);
     const id = optIdArg(args, "id");
     if (this.state === "active" || this.state === "complete") {
       throw new ToolError(`wrong state: ${this.state}`);
@@ -611,7 +611,7 @@ export class App {
 
   /** `discard`: archives an unfinished journal and starts nothing (REQ-52). */
   private discard(args: JsonObject): JsonObject {
-    const id = this.pickUnfinished(args);
+    const id = this.pickUnfinished(args, ["id"]);
     try {
       archiveJournal(projectDir(), id);
     } catch (e) {
@@ -629,7 +629,11 @@ export class App {
    * interview is stood down once the resume has succeeded.
    */
   private resume(args: JsonObject): JsonObject {
-    const id = this.pickUnfinished(args);
+    // Argument errors come in the order id, skill, then state (as pickUnfinished checks id first).
+    checkKnown(args, ["id", "skill"]);
+    optIdArg(args, "id");
+    const skill = args["skill"] === undefined ? null : textArg(args, "skill");
+    const id = this.pickUnfinished(args, ["id", "skill"]);
     const dir = projectDir();
     const pid = pidPath(dir, id);
     try {
@@ -687,7 +691,8 @@ export class App {
     this.declog = new DecisionLog(id);
     this.state = "active";
     this.implicitStart = s.implicit;
-    this.ownerSkill = s.skill;
+    // The skill the caller names is the owner; else the journal's last recorded owner.
+    this.ownerSkill = skill ?? s.skill;
     this.boundSession = this.lastSeenSessionId;
     this.promptSeen = false;
     this.hookNotePrompt = s.hookNotePrompt;
@@ -697,6 +702,7 @@ export class App {
     this.emit("resume", {
       session_id: this.lastSeenSessionId,
       from_seq: s.lastSeq,
+      skill,
     });
     journal.flush();
     const c = s.register.counts();
@@ -730,7 +736,7 @@ export class App {
   private engage(via: string): void {
     if (this.state === "pending") {
       this.state = "active";
-      this.emit("engage", { via });
+      this.emit("engage", { via, skill: null });
     } else if (this.state === "complete") {
       this.state = "active";
     }
@@ -755,8 +761,21 @@ export class App {
       const id = this.startInterview("begin_interview", skill, null);
       return { interview_id: id, state: "active", existing: false };
     }
-    const wasPending = this.state === "pending";
-    if (wasPending) this.engage("begin_interview");
+    // An existing interview: engage it if pending, and CLAIM it for this skill when it is
+    // pending under another skill or has no owner (an implicit start). An active interview
+    // owned by another skill is left alone: the caller is a guest (REQ-15). One `engage`
+    // event records the engage or claim; its `skill` is the claimant, else null.
+    const claim =
+      this.ownerSkill === null ||
+      (this.state === "pending" && this.ownerSkill !== skill);
+    if (claim) this.ownerSkill = skill;
+    if (this.state === "pending" || claim) {
+      if (this.state === "pending") this.state = "active";
+      this.emit("engage", {
+        via: "begin_interview",
+        skill: claim ? skill : null,
+      });
+    }
     return {
       interview_id: this.interviewId,
       state: this.state === "complete" ? "complete" : "active",
