@@ -69,6 +69,8 @@ Columns from ADR 0003 section 4 step 3 (change id, language that went first, tok
 | (change 5) | 5 | Rust | Rust |  |  |  |
 | (change 5) | 5 | TypeScript | Rust |  |  |  |
 
+Baseline caveat [assistant]: from #118 and #120 the builds serve `tool_schema` 5 (`owner_skill` on `status`, and claim semantics on `begin_interview` and `resume`). Rows measured after those PRs are comparable with each other, not with measurements taken on schema 4 (for example the section 4 build rows).
+
 ### By-role summary (filled after change 5)
 
 | Role | Mean tokens | Mean suite failures on first submission |
@@ -112,6 +114,8 @@ Questions 1, 2, 3, 5, 7, 8, 9 and 11 are settled; 4 and 10 are decided at M2; 6 
    - CONFIRMED [user, 2026-11-23, accepted via /proceed of the assistant's recommended defaults]: Q4 stands as written. The five counted changes are the first five requests after M2 that alter suite-covered behaviour, in the order raised. First-implementer order: Rust, TypeScript, Rust, TypeScript, Rust.
    - Change 1 is #80 (schema validation at boundaries). Changes 2 to 5 are named as they are raised and qualify, so the section 5 table is filled one row at a time. Only #80 exists today, so the experiment waits for four more qualifying requests.
    - Not counted: P4 (#31), #91, #102, #114 Phase 1, and anything that is docs, tooling or release only.
+   - Not counted, also: the owner-claim change (#113; PRs #118 and #120, which changed both builds and moved `tool_schema` 4 to 5) [assistant interpretation, ruling delegated by the user 2026-11-23, jury A0/B2/C1, user may overrule]. Basis: section 2 says rows are appended at the time of each change, never reconstructed, and section 3 gives a first-implementer order and paired per-change token differences. The ruling is inference from them: nothing says a change without a designated first implementer is excluded. #113 had no designated first implementer and no at-the-time token rows, so a row for it could not be filled honestly. The P4 comparison holds only partly: P4 (#79 comment of 2026-11-19) was a language-neutral Python replay suite with no paired token measurement, whereas #113 was implemented in both languages; the shared ground is only the missing paired at-the-time token record. #80 stays change 1.
+   - Forward guard [assistant proposal, unconfirmed]: a post-M2 behaviour change is assigned a slot in section 5 (first implementer designated) before it is implemented; otherwise it is listed under "Not counted".
 5. RESOLVED 2026-11-18 (user): accepted as recommended. Question: Treatment of a change that fails the suite on first submission and is resubmitted (recommendation: count only the first submission's failures; tokens cover the whole change to green).
 6. DECIDED AT E1 (user, 2026-11-18): as recommended, to be settled at E1. Question: Definition of a defect after merge and of release friction, and how each is scored at E1 (recommendation: defect is a confirmed bug in merged code of one language that the suite and unit tests missed, counted per language; friction is a free-text note per release, compared qualitatively).
 7. RESOLVED 2026-11-18 (user): accepted as recommended. Question: How the four measures combine when they disagree with the token rule (recommendation: tokens alone fix the recommendation as ADR 0003 section 4 step 5 says; the other measures are reported and the user weighs them).
