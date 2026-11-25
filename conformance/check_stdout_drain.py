@@ -5,16 +5,17 @@ Guards contract/runtime.md "EOF shutdown completes pending replies": every reply
 delivered whole before the process exits 0, even when the reply does not fit in the stdout pipe. The stdout pipe is forced
 to 4096 and 8192 bytes (F_SETPIPE_SZ), so the outcome does not depend on how many pipe pages the host grants. Each run sends all the
 requests, closes stdin at once, and starts reading only after that (a late reader; the server cannot finish writing before it does).
-Cells: one status reply of about 16385, 65536 and 200000 bytes, and 2000 pipelined ping replies. Not covered: the signal path,
+Cells: one status reply of about 16385, 65536 and 200000 bytes, and 2000 pipelined ping replies. Not covered: a signal before EOF,
 which may cut a reply the client has not read (runtime.md "Signals and shutdown limits").
 A server that never closes stdout or never exits fails the run (a select deadline of READ_CEILING and EXIT_WAIT seconds; the child is killed), so the check cannot hang CI.
---expect-bounded-drain (TypeScript build only; the Rust build has no ceiling there and would fail it) adds the stalled-reader cell: the stub
+--expect-bounded-drain (both builds, issues #102 and #104) adds the stalled-reader cell: the stub
 closes stdin and never reads stdout, with the pipe forced to 4096 and 8192 bytes and a 65536-byte reply, so the drain cannot finish. The server
-must exit 0 by itself after the bound of the build (5 s, DRAIN_BOUND_MS in impl/ts/src/shutdown.ts; accepted window MIN_BOUND to BOUND_CEILING
-seconds after the close of stdin) and leave no process behind in its process group. Adds about 10 s.
-Scratch: <repo>/.scratch/stdout-drain/ (removed on pass). Wall time about 10 s.
+must exit 0 by itself after the bound of the build (5 s, DRAIN_BOUND_MS in impl/ts/src/shutdown.ts, DRAIN_BOUND in impl/rust/src/main.rs; accepted window MIN_BOUND to BOUND_CEILING
+seconds after the close of stdin), with the journal already flushed before the wait, and leave no process behind in its process group. A second cell (signal during the wait)
+sends SIGTERM to the group once the server is in the wait: it must exit 0 under MIN_BOUND seconds after the close of stdin. Adds about 15 s.
+Scratch: <repo>/.scratch/stdout-drain/ (removed on pass). Wall time about 10 s (about 25 s with --expect-bounded-drain).
 """
-import fcntl, json, os, select, shutil, subprocess, sys, tempfile, threading, time
+import fcntl, glob, json, signal, os, select, shutil, subprocess, sys, tempfile, threading, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCH = json.load(open(os.path.join(ROOT, "contract", "tools.json")))["tool_schema"]
@@ -23,6 +24,7 @@ PIPES = (4096, 8192)
 REPS = 2
 READER_DELAY = 0.2   # seconds after the last byte and the close of stdin before the first read
 SEND_CAP = 1.0       # a server that stops reading stdin while its stdout is full (Rust) must not stall the check
+READY_WAIT = 3.0     # signal and stalled cells: seconds to wait for the EOF shutdown's files (journal flushed) to show
 READ_CEILING = 30    # seconds from the first read to the end of stdout, enforced with select (a server that never closes stdout fails the run)
 EXIT_WAIT = 10       # seconds from the end of stdout to the exit
 MIN_BOUND = 4.0      # stalled-reader cell: an exit earlier than this means the bound is not the 5 s declared (or the drain did not wait)
@@ -50,6 +52,7 @@ def spawn(cmd, work, name, pipe, new_session=False):
     err = open(d + "/stderr.log", "wb")
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=err, env=env, cwd=d + "/proj", start_new_session=new_session)
     err.close()
+    p.cwd_dir = d + "/proj"
     try:
         fcntl.fcntl(p.stdout.fileno(), F_SETPIPE_SZ, pipe)
     except OSError:
@@ -61,6 +64,67 @@ def spawn(cmd, work, name, pipe, new_session=False):
         p.stdout.close()
         return None, None, "cannot force a small stdout pipe (got %d bytes)" % got
     return p, got, None
+
+
+def flushed(p):
+    """The EOF shutdown ran: the pid file is gone and the decision log is written (big_status leaves an interview active)."""
+    d = os.path.dirname(p.cwd_dir)
+    return not glob.glob(d + "/data/**/*.pid", recursive=True) and bool(glob.glob(d + "/proj/.scratch/decision-*.md"))
+
+
+def await_wait(p):
+    """After stdin close: poll until the journal is flushed, i.e. the server is in the bounded wait. None when ready, else the reason."""
+    end = time.monotonic() + READY_WAIT
+    while time.monotonic() < end:
+        if p.poll() is not None:
+            return "server exited (status %s) before the wait could be observed" % p.returncode
+        if flushed(p):
+            return None
+        time.sleep(0.02)
+    return "server did not reach the EOF wait (journal not flushed within %.1f s of the close of stdin)" % READY_WAIT
+
+
+def run_stalled_signal(cmd, work, pipe):
+    """Stalled reader plus SIGTERM during the wait: exit 0 at once. None on pass, else the reason."""
+    msgs = big_status(65536)[0]
+    p, got, why = spawn(cmd, work, "stalled-signal", pipe, new_session=True)
+    if why:
+        return why
+    pgid = p.pid
+    try:
+        try:
+            p.stdin.write("".join(json.dumps(m) + "\n" for m in msgs).encode())
+            p.stdin.close()
+        except OSError:
+            pass
+        t0 = time.monotonic()
+        why = await_wait(p)
+        if why:
+            return why
+        os.killpg(pgid, signal.SIGTERM)
+        try:
+            rc = p.wait(BOUND_CEILING)
+        except subprocess.TimeoutExpired:
+            return "no exit within %.0f s of the close of stdin after SIGTERM during the wait (pipe %d); child killed" % (BOUND_CEILING, got)
+        took = time.monotonic() - t0
+        if rc != 0:
+            return "exit status %s after %.1f s, expected 0 for a signal during the wait (pipe %d)" % (rc, took, got)
+        if took >= MIN_BOUND:
+            return "exit after %.1f s, not before the %.0f s bound: the signal did not end the wait (pipe %d)" % (took, MIN_BOUND, got)
+        for _ in range(20):
+            try:
+                os.killpg(pgid, 0)
+            except ProcessLookupError:
+                return None
+            time.sleep(0.1)
+        return "a process of the server's process group is still alive 2 s after the exit (killed)"
+    finally:
+        try:
+            os.killpg(pgid, 9)
+        except ProcessLookupError:
+            pass
+        p.wait()
+        p.stdout.close()
 
 
 def run_stalled(cmd, work, pipe):
@@ -77,6 +141,9 @@ def run_stalled(cmd, work, pipe):
         except OSError:
             pass
         t0 = time.monotonic()
+        why = await_wait(p)
+        if why:
+            return why
         try:
             rc = p.wait(BOUND_CEILING)
         except subprocess.TimeoutExpired:
@@ -192,6 +259,12 @@ def main(argv):
             why = run_stalled(cmd, work, pipe)
             bad += why is not None
             print("%s %d - stalled reader (stdin closed, stdout never read), exit 0 after the bound, no stray process, stdout pipe %d%s" % (
+                "not ok" if why else "ok", n, pipe, (" # " + why) if why else ""))
+        for pipe in PIPES:
+            n += 1
+            why = run_stalled_signal(cmd, work, pipe)
+            bad += why is not None
+            print("%s %d - stalled reader, SIGTERM during the wait, exit 0 at once, no stray process, stdout pipe %d%s" % (
                 "not ok" if why else "ok", n, pipe, (" # " + why) if why else ""))
     print("1..%d\n# %d/%d passed" % (n, n - bad, n))
     if bad:
