@@ -43,3 +43,18 @@ Findings: haiku wrote a closing sentence in attempts 1 to 3, so no empty `last_a
 Recommendation: do not close as stale. Keep #27 parked (no run can finish it with a text-eager model on this login); either leave it open with the 2026-11-18 reason, or, if the user accepts the standing allow rule without an observation, close it as "not testable with haiku; allow rule stands". A deterministic harness (a scripted stub model or hook replay) is the only route to the observation.
 
 Spend, V5: USD 0.0212 (four calls). Total V1 plus V5: USD 0.0315, under the USD 0.30 cap.
+
+## Sonnet retry, 2026-11-25 (#27; Refs #128). Result: NOT OBSERVED (blocked by the per-call budget)
+
+Method as above with `--model sonnet` (claude-sonnet-5-5), `--max-budget-usd 0.05`, subscription login, same plugin dir and `PATH` prefix, run from `~/workspace/register-live-run`; the Stop-command hook logged stdin to a fresh file. Two attempts, then stopped: the per-call cap cannot be met on Sonnet, and a third attempt could not fit the USD 0.25 total.
+
+| Attempt | Prompt | Stop hook event | `last_assistant_message` | `check_stop` | Cost USD |
+|---|---|---|---|---|---|
+| 1 | "Run the Bash command `echo hi`. After the tool result arrives, end your turn immediately without writing any text at all." | none | none logged (no Stop event) | not invoked | 0.0861 |
+| 2 | "Run the Bash command `echo hi`. Then end your turn without writing any text." | none | none logged (no Stop event) | not invoked | 0.0788 |
+
+Both runs ended after turn 1 with `result` subtype `error_max_budget_usd`, `stop_reason` `tool_use`, empty result text and `num_turns` 1: the first assistant turn (the Bash tool call, 74 output tokens, 21054 cache-creation and 11811 cache-read input tokens) cost more than USD 0.05, so the budget check ended the run before the tool executed, a tool result existed or any Stop event fired. The PreToolUse hooks had started but their responses arrived after the result. Cache reuse across the two calls was small (cost fell by about 8 per cent).
+
+Findings: Sonnet on this login costs about USD 0.08 to 0.09 for one turn with this plugin and the user's hooks and settings loaded, so a run that reaches a final turn needs about USD 0.16 or more, above the stated per-call cap (0.05) and, with two attempts spent, above the remaining total (0.25 less 0.165). The empty `last_assistant_message` form was not observed; S-43c is not updated and the haiku-era conclusion stands (a deterministic harness is the only route). Whether Sonnet writes closing text was not tested. Options if the user wants a retry: raise the per-call cap to about 0.25 with a total of about 0.5, or run with a slimmer context (`--bare` style, no user hooks) if the login allows.
+
+Spend, Sonnet retry: USD 0.1649 (0.0861 plus 0.0788). Raw streams in `.scratch/v5b/` (private, not committed).
