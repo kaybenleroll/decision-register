@@ -14,6 +14,11 @@
 #     (docs, authentication precedence); the script refuses to run without one rather than guess.
 #   - claude runs from <scratch>/work, not from plugin/ (REQ-82; plugin/README.md: run it from outside the plugin), with
 #     the plugin loaded by --plugin-dir. Ancestor CLAUDE.md files of the repository still load (adds some input tokens).
+# Subscription login (opt-in): SMOKE_USE_LOGIN=1 skips the API key guard, for an account with no API key. The script never
+#   copies or reads a login file: after it creates the throwaway config dir it prints the exact `cp` command, and you run it
+#   yourself within SMOKE_LOGIN_WAIT seconds (default 120); if the file does not appear the script exits 2. The file
+#   ($cfg/.credentials.json) is chmod 600 and is removed on every exit path (trap on EXIT, INT, TERM, HUP); the final report
+#   says so. On a subscription the USD figure is a client-side estimate, NOT a charge; the caps still bound the estimate.
 # Cost: --max-budget-usd per call (a client-side estimate that can be passed, so the per-call cap is small), the running
 # total is printed after each call, and a total of USD 0.25 or more fails check (8) and the suite. Beyond about USD 1 needs
 # the user (REQ-3). Each call has a `timeout`; exit 124 is a FAIL, not a hang (an earlier probe timed out with no output).
@@ -26,7 +31,7 @@ spend_flag=0
 for a in "$@"; do
     case $a in
     --spend) spend_flag=1 ;;
-    -h | --help) sed -n '2,25p' "$0"; exit 0 ;;
+    -h | --help) sed -n '2,26p' "$0"; exit 0 ;;
     *) echo "unknown argument: $a" >&2; exit 2 ;;
     esac
 done
@@ -119,8 +124,8 @@ why() { # explain a non-zero exit in the FAIL line
 if [ "$spend" = 1 ]; then
     command -v claude >/dev/null 2>&1 || { echo "claude not found" >&2; exit 2; }
     for t in jq timeout awk; do command -v "$t" >/dev/null 2>&1 || { echo "$t not found" >&2; exit 2; }; done
-    if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-        echo "refusing: the throwaway config dir holds no login; set ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN" >&2
+    if [ "${SMOKE_USE_LOGIN:-}" != 1 ] && [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+        echo "refusing: the throwaway config dir holds no login; set ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN, or set SMOKE_USE_LOGIN=1 to supply a subscription login file yourself" >&2
         exit 2
     fi
     case $impl in
@@ -130,6 +135,48 @@ if [ "$spend" = 1 ]; then
     rm -rf "$scratch"
     mkdir -p "$cfg/skills" "$work" || exit 1
     cp -R "$fix/skills/$skill" "$cfg/skills/$skill" || exit 1
+    if [ "${SMOKE_USE_LOGIN:-}" = 1 ]; then
+        cred=$cfg/.credentials.json
+        login_wait=${SMOKE_LOGIN_WAIT:-120}
+        case $login_wait in '' | *[!0-9]*) echo "SMOKE_LOGIN_WAIT must be whole seconds" >&2; exit 2 ;; esac
+        login_state=never-placed
+        # Runs on every exit path; removes the login file whatever the exit status. Never prints file content.
+        cleanup_login() {
+            rc_exit=$?
+            trap - EXIT
+            if [ -e "$cred" ] || [ -L "$cred" ]; then
+                rm -f "$cred"
+                if [ -e "$cred" ] || [ -L "$cred" ]; then
+                    echo "WARNING: could not remove $cred; delete it yourself" >&2
+                else
+                    echo "login file removed: $cred"
+                fi
+            elif [ "$login_state" = placed ]; then
+                echo "login file already absent at exit: $cred"
+            fi
+            exit "$rc_exit"
+        }
+        trap cleanup_login EXIT
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
+        trap 'exit 129' HUP
+        echo "SMOKE_USE_LOGIN=1: place your login file in the throwaway config dir yourself. The script does not copy or read it."
+        echo "  Run in another terminal (the usual location of the login file is below; adjust it if yours differs):"
+        echo "    cp ${HOME:-/home/you}/.claude/.credentials.json $cred"
+        echo "  Waiting up to ${login_wait}s for $cred ..."
+        waited=0
+        while [ ! -f "$cred" ] && [ "$waited" -lt "$login_wait" ]; do
+            sleep 2
+            waited=$((waited + 2))
+        done
+        if [ ! -f "$cred" ]; then
+            echo "login file did not appear within ${login_wait}s: $cred; nothing was run, nothing spent" >&2
+            exit 2
+        fi
+        chmod 600 "$cred" || exit 2
+        login_state=placed
+        echo "login file present (mode 600); it is removed when this script exits. On a subscription the USD figures are client-side estimates, not charges."
+    fi
 else
     echo "dry-run would create $cfg/skills/$skill (copy of smoke/fixtures/skills/$skill) and run from $work"
 fi
