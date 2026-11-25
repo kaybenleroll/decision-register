@@ -47,6 +47,16 @@ Scenarios that used 5 as a mismatching plugin value (S-20d, S-77b) now use 6.
   resume, discard, end_interview and log_item descriptions to stay inside the model-tools ceiling
   (conformance/tools_list_ceilings.json, 8,300; measured 8,291).
 
+(no bump, 2026-11-25, user decision, issue #104)  runtime.md "Signals and shutdown limits":
+both builds now share one EOF rule: the journal is flushed first, then the build waits at
+most 5 s for the reply tail, then exits 0; a signal during the wait ends it at once with
+exit 0 (EOF decided); only the reply tail can be lost. The Rust build gains the 5 s bound
+(its stdout write moves to a writer thread, so the EOF shutdown no longer waits behind a
+stalled reader); a signal before EOF still exits 128 plus the signal after flushing the
+journal. conformance/check_stdout_drain.py --expect-bounded-drain now runs against both
+builds and gains a signal-during-the-wait cell. No tool name, parameter, result shape or
+journal event shape changes, so tool_schema stays 5 and journal_schema stays 2.
+
 (no bump, 2026-11-22, issue #114)  the served tools/list inputSchema inlines the referenced
 $defs and drops the $defs block (52.5k to 10.6k chars); no tool name, parameter, result shape
 or journal event shape changes, tools.json unchanged, so tool_schema stays 4.

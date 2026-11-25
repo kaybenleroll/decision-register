@@ -4,6 +4,7 @@ pub mod claim;
 pub mod classifier;
 pub mod declog;
 pub mod journal;
+pub mod output;
 pub mod protocol;
 pub mod register;
 pub mod replay;

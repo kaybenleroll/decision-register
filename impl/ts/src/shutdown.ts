@@ -8,7 +8,7 @@ export const SIGNALS = { SIGHUP: 1, SIGINT: 2, SIGTERM: 15 } as const;
  * with the reply tail dropped. The figure is the Rust build's SIGNAL_BOUND (impl/rust/src/shutdown.rs),
  * reused so the two builds share one declared number; the reason for a bound at all is that a client
  * that has closed stdin but never reads stdout would otherwise keep the server alive until SIGKILL.
- * Rust has no such ceiling at EOF: its main thread blocks in the reply write.
+ * Rust mirrors the figure (`DRAIN_BOUND` in impl/rust/src/main.rs): its reply writer runs on its own thread.
  */
 export const DRAIN_BOUND_MS = 5000;
 
