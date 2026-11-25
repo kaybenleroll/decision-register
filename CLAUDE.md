@@ -1,9 +1,9 @@
 # decision-register
 
-**Phase: requirements.** No source code until docs/requirements.md exists and the user has approved it. First task: a /grill-me interview of the user on the open design tensions in docs/requirements-inputs.md; then write docs/requirements.md, run /stress-test on it, then write ADR 0002 (superseding the base decision in ADR 0001) and a new plan.
+**Phase: build and release.** docs/requirements.md and ADR 0002 exist; the Rust and TypeScript builds, the plugin and the conformance suite are in the repository. v0.1.0 to v0.1.3 are released (v0.1.3: `tool_schema` 5, owner-aware register, tagged 2026-11-26; unit #128). Requirements changes need the user's approval; see docs/status.md and docs/release-plan.md.
 
 - Purpose: build the structured decision register for grill-me. Inputs: docs/requirements-inputs.md; history: docs/adr/0001-structured-decision-register.md, docs/plan.md (Python-port plan, partly superseded); reference code: reference/armG/ (read-only, reference only).
-- Work order (step 0 first, then steps 3-4 of docs/plan.md): SUPERSEDED by the requirements phase above.
+- Work order (step 0 first, then steps 3-4 of docs/plan.md): SUPERSEDED by the requirements and build work (docs/requirements.md, docs/build-plan.md).
 - Do NOT run the paid evaluation (plan steps 6-8) here; that happens in the research repo.
 - Do NOT change [user] decisions in the ADR/plan; flag conflicts in docs/status.md.
 - Workflow: feature branches only; no commits to main; one PR per logical unit; no push or PR without the user's say; verify claims by running.

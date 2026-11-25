@@ -4,9 +4,11 @@ Hooks, an MCP server entry (`register`) and a launcher for the structured decisi
 contains no skill text and nothing compiled (REQ-12, REQ-15): the `grill-me` skill stays in the user's
 dotfiles, and the server is a separate build.
 
-Status: skeleton (slice P1). The server currently serves seven of the twelve tools (slice I1); the live
-hook behaviour (`check_stop` finish gate, hook-started interviews) is **pending** until slices I2 to I4
-land in both implementations. Until then the hooks are wired but a Stop check does nothing useful.
+Status: version 0.1.3 (released 2026-11-26), `tool_schema` 5. Both implementations serve all twelve tools
+(`contract/tools.json`), including the `check_stop` finish gate and hook-started interviews. `status` reports
+`owner_skill`, the skill that owns the interview (REQ-15, #113); `begin_interview` and `resume` claim or set it.
+The register-mode skills in the user's dotfiles accept `tool_schema` 4 and 5; a handover from another skill is a
+skill-side exception (docs/status.md, 2026-11-24).
 
 ## Build the server
 
@@ -63,8 +65,9 @@ TypeScript wrapper pointing at `dist/regspike.mjs`) goes dead after the rename. 
 and `REGISTER_TS_BUNDLE` instead.
 
 Installing a release with mise (the `github:` backend, a `mise.toml` entry for `register-rs` and a fallback entry for
-`register.mjs`, with `asset_pattern`, `bin`, the `SHA256SUMS` checksum, the tag style and the private-repository token) is
-described in `docs/release-plan.md` section 4. That route is untested: no release exists yet.
+`register.mjs`, with `asset_pattern`, `bin`, the `SHA256SUMS` checksum and the tag style; the repository is public, so no token
+is needed) is described in `docs/release-plan.md` section 4. Tested against the published v0.1.2 release; the v0.1.3
+mise install is not yet run (release-plan section 5).
 
 ## INSTALL
 
@@ -96,8 +99,7 @@ The enabled-plugin key is `decision-register@decision-register`. Model-facing to
 An interview that did not end cleanly leaves an unfinished journal (REQ-52). Resume or discard it:
 
 - Resume: call the `resume` tool (optionally with `id`), or answer the skill's resume prompt.
-- Discard: call the `discard` tool (optionally with `id`). **Pending:** `resume` and `discard` are not served
-  until slice I4.
+- Discard: call the `discard` tool (optionally with `id`).
 - Where files live: the data root is `$CLAUDE_PLUGIN_DATA` when Claude Code sets it, otherwise
   `$TMPDIR/decision-register-data` (`/tmp/decision-register-data` when `TMPDIR` is unset). Journals are
   `<data root>/<project key>/<interview_id>.jsonl` (project key: first 16 hex digits of the SHA-256 of the
