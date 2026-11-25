@@ -5,7 +5,8 @@ Run: python3 -I smoke/check_fixtures.py [--rs CMD] [--ts CMD]   (defaults: the r
 1. Static: the stub skill is named exactly grill-me and lives outside plugin/; the hook inputs in plugin/hooks/hooks.json
    carry the argument names the scripted prompts below use; the skill name matches the hook matcher and tool_schema.
 2. Replay: the scripted prompts of smoke/fixtures/fixtures.json are sent as the three hook-facing tools (note_prompt,
-   skill_started, check_stop) to BOTH builds through conformance/run.py, one scenario per live-smoke check (2) to (6).
+   skill_started, check_stop) to BOTH builds through conformance/run.py, one scenario per live-smoke check (2) to (6);
+   check 2 asserts prompt_seen true (state none never counts note_prompt), as smoke/run.sh does.
 """
 import importlib.util, json, os, re, sys
 
@@ -66,9 +67,11 @@ def scenarios():
         return {"id": "SM-" + i, "title": title, "req": ["REQ-82"], "steps": steps}
     t, m, u, g = S["typed"], S["model"], S["unrelated"], S["gate"]
     return [
-        sc("2", "check 2: hooks fire, so the status hook counts are non-zero", [
+        sc("2", "check 2: hooks fire; in state none note_prompt only sets prompt_seen (the live assertion), counters stay 0", [
+            np(t, P["typed"]), st(state="none", hook_health__prompt_seen=True, hook_health__note_prompt=0)]),
+        sc("2b", "check 2 counters: once an interview has started the hook counts are non-zero", [
             np(t, P["typed"]), sk(t), cs(t, A["question"], False),
-            st(state="pending", hook_health__note_prompt=1, hook_health__skill_started=1, hook_health__check_stop=1)]),
+            st(state="pending", hook_health__skill_started=1, hook_health__check_stop=1)]),
         sc("3", "check 3: a finish attempt with an unlogged item is blocked", [
             np(g, P["typed"]), {"call": "begin_interview", "args": {"tool_schema": TS, "skill": SK, "mode": "register"}},
             {"call": "log_item", "args": {"id": "q1", "kind": "question", "text": "Which eviction policy for the cache?"}},

@@ -23,6 +23,7 @@
 # total is printed after each call, and a total of USD 0.25 or more fails check (8) and the suite. Beyond about USD 1 needs
 # the user (REQ-3). Each call has a `timeout`; exit 124 is a FAIL, not a hang (an earlier probe timed out with no output).
 # Server build: SMOKE_IMPL=ts (default) or rs; the matching build must exist (see plugin/README.md).
+# A paid run first probes the chosen build locally (smoke/probe_server.py, no claude) and refuses a stale one. Each call gets its own CLAUDE_PLUGIN_DATA dir.
 # Requires: bash, jq, timeout, awk; claude for a paid run. Spends nothing and writes nothing in dry-run.
 set -u
 
@@ -103,6 +104,10 @@ call() {
         rc=skipped; cost=0; : >"$out"
         return 0
     fi
+    # Fresh data root per call (CLAUDE_PLUGIN_DATA, read by both servers), so an unfinished interview left by one call
+    # cannot make a later begin_interview refuse (REQ-52). Added here, after the dry-run print, so dry-run is unchanged.
+    mkdir -p "$scratch/data-$id" || return 1
+    cmd=("${cmd[0]}" "CLAUDE_PLUGIN_DATA=$scratch/data-$id" "${cmd[@]:1}")
     (cd "$work" && "${cmd[@]}" </dev/null >"$out" 2>"$scratch/call-$id.err")
     rc=$?
     cost=$(jq -s '[.[]|select(.type=="result")|.total_cost_usd]|last // 0' "$out" 2>/dev/null) || cost=0
@@ -132,6 +137,34 @@ if [ "$spend" = 1 ]; then
     ts) [ -f "$root/impl/ts/dist/register.mjs" ] || { echo "TS build missing: cd impl/ts && npm run build" >&2; exit 2; } ;;
     rs) [ -x "$root/impl/rust/target/release/register-rs" ] || { echo "Rust build missing: cd impl/rust && cargo build --release" >&2; exit 2; } ;;
     esac
+    # Pre-flight (nothing is rebuilt): start the chosen build locally, ask it for status, compare with the repository.
+    want_schema=$(jq -r .tool_schema "$root/contract/tools.json") || exit 2
+    hook_schemas=$(jq -r '[.. | objects | select(has("tool_schema")) | .tool_schema] | unique | join(",")' "$root/plugin/hooks/hooks.json") || exit 2
+    want_version=$(jq -r .version "$root/plugin/.claude-plugin/plugin.json") || exit 2
+    if [ "$hook_schemas" != "$want_schema" ]; then
+        echo "refusing: plugin/hooks/hooks.json tool_schema ($hook_schemas) differs from contract/tools.json ($want_schema)" >&2
+        exit 2
+    fi
+    case $impl in
+    ts) probe_cmd=(node "$root/impl/ts/dist/register.mjs"); rebuild="cd impl/ts && npm ci && npm run build" ;;
+    rs) probe_cmd=("$root/impl/rust/target/release/register-rs"); rebuild="cd impl/rust && cargo build --release" ;;
+    esac
+    mkdir -p "$root/.scratch" || exit 1
+    probe=$(python3 -I "$root/smoke/probe_server.py" "$root/.scratch/smoke-probe-data" "${probe_cmd[@]}") || {
+        echo "refusing: the $impl build did not answer status; rebuild it: $rebuild" >&2
+        exit 2
+    }
+    got_version=${probe% *}
+    got_schema=${probe#* }
+    if [ "$got_schema" != "$want_schema" ]; then
+        echo "refusing: the $impl build is stale (tool_schema $got_schema, repository $want_schema); rebuild it: $rebuild" >&2
+        exit 2
+    fi
+    if [ "$(printf '%s\n%s\n' "$got_version" "$want_version" | sort -V | head -n1)" != "$want_version" ]; then
+        echo "refusing: the $impl build is older than the plugin manifest (server $got_version, manifest $want_version); rebuild it: $rebuild" >&2
+        exit 2
+    fi
+    echo "pre-flight ok: $impl build server_version $got_version, tool_schema $got_schema"
     rm -rf "$scratch"
     mkdir -p "$cfg/skills" "$work" || exit 1
     cp -R "$fix/skills/$skill" "$cfg/skills/$skill" || exit 1
@@ -183,7 +216,8 @@ fi
 
 stop_phrase="Items are still unresolved in the decision register"
 
-# Calls 1 and 2 share one run: tools listed, status answers, hook counts non-zero.
+# Calls 1 and 2 share one run: tools listed, status answers, note_prompt hook fired (prompt_seen true; in state none the
+# note_prompt counter is not incremented, so counters are only meaningful once an interview has started).
 call a "Call the register status tool and report its JSON result verbatim. Do nothing else."
 if [ "$spend" = 1 ]; then
     if [ "$rc" = 0 ] && init_tools | grep -q "^${prefix}status\$"; then
@@ -192,10 +226,10 @@ if [ "$spend" = 1 ]; then
         result 1 FAIL "$(why); ${prefix}status not in the tool list"
     fi
     hooks=$(tool_results | grep -m1 -o '"hook_health":{[^}]*}')
-    if [ "$rc" = 0 ] && printf '%s' "$hooks" | grep -Eq '"note_prompt":[1-9]'; then
-        result 2 PASS "hooks fire: $hooks"
+    if [ "$rc" = 0 ] && tool_results | grep -qF '"prompt_seen":true'; then
+        result 2 PASS "hooks fire: prompt_seen true (hook_health: ${hooks:-absent})"
     else
-        result 2 FAIL "$(why); status hook_health: ${hooks:-not found}"
+        result 2 FAIL "$(why); status prompt_seen true not found (hook_health: ${hooks:-not found})"
     fi
 fi
 
