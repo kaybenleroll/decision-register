@@ -23,7 +23,7 @@
 # total is printed after each call, and a total of USD 0.25 or more fails check (8) and the suite. Beyond about USD 1 needs
 # the user (REQ-3). Each call has a `timeout`; exit 124 is a FAIL, not a hang (an earlier probe timed out with no output).
 # Server build: SMOKE_IMPL=ts (default) or rs; the matching build must exist (see plugin/README.md).
-# A paid run first probes the chosen build locally (smoke/probe_server.py, no claude) and refuses a stale one. Each call gets its own CLAUDE_PLUGIN_DATA dir.
+# A paid run first probes the chosen build locally (smoke/probe_server.py, no claude) and refuses a stale one. Claude Code ignores CLAUDE_PLUGIN_DATA for a --plugin-dir plugin (data root is $cfg/plugins/data/decision-register-inline/<hash>/, shared by all calls), so that directory is wiped before each call.
 # Requires: bash, jq, timeout, awk; claude for a paid run. Spends nothing and writes nothing in dry-run.
 set -u
 
@@ -85,10 +85,12 @@ call() {
     out=$scratch/call-$id.jsonl
     remaining=$(awk -v t="$total" -v s="$suite_cap" 'BEGIN{printf "%.4f", s-t}')
     cap=$(awk -v c="$call_cap" -v r="$remaining" 'BEGIN{printf "%.4f", (r<c)?r:c}')
+    max_turns=8
+    case $id in c | d) max_turns=10 ;; esac
     cmd=(env "${claude_env[@]}")
     # call f: force the ts launcher path with a missing bundle, so the launcher serves the stub whichever SMOKE_IMPL is set.
     [ "$id" = f ] && cmd+=(REGISTER_IMPL=ts "REGISTER_TS_BUNDLE=$scratch/absent.mjs")
-    cmd+=(timeout "$call_timeout" claude -p --model "$model" --max-budget-usd "$cap" --max-turns 8
+    cmd+=(timeout "$call_timeout" claude -p --model "$model" --max-budget-usd "$cap" --max-turns "$max_turns"
         --plugin-dir "$root/plugin" --allowedTools "${prefix}*,Skill" --no-session-persistence
         --output-format stream-json --verbose --include-hook-events -- "$prompt")
     if [ "$spend" != 1 ]; then
@@ -104,10 +106,12 @@ call() {
         rc=skipped; cost=0; : >"$out"
         return 0
     fi
-    # Fresh data root per call (CLAUDE_PLUGIN_DATA, read by both servers), so an unfinished interview left by one call
-    # cannot make a later begin_interview refuse (REQ-52). Added here, after the dry-run print, so dry-run is unchanged.
-    mkdir -p "$scratch/data-$id" || return 1
-    cmd=("${cmd[0]}" "CLAUDE_PLUGIN_DATA=$scratch/data-$id" "${cmd[@]:1}")
+    # Isolate calls: Claude Code gives a --plugin-dir plugin its own data root under the throwaway config dir, shared by
+    # all calls (it ignores CLAUDE_PLUGIN_DATA), so an unfinished interview left by one call would make a later
+    # begin_interview refuse (REQ-52). Wipe only that directory, only under $cfg, never the credentials file.
+    # State still continues within one call. Added after the dry-run print, so dry-run is unchanged.
+    case $cfg in "$root"/.scratch/?*) ;; *) echo "refusing to wipe: unsafe config dir '$cfg'" >&2; return 1 ;; esac
+    rm -rf -- "$cfg/plugins/data/decision-register-inline"
     (cd "$work" && "${cmd[@]}" </dev/null >"$out" 2>"$scratch/call-$id.err")
     rc=$?
     cost=$(jq -s '[.[]|select(.type=="result")|.total_cost_usd]|last // 0' "$out" 2>/dev/null) || cost=0
@@ -168,6 +172,8 @@ if [ "$spend" = 1 ]; then
     rm -rf "$scratch"
     mkdir -p "$cfg/skills" "$work" || exit 1
     cp -R "$fix/skills/$skill" "$cfg/skills/$skill" || exit 1
+    # State the schema in the stub so the model does not guess it (tool_schema from contract/tools.json, read above).
+    printf 'Use tool_schema %s on every begin_interview call.\n' "$want_schema" >>"$cfg/skills/$skill/SKILL.md" || exit 1
     if [ "${SMOKE_USE_LOGIN:-}" = 1 ]; then
         cred=$cfg/.credentials.json
         login_wait=${SMOKE_LOGIN_WAIT:-120}
