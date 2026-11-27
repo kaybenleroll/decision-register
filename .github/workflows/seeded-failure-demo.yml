@@ -1,0 +1,95 @@
+# Seeded-failure demonstration (#146; R1 acceptance: "unit and suite jobs fail on a seeded failure").
+# Manual only (workflow_dispatch): never runs on a pull request or push, so a seeded failure cannot reach a required check.
+# Each job builds as ci.yml does, then .github/scripts/seeded_failure_demo.py runs the ci.yml command on a temporary copy of
+# the tree as a control (must exit 0), injects a deliberate failure into the copy, and runs it again (must exit non-zero).
+# A green job here means the failure made the real unit or suite command exit non-zero. See docs/release-plan.md section 1.
+name: seeded-failure-demo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  rust-unit:
+    name: Seeded Rust unit failure makes cargo test fail
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the Rust toolchain pinned in impl/rust/rust-toolchain.toml
+        run: |
+          channel=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' impl/rust/rust-toolchain.toml)
+          test -n "$channel"
+          rustup toolchain install "$channel" --profile minimal
+
+      - name: Control passes, seeded unit test fails
+        run: python3 -I .github/scripts/seeded_failure_demo.py rust
+
+  ts-unit:
+    name: Seeded TypeScript unit failure makes npm test fail
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node (version from impl/ts/.nvmrc), with the npm cache
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: impl/ts/.nvmrc
+          cache: npm
+          cache-dependency-path: impl/ts/package-lock.json
+
+      - name: Install dependencies from the lockfile
+        working-directory: impl/ts
+        run: npm ci
+
+      - name: Control passes, seeded unit test fails
+        run: python3 -I .github/scripts/seeded_failure_demo.py ts
+
+  conformance:
+    name: Seeded conformance scenario makes the suite fail (both builds)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the Rust toolchain pinned in impl/rust/rust-toolchain.toml
+        run: |
+          channel=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' impl/rust/rust-toolchain.toml)
+          test -n "$channel"
+          rustup toolchain install "$channel" --profile minimal
+
+      - name: Build the Rust binary
+        working-directory: impl/rust
+        run: cargo build --release --locked
+
+      - name: Set up Node (version from impl/ts/.nvmrc), with the npm cache
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: impl/ts/.nvmrc
+          cache: npm
+          cache-dependency-path: impl/ts/package-lock.json
+
+      - name: Build the TypeScript bundle
+        working-directory: impl/ts
+        run: |
+          npm ci
+          npm run build
+
+      - name: Control passes, seeded scenario fails (register-rs)
+        run: python3 -I .github/scripts/seeded_failure_demo.py conformance -- impl/rust/target/release/register-rs
+
+      - name: Control passes, seeded scenario fails (register.mjs)
+        run: python3 -I .github/scripts/seeded_failure_demo.py conformance -- node impl/ts/dist/register.mjs
