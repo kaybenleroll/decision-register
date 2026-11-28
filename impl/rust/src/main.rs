@@ -69,3 +69,11 @@ fn main() {
     let _ = drain_wait(&events_rx, DRAIN_BOUND);
     std::process::exit(0);
 }
+
+#[cfg(test)]
+mod seeded_failure {
+    #[test]
+    fn seeded_failure() {
+        panic!("seeded failure (#146)");
+    }
+}

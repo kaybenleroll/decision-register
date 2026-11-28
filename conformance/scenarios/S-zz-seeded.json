@@ -1,0 +1,1 @@
+{"id": "S-zz-seeded", "title": "seeded failure (#146): status after nothing happened must report an impossible state", "req": ["REQ-71"], "steps": [{"call": "status", "args": {}, "assert": [{"path": "state", "eq": "seeded-impossible"}]}]}
