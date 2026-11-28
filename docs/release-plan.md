@@ -19,8 +19,19 @@ paid) stays on demand and is not run here (R1 acceptance).
 | `offline-checks` | (needs both builds) `check_contract.py`, `check_lifecycle_events.py`, `run.py --validate`, `selftest.py`, `check_launcher.py` with both builds reached through the launcher, S-73a and S-73b, `smoke/check_fixtures.py` |
 
 Any non-ok step fails the job. Python is the runner's `python3` (the repo pins no Python version; the scripts use the
-standard library only). A seeded failure (R1 acceptance: "unit and suite jobs fail on a seeded failure") is a one-line break
-in a scenario or unit test on a throwaway branch; not yet done.
+standard library only). A seeded failure (R1 acceptance: "unit and suite jobs fail on a seeded failure", #146) is shown two ways, neither
+touching `ci.yml` or its required checks:
+
+- `.github/workflows/seeded-failure-demo.yml` (`workflow_dispatch` only, so it never runs on a pull request or push):
+  `rust-unit`, `ts-unit` and `conformance` jobs call `.github/scripts/seeded_failure_demo.py`, which runs the `ci.yml` command
+  (`cargo test --locked`, `npm test`, `conformance/run.py` against each build) on a temporary copy of the tree as a control
+  (must exit 0), injects one failure into the copy (a failing Rust unit test, a failing node test, a failing scenario
+  `S-zz-seeded`), and runs it again (must exit non-zero). A green job means the failure turned the command red. Run it from
+  the Actions tab or `gh workflow run seeded-failure-demo.yml --ref <branch>`; the workflow file must be on the branch.
+  The script runs locally too (`python3 -I .github/scripts/seeded_failure_demo.py rust|ts`, or `conformance -- <server>`).
+- The literal demonstration (the #146 acceptance criteria): on a throwaway branch break one Rust unit test, one TypeScript
+  test and one scenario, open a draft PR, confirm the `rust` and `typescript` jobs of `ci.yml` go red, record the run URLs in
+  section 5, close the PR unmerged and delete the branch. Not yet done.
 
 ## 2. Release (`.github/workflows/release.yml`)
 
@@ -169,7 +180,8 @@ Untested, in short: the checksum source (`SHA256SUMS`), `PATH` placement and `mi
 - (Resolved: `publish` and the tag-on-`main` ancestor check ran for v0.1.0 and v0.1.1, `release.yml` success, and both
   releases are published.)
 - Installing from the marketplace on a second clone (R1 acceptance, REQ-75; "private" no longer applies, the repository is public; #32 and the 2026-11-24 ruling in `docs/status.md` say what evidence closes it), and any background-credential failure.
-- The seeded-failure demonstration.
+- The seeded-failure demonstration on a real CI run (#146): local control and seeded runs pass (script above); the
+  `seeded-failure-demo.yml` run and the draft-PR run (run URLs and ids) are still to be recorded here.
 - That an installed `register.mjs` is on the `PATH` of the Claude Code process (launcher step 3, section 3) and that
   `REGISTER_TS_BUNDLE` in `settings.json` `env` reaches the server; the launcher logic itself is checked offline.
 - The mise install route, section 4: run for v0.1.2, not yet for v0.1.3 (isolated `MISE_DATA_DIR`, no token; results in section 4). Remaining:
